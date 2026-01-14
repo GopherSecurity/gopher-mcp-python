@@ -58,6 +58,19 @@ cmake --build . --config Release -j$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/d
 echo -e "${YELLOW}  Installing...${NC}"
 cmake --install .
 
+# Copy dependency libraries (gopher-mcp, fmt) that gopher-orch depends on
+echo -e "${YELLOW}  Copying dependency libraries...${NC}"
+NATIVE_LIB_DIR="${SCRIPT_DIR}/native/lib"
+mkdir -p "${NATIVE_LIB_DIR}"
+
+# Copy gopher-mcp libraries
+cp -P "${BUILD_DIR}/lib/libgopher-mcp"*.dylib "${NATIVE_LIB_DIR}/" 2>/dev/null || \
+cp -P "${BUILD_DIR}/lib/libgopher-mcp"*.so "${NATIVE_LIB_DIR}/" 2>/dev/null || true
+
+# Copy fmt library
+cp -P "${BUILD_DIR}/lib/libfmt"*.dylib "${NATIVE_LIB_DIR}/" 2>/dev/null || \
+cp -P "${BUILD_DIR}/lib/libfmt"*.so "${NATIVE_LIB_DIR}/" 2>/dev/null || true
+
 echo -e "${GREEN}✓ Native library built successfully${NC}"
 echo ""
 
