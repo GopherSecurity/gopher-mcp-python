@@ -9,7 +9,6 @@ import {
   AgentError,
   ApiKeyError,
   TimeoutError,
-  ApiResponse,
 } from './types.js';
 
 /**
@@ -273,7 +272,7 @@ export class GopherAgent {
 export { GopherAgent as ReActAgent };
 
 /**
- * Utility functions for working with server configurations
+ * Utility class for fetching server configurations
  */
 export class ServerConfig {
   /**
@@ -299,47 +298,6 @@ export class ServerConfig {
       }
       throw new AgentError(`Failed to fetch servers: ${(error as Error).message}`);
     }
-  }
-
-  /**
-   * Create default server configuration for local development
-   */
-  static createDefault(): string {
-    const defaultConfig: ApiResponse = {
-      succeeded: true,
-      code: 200000000,
-      message: 'success',
-      data: {
-        servers: [
-          {
-            version: '2025-01-09',
-            serverId: '1877234567890123456',
-            name: 'local-dev-server',
-            transport: 'http_sse',
-            config: {
-              url: 'http://127.0.0.1:3001/rpc',
-              headers: {},
-            },
-            connectTimeout: 5000,
-            requestTimeout: 30000,
-          },
-          {
-            version: '2025-01-09',
-            serverId: '1877234567890123457',
-            name: 'local-dev-server2',
-            transport: 'http_sse',
-            config: {
-              url: 'http://127.0.0.1:3002/rpc',
-              headers: {},
-            },
-            connectTimeout: 5000,
-            requestTimeout: 30000,
-          },
-        ],
-      },
-    };
-
-    return JSON.stringify(defaultConfig);
   }
 }
 
