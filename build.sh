@@ -94,11 +94,37 @@ else
 fi
 
 echo ""
+
+# Step 5: Build TypeScript SDK
+echo -e "${YELLOW}Step 4: Building TypeScript SDK...${NC}"
+cd "${SCRIPT_DIR}"
+
+# Install npm dependencies if node_modules doesn't exist
+if [ ! -d "node_modules" ]; then
+    echo -e "${YELLOW}  Installing npm dependencies...${NC}"
+    npm install --ignore-scripts
+fi
+
+# Compile TypeScript (use npx tsc directly to avoid prebuild recursion)
+echo -e "${YELLOW}  Compiling TypeScript...${NC}"
+npx tsc
+
+echo -e "${GREEN}✓ TypeScript SDK built successfully${NC}"
+echo ""
+
+# Step 6: Verify TypeScript build
+echo -e "${YELLOW}Step 5: Verifying TypeScript build...${NC}"
+if [ -d "${SCRIPT_DIR}/dist" ]; then
+    echo -e "${GREEN}✓ TypeScript compiled to: ${SCRIPT_DIR}/dist${NC}"
+    ls -lh "${SCRIPT_DIR}/dist"/*.js 2>/dev/null | head -5
+else
+    echo -e "${RED}✗ dist directory not found${NC}"
+    exit 1
+fi
+
+echo ""
 echo -e "${GREEN}======================================${NC}"
 echo -e "${GREEN}Build completed successfully!${NC}"
 echo -e "${GREEN}======================================${NC}"
 echo ""
-echo -e "Next steps:"
-echo -e "  1. Install TypeScript dependencies: ${YELLOW}npm install${NC}"
-echo -e "  2. Build TypeScript SDK: ${YELLOW}npm run build${NC}"
-echo -e "  3. Run tests: ${YELLOW}npm test${NC}"
+echo -e "Run tests: ${YELLOW}npm test${NC}"
