@@ -1,0 +1,63 @@
+{
+  "name": "@gopher/orch",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Gopher Orch - AI Agent orchestration framework with native performance",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build:native": "./build.sh",
+    "prebuild": "npm run build:native",
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "clean": "rm -rf dist build native third_party/gopher-orch/build",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "llm",
+    "mcp",
+    "orchestration",
+    "langchain",
+    "anthropic",
+    "openai",
+    "typescript",
+    "native"
+  ],
+  "author": "Gopher Security",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GopherSecurity/gopher-orch-js.git"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "dist",
+    "native/lib",
+    "native/include",
+    "build.sh",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/jest": "^29.5.11",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.2.4",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "koffi": "^2.8.0"
+  }
+}
