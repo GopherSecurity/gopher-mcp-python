@@ -14,15 +14,21 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
+# Kill any existing processes on ports 3001 and 3002
+kill_port() {
+    local port=$1
+    local pids=$(lsof -ti :$port 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        echo -e "${YELLOW}Killing existing process on port $port${NC}"
+        echo "$pids" | xargs kill -9 2>/dev/null || true
+    fi
+}
+
 # Cleanup function
 cleanup() {
     echo -e "\n${YELLOW}Cleaning up...${NC}"
-    if [ -n "$SERVER3001_PID" ]; then
-        kill $SERVER3001_PID 2>/dev/null || true
-    fi
-    if [ -n "$SERVER3002_PID" ]; then
-        kill $SERVER3002_PID 2>/dev/null || true
-    fi
+    kill_port 3001
+    kill_port 3002
     echo -e "${GREEN}Done${NC}"
 }
 
@@ -40,6 +46,10 @@ if [ ! -d "$PROJECT_DIR/native/lib" ]; then
     exit 1
 fi
 
+# Kill any existing processes on ports
+kill_port 3001
+kill_port 3002
+
 # Start server3001
 echo -e "${YELLOW}Starting server3001...${NC}"
 cd "$SCRIPT_DIR/server3001"
@@ -47,7 +57,7 @@ if [ ! -d "node_modules" ]; then
     echo -e "${YELLOW}Installing dependencies for server3001...${NC}"
     npm install
 fi
-npm run dev &
+npm run dev > /dev/null 2>&1 &
 SERVER3001_PID=$!
 echo -e "${GREEN}server3001 started (PID: $SERVER3001_PID)${NC}"
 
@@ -58,7 +68,7 @@ if [ ! -d "node_modules" ]; then
     echo -e "${YELLOW}Installing dependencies for server3002...${NC}"
     npm install
 fi
-npm run dev &
+npm run dev > /dev/null 2>&1 &
 SERVER3002_PID=$!
 echo -e "${GREEN}server3002 started (PID: $SERVER3002_PID)${NC}"
 
@@ -77,8 +87,12 @@ if [ -f ".venv/bin/activate" ]; then
     source .venv/bin/activate
 fi
 
-# Run with Python
+# Run with Python (set library path for native library)
+DYLD_LIBRARY_PATH="$PROJECT_DIR/native/lib" \
+LD_LIBRARY_PATH="$PROJECT_DIR/native/lib" \
 python examples/client_example_json.py "$@"
 
 echo ""
 echo -e "${GREEN}Example completed${NC}"
+
+exit 0
