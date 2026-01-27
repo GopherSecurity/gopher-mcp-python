@@ -44,10 +44,20 @@ fi
 
 # Configure SSH URL rewrite for GopherSecurity repos
 git config --local url."git@${SSH_HOST}:GopherSecurity/".insteadOf "https://github.com/GopherSecurity/"
+git config --local url."git@${SSH_HOST}:GopherSecurity/".insteadOf "git@github.com:GopherSecurity/"
 git config --local submodule.third_party/gopher-orch.url "git@${SSH_HOST}:GopherSecurity/gopher-orch.git"
 
+# Check if submodule directory exists but is empty/broken (missing CMakeLists.txt)
+if [ -d "${NATIVE_DIR}" ] && [ ! -f "${NATIVE_DIR}/CMakeLists.txt" ]; then
+    echo -e "${YELLOW}  Submodule directory exists but appears incomplete, reinitializing...${NC}"
+    # Deinitialize and remove the submodule directory
+    git submodule deinit -f third_party/gopher-orch 2>/dev/null || true
+    rm -rf "${NATIVE_DIR}"
+    rm -rf .git/modules/third_party/gopher-orch 2>/dev/null || true
+fi
+
 # Update main submodule
-if ! git submodule update --init 2>/dev/null; then
+if ! git submodule update --init third_party/gopher-orch 2>/dev/null; then
     echo -e "${RED}Error: Failed to clone gopher-orch submodule${NC}"
     echo -e "${YELLOW}If you have multiple GitHub accounts, use:${NC}"
     echo -e "  GITHUB_SSH_HOST=your-ssh-alias ./build.sh"
@@ -119,6 +129,28 @@ cp -P "${BUILD_DIR}/lib/libgopher-mcp"*.so "${NATIVE_LIB_DIR}/" 2>/dev/null || t
 # Copy fmt library
 cp -P "${BUILD_DIR}/lib/libfmt"*.dylib "${NATIVE_LIB_DIR}/" 2>/dev/null || \
 cp -P "${BUILD_DIR}/lib/libfmt"*.so "${NATIVE_LIB_DIR}/" 2>/dev/null || true
+
+# Fix library install names on macOS (remove @rpath so DYLD_LIBRARY_PATH works)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo -e "${YELLOW}  Fixing library install names for macOS...${NC}"
+    cd "${NATIVE_LIB_DIR}"
+
+    # Fix install names (the library's own ID)
+    [ -f "libgopher-orch.0.1.0.dylib" ] && install_name_tool -id "libgopher-orch.0.dylib" libgopher-orch.0.1.0.dylib
+    [ -f "libgopher-mcp.0.1.0.dylib" ] && install_name_tool -id "libgopher-mcp.0.dylib" libgopher-mcp.0.1.0.dylib
+    [ -f "libgopher-mcp-event.0.1.0.dylib" ] && install_name_tool -id "libgopher-mcp-event.0.dylib" libgopher-mcp-event.0.1.0.dylib
+    [ -f "libgopher-mcp-logging.dylib" ] && install_name_tool -id "libgopher-mcp-logging.dylib" libgopher-mcp-logging.dylib
+    [ -f "libfmt.10.2.1.dylib" ] && install_name_tool -id "libfmt.10.dylib" libfmt.10.2.1.dylib
+
+    # Fix @rpath references in libgopher-mcp-event
+    if [ -f "libgopher-mcp-event.0.1.0.dylib" ]; then
+        install_name_tool -change "@rpath/libgopher-mcp.0.dylib" "libgopher-mcp.0.dylib" libgopher-mcp-event.0.1.0.dylib
+        install_name_tool -change "@rpath/libgopher-mcp-logging.dylib" "libgopher-mcp-logging.dylib" libgopher-mcp-event.0.1.0.dylib
+        install_name_tool -change "@rpath/libfmt.10.dylib" "libfmt.10.dylib" libgopher-mcp-event.0.1.0.dylib
+    fi
+
+    cd "${SCRIPT_DIR}"
+fi
 
 echo -e "${GREEN}✓ Native library built successfully${NC}"
 echo ""
