@@ -43,8 +43,11 @@ if [ -n "${GITHUB_SSH_HOST}" ]; then
 fi
 
 # Configure SSH URL rewrite for GopherSecurity repos
-git config --local url."git@${SSH_HOST}:GopherSecurity/".insteadOf "https://github.com/GopherSecurity/"
-git config --local url."git@${SSH_HOST}:GopherSecurity/".insteadOf "git@github.com:GopherSecurity/"
+# Clear any existing rewrites first to avoid conflicts
+git config --local --unset-all url."git@${SSH_HOST}:GopherSecurity/".insteadOf 2>/dev/null || true
+# Set up URL rewrites - both https and default git@github.com should map to custom SSH host
+git config --local --add url."git@${SSH_HOST}:GopherSecurity/".insteadOf "https://github.com/GopherSecurity/"
+git config --local --add url."git@${SSH_HOST}:GopherSecurity/".insteadOf "git@github.com:GopherSecurity/"
 git config --local submodule.third_party/gopher-orch.url "git@${SSH_HOST}:GopherSecurity/gopher-orch.git"
 
 # Check if submodule directory exists but is empty/broken (missing CMakeLists.txt)
