@@ -44,12 +44,12 @@ class TestAgentResult:
         assert result.iteration_count == 5
         assert result.tokens_used == 100
 
-    def test_optional_fields_default_to_zero(self):
-        """Test that optional fields default to 0."""
+    def test_optional_fields_default_to_none(self):
+        """Test that optional fields default to None for factory methods."""
         result = AgentResult.success("Test")
 
-        assert result.iteration_count == 0
-        assert result.tokens_used == 0
+        assert result.iteration_count is None
+        assert result.tokens_used is None
 
 
 class TestAgentResultStatus:
