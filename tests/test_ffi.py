@@ -116,7 +116,7 @@ class TestGopherOrchLibrary:
 
         # Try to get last error (may be None if no error)
         try:
-            error_info = lib.last_error()
+            _error_info = lib.last_error()  # noqa: F841
             # error_info may be None or have None message if no error
         except Exception as e:
             pytest.fail(f"last_error should not throw: {e}")
@@ -137,7 +137,7 @@ class TestGopherOrchLibrary:
 
         # Call with dummy API key - should return JSON (possibly error response)
         try:
-            result = lib.api_fetch_servers("test-api-key")
+            _result = lib.api_fetch_servers("test-api-key")  # noqa: F841
             # Result may be None or contain error, but should not crash
         except Exception as e:
             pytest.fail(f"api_fetch_servers should not throw: {e}")
@@ -152,7 +152,7 @@ class TestGopherOrchLibrary:
 
         # Running with None handle should be handled gracefully
         try:
-            result = lib.agent_run(None, "test query", 1000)
+            _result = lib.agent_run(None, "test query", 1000)  # noqa: F841
             # May return None or error message, but should not crash
         except Exception:
             # Exception is acceptable for None handle
@@ -192,6 +192,6 @@ class TestGopherOrchLibrary:
         """Test error helper when library might not be loaded."""
         lib = GopherOrchLibrary.get_instance()
         if lib is not None:
-            error = lib.get_last_error_message()
+            _error = lib.get_last_error_message()  # noqa: F841
             # Should return None gracefully, not throw
             # (error may be None or a message depending on state)

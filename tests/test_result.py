@@ -1,7 +1,5 @@
 """Tests for AgentResult."""
 
-import pytest
-
 from gopher_orch.result import AgentResult, AgentResultStatus
 
 

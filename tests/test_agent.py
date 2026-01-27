@@ -10,7 +10,6 @@ from gopher_orch.config import GopherAgentConfig
 from gopher_orch.errors import AgentException
 from gopher_orch.ffi.library import GopherOrchLibrary
 
-
 SERVER_CONFIG = """{
     "succeeded": true,
     "code": 200000000,
