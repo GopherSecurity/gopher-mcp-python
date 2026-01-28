@@ -53,20 +53,28 @@ kill_port 3002
 # Start server3001
 echo -e "${YELLOW}Starting server3001...${NC}"
 cd "$SCRIPT_DIR/server3001"
-python3 server.py > /dev/null 2>&1 &
+if [ ! -d "node_modules" ]; then
+    echo -e "${YELLOW}Installing dependencies for server3001...${NC}"
+    npm install
+fi
+npm run dev > /dev/null 2>&1 &
 SERVER3001_PID=$!
 echo -e "${GREEN}server3001 started (PID: $SERVER3001_PID)${NC}"
 
 # Start server3002
 echo -e "${YELLOW}Starting server3002...${NC}"
 cd "$SCRIPT_DIR/server3002"
-python3 server.py > /dev/null 2>&1 &
+if [ ! -d "node_modules" ]; then
+    echo -e "${YELLOW}Installing dependencies for server3002...${NC}"
+    npm install
+fi
+npm run dev > /dev/null 2>&1 &
 SERVER3002_PID=$!
 echo -e "${GREEN}server3002 started (PID: $SERVER3002_PID)${NC}"
 
 # Wait for servers to start
 echo -e "${YELLOW}Waiting for servers to start...${NC}"
-sleep 2
+sleep 3
 
 # Run the Python client
 echo ""
@@ -74,7 +82,8 @@ echo -e "${YELLOW}Running Python client...${NC}"
 echo ""
 cd "$PROJECT_DIR"
 
-# Run with library path for native library
+# Run with library path for native library and PYTHONPATH for module discovery
+PYTHONPATH="$PROJECT_DIR" \
 DYLD_LIBRARY_PATH="$PROJECT_DIR/native/lib" \
 LD_LIBRARY_PATH="$PROJECT_DIR/native/lib" \
 python3 examples/client_example_json.py "$@"

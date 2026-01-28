@@ -66,3 +66,11 @@ Desktop.ini
 
 # Jupyter Notebook
 .ipynb_checkpoints/
+
+# Node.js (for TypeScript example servers)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+*.tsbuildinfo

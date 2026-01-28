@@ -205,14 +205,35 @@ fi
 
 # Install dependencies
 echo -e "${YELLOW}  Installing pip dependencies...${NC}"
-pip3 install -e ".[dev]" --quiet 2>/dev/null || pip3 install -e ".[dev]"
+
+# Check if we're in a virtual environment
+if [ -n "$VIRTUAL_ENV" ]; then
+    pip3 install -e ".[dev]" --quiet 2>/dev/null || pip3 install -e ".[dev]"
+else
+    # Try user install first, then fall back to regular install
+    pip3 install --user -e ".[dev]" --quiet 2>/dev/null || \
+    pip3 install --user -e ".[dev]" 2>/dev/null || \
+    echo -e "${YELLOW}  Note: Could not install in editable mode. You can manually run: pip3 install --user -e '.[dev]'${NC}"
+fi
 
 echo -e "${GREEN}✓ Python environment set up successfully${NC}"
 echo ""
 
 # Step 6: Run tests
 echo -e "${YELLOW}Step 5: Running tests...${NC}"
-python3 -m pytest tests/ -v 2>/dev/null && echo -e "${GREEN}✓ Tests passed${NC}" || echo -e "${YELLOW}⚠ Some tests may have failed (native library required)${NC}"
+
+# Use PYTHONPATH to ensure gopher_orch module can be found even without editable install
+export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH}"
+
+# Try to run pytest, handling different installation scenarios
+if python3 -c "import pytest" 2>/dev/null; then
+    python3 -m pytest tests/ -v && echo -e "${GREEN}✓ Tests passed${NC}" || echo -e "${YELLOW}⚠ Some tests failed${NC}"
+elif [ -f "$HOME/Library/Python/3.9/bin/pytest" ]; then
+    # macOS user-installed pytest
+    "$HOME/Library/Python/3.9/bin/pytest" tests/ -v && echo -e "${GREEN}✓ Tests passed${NC}" || echo -e "${YELLOW}⚠ Some tests failed${NC}"
+else
+    echo -e "${YELLOW}⚠ pytest not found. Install with: pip3 install --user pytest${NC}"
+fi
 
 echo ""
 echo -e "${GREEN}======================================${NC}"
