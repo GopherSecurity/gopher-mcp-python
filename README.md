@@ -179,6 +179,30 @@ Result class with status and metadata.
 pytest
 ```
 
+### Code Formatting
+
+This project uses Black for code formatting and Ruff for linting.
+
+Format code:
+```bash
+black .
+```
+
+Check formatting without modifying:
+```bash
+black --check .
+```
+
+Run linter:
+```bash
+ruff check .
+```
+
+Fix linting issues:
+```bash
+ruff check --fix .
+```
+
 ### Building the Native Library
 
 ```bash
