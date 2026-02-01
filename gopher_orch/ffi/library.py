@@ -155,6 +155,14 @@ class GopherOrchLibrary:
         self._lib.gopher_orch_free.argtypes = [c_void_p]
         self._lib.gopher_orch_free.restype = None
 
+        # Logging functions
+        self._lib.gopher_orch_set_log_level.argtypes = [c_int32]
+        self._lib.gopher_orch_set_log_level.restype = None
+
+        # Set default log level to Warning (3) for production use
+        # This suppresses debug and info logs that appear during normal operation
+        self._lib.gopher_orch_set_log_level(3)
+
     def _get_library_name(self) -> str:
         if sys.platform == "darwin":
             return "libgopher-orch.dylib"
@@ -266,3 +274,24 @@ class GopherOrchLibrary:
         """Free memory allocated by the library."""
         if self._available and self._lib is not None:
             self._lib.gopher_orch_free(ptr)
+
+    def set_log_level(self, level: int) -> None:
+        """
+        Set the global log level for the native library.
+
+        Log levels:
+            0 = Debug (most verbose)
+            1 = Info
+            2 = Notice
+            3 = Warning (default for production)
+            4 = Error
+            5 = Critical
+            6 = Alert
+            7 = Emergency
+            8 = Off (no logging)
+
+        Args:
+            level: Log level (0-8)
+        """
+        if self._available and self._lib is not None:
+            self._lib.gopher_orch_set_log_level(level)
