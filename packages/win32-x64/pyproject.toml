@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gopher-orch-native-win32-x64"
+version = "0.1.0"
+description = "Native library for gopher-orch (Windows x64)"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Gopher Security", email = "dev@gophersecurity.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.8"
+
+[project.urls]
+Homepage = "https://github.com/GopherSecurity/gopher-mcp-python"
+Repository = "https://github.com/GopherSecurity/gopher-mcp-python"
+
+[tool.setuptools]
+packages = ["gopher_orch_native_win32_x64"]
+
+[tool.setuptools.package-data]
+gopher_orch_native_win32_x64 = ["lib/*"]

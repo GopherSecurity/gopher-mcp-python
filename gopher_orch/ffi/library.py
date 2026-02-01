@@ -171,19 +171,84 @@ class GopherOrchLibrary:
         else:
             return "libgopher-orch.so"
 
+    def _get_platform_package_path(self) -> Optional[str]:
+        """
+        Get the path to the platform-specific native package.
+        These packages are published as gopher-orch-native-{platform}-{arch}
+        and contain the native library for that specific platform.
+        """
+        import platform as plat
+
+        # Determine platform and architecture
+        system = sys.platform  # 'darwin', 'linux', 'win32'
+        machine = plat.machine().lower()  # 'arm64', 'x86_64', 'amd64'
+
+        # Map machine names to our arch names
+        arch_map = {
+            "arm64": "arm64",
+            "aarch64": "arm64",
+            "x86_64": "x64",
+            "amd64": "x64",
+            "x64": "x64",
+        }
+        arch = arch_map.get(machine)
+        if not arch:
+            if self._debug:
+                print(f"Unsupported architecture: {machine}", file=sys.stderr)
+            return None
+
+        # Map platform names
+        platform_map = {
+            "darwin": "darwin",
+            "linux": "linux",
+            "win32": "win32",
+        }
+        platform_name = platform_map.get(system)
+        if not platform_name:
+            if self._debug:
+                print(f"Unsupported platform: {system}", file=sys.stderr)
+            return None
+
+        # Construct the package name
+        package_name = f"gopher_orch_native_{platform_name}_{arch}"
+
+        try:
+            # Try to import the platform-specific package
+            native_pkg = __import__(package_name)
+            lib_path = native_pkg.get_lib_path()
+            if lib_path.exists():
+                if self._debug:
+                    print(f"Found platform package at: {lib_path}", file=sys.stderr)
+                return str(lib_path)
+        except ImportError:
+            # Package not installed - this is expected on platforms where
+            # the package wasn't installed
+            if self._debug:
+                print(f"Platform package {package_name} not found", file=sys.stderr)
+
+        return None
+
     def _get_search_paths(self) -> list:
-        # Get the directory containing this module
+        paths = []
+
+        # 1. Try platform-specific package first (pip distribution)
+        platform_path = self._get_platform_package_path()
+        if platform_path:
+            paths.append(platform_path)
+
+        # 2. Get the directory containing this module for development fallbacks
         module_dir = Path(__file__).parent.parent.parent
 
-        paths = [
+        # Development paths (native/lib in various locations)
+        paths.extend([
             # Project root native/lib
             os.path.join(os.getcwd(), "native", "lib"),
             # Relative to module location
             os.path.join(module_dir, "native", "lib"),
             os.path.join(module_dir.parent, "native", "lib"),
-        ]
+        ])
 
-        # System paths
+        # 3. System paths as last resort
         if sys.platform == "darwin":
             paths.extend(["/usr/local/lib", "/opt/homebrew/lib"])
         paths.append("/usr/lib")
