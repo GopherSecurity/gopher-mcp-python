@@ -1,24 +1,12 @@
 name: Publish Python Packages
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to publish (e.g., 0.1.0)'
-        required: true
-        default: '0.1.0'
-      gopher_orch_version:
-        description: 'gopher-orch release version (e.g., v0.1.0-20260131-170458)'
-        required: true
-      dry_run:
-        description: 'Dry run (do not publish)'
-        type: boolean
-        default: true
+  push:
 
 env:
-  GOPHER_ORCH_VERSION: ${{ github.event.inputs.gopher_orch_version }}
-  PACKAGE_VERSION: ${{ github.event.inputs.version }}
-  DRY_RUN: ${{ github.event.inputs.dry_run }}
+  GOPHER_ORCH_VERSION: v0.1.0-20260131-170458
+  PACKAGE_VERSION: 0.1.0.dev20260131170458
+  DRY_RUN: false
 
 jobs:
   download-binaries:
