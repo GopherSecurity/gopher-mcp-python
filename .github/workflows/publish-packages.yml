@@ -54,6 +54,7 @@ jobs:
     needs: download-binaries
     runs-on: ubuntu-latest
     strategy:
+      max-parallel: 1
       matrix:
         include:
           - platform: darwin-arm64
@@ -136,7 +137,7 @@ jobs:
         if: ${{ env.DRY_RUN != 'true' }}
         run: |
           cd packages/${{ matrix.platform }}
-          twine upload --repository testpypi dist/* --username __token__ --password ${{ secrets.TEST_PYPI_TOKEN }}
+          twine upload --repository testpypi --skip-existing dist/* --username __token__ --password ${{ secrets.TEST_PYPI_TOKEN }}
 
       - name: Dry run - show package contents
         if: ${{ env.DRY_RUN == 'true' }}
@@ -183,7 +184,7 @@ jobs:
       - name: Publish to TestPyPI
         if: ${{ env.DRY_RUN != 'true' }}
         run: |
-          twine upload --repository testpypi dist/* --username __token__ --password ${{ secrets.TEST_PYPI_TOKEN }}
+          twine upload --repository testpypi --skip-existing dist/* --username __token__ --password ${{ secrets.TEST_PYPI_TOKEN }}
 
       - name: Dry run - show package info
         if: ${{ env.DRY_RUN == 'true' }}
