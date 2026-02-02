@@ -21,6 +21,33 @@ WORK_DIR="$SCRIPT_DIR/test-project"
 # SDK version to install (can be overridden via environment variable)
 SDK_VERSION="${SDK_VERSION:-}"
 
+# Detect platform and architecture
+detect_platform() {
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local arch=$(uname -m)
+
+    # Map OS
+    case "$os" in
+        darwin) PLATFORM="darwin" ;;
+        linux) PLATFORM="linux" ;;
+        mingw*|msys*|cygwin*) PLATFORM="win32" ;;
+        *) echo -e "${RED}Unsupported OS: $os${NC}"; exit 1 ;;
+    esac
+
+    # Map architecture
+    case "$arch" in
+        x86_64|amd64) ARCH="x64" ;;
+        arm64|aarch64) ARCH="arm64" ;;
+        *) echo -e "${RED}Unsupported architecture: $arch${NC}"; exit 1 ;;
+    esac
+
+    NATIVE_PACKAGE="gopher-orch-native-${PLATFORM}-${ARCH}"
+    echo -e "${CYAN}Detected platform: ${PLATFORM}-${ARCH}${NC}"
+    echo -e "${CYAN}Native package: ${NATIVE_PACKAGE}${NC}"
+}
+
+detect_platform
+
 # Kill any existing processes on ports 3001 and 3002
 kill_port() {
     local port=$1
@@ -61,18 +88,20 @@ echo -e "${YELLOW}Creating virtual environment...${NC}"
 python3 -m venv venv
 source venv/bin/activate
 
-# Install SDK from TestPyPI
+# Install SDK and native package from TestPyPI
 echo -e "${YELLOW}Installing gopher-orch from TestPyPI...${NC}"
 if [ -n "$SDK_VERSION" ]; then
     echo -e "${CYAN}Installing version: $SDK_VERSION${NC}"
     pip install --index-url https://test.pypi.org/simple/ \
                 --extra-index-url https://pypi.org/simple/ \
-                "gopher-orch==$SDK_VERSION"
+                "gopher-orch==$SDK_VERSION" \
+                "${NATIVE_PACKAGE}==$SDK_VERSION"
 else
     echo -e "${CYAN}Installing latest version${NC}"
     pip install --index-url https://test.pypi.org/simple/ \
                 --extra-index-url https://pypi.org/simple/ \
-                gopher-orch
+                gopher-orch \
+                "$NATIVE_PACKAGE"
 fi
 
 # Show installed version
@@ -126,7 +155,7 @@ echo -e "${GREEN}Example completed${NC}"
 echo ""
 echo -e "${CYAN}To run this example manually:${NC}"
 echo "  1. python3 -m venv venv && source venv/bin/activate"
-echo "  2. pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gopher-orch"
+echo "  2. pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gopher-orch $NATIVE_PACKAGE"
 echo "  3. python client_example_json.py"
 
 exit 0
