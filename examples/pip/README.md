@@ -95,15 +95,39 @@ print(answer)
 agent.dispose()
 ```
 
-## Running the Example
+## Running the Examples
 
 ### Prerequisites
 
 1. Python 3.8+ installed
-2. MCP servers running (see examples/server3001 and examples/server3002)
-3. ANTHROPIC_API_KEY environment variable set
+2. ANTHROPIC_API_KEY environment variable set
 
-### Run with the provided script
+### API Key Example (Recommended)
+
+Use this approach when you have a Gopher API key. The server configuration is fetched automatically from the Gopher API.
+
+```bash
+cd examples/pip
+
+# Set your Gopher API key
+export GOPHER_API_KEY=your_api_key_here
+
+# Use default (latest) SDK version from TestPyPI
+./client_example_api_run.sh
+
+# Or specify a specific version
+SDK_VERSION=0.1.0.dev20260208150923 ./client_example_api_run.sh
+
+# Pass a custom question
+./client_example_api_run.sh "What tools are available?"
+```
+
+### Server Config Example
+
+Use this approach when you want to specify MCP servers directly via JSON configuration.
+
+**Additional Prerequisites:**
+- MCP servers running (see examples/server3001 and examples/server3002)
 
 ```bash
 cd examples/pip
@@ -112,7 +136,7 @@ cd examples/pip
 ./client_example_json_run.sh
 
 # Or specify a specific version
-SDK_VERSION=0.1.0.dev20260131170458 ./client_example_json_run.sh
+SDK_VERSION=0.1.0.dev20260208150923 ./client_example_json_run.sh
 ```
 
 ### Run manually
@@ -123,12 +147,16 @@ python3 -m venv venv
 source venv/bin/activate
 
 # Install from TestPyPI (for testing)
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gopher-orch
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gopher-orch gopher-orch-native-darwin-arm64
 
 # Or install from PyPI (when released)
 # pip install gopher-orch
 
-# Run the example
+# Run the API key example
+export GOPHER_API_KEY=your_api_key_here
+python client_example_api.py
+
+# Or run the server config example (requires local MCP servers)
 python client_example_json.py
 ```
 
@@ -167,5 +195,7 @@ xattr -d com.apple.quarantine $(python -c "import gopher_orch_native_darwin_arm6
 ## Environment Variables
 
 - `ANTHROPIC_API_KEY` - Required for using Anthropic models
+- `GOPHER_API_KEY` - Required for `create_with_api_key()` - get one from https://gopher.security
 - `DEBUG=1` - Enable debug logging for library loading
 - `GOPHER_ORCH_LIBRARY_PATH` - Override the native library path
+- `SDK_VERSION` - Override the SDK version when running example scripts
