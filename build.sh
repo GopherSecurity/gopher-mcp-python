@@ -63,11 +63,15 @@ if [ -d "${NATIVE_DIR}" ] && [ ! -f "${NATIVE_DIR}/CMakeLists.txt" ]; then
 fi
 
 # Update main submodule
+# First try with recorded commit, if that fails (commit doesn't exist), use --remote to get latest
 if ! git submodule update --init third_party/gopher-orch 2>/dev/null; then
-    echo -e "${RED}Error: Failed to clone gopher-orch submodule${NC}"
-    echo -e "${YELLOW}If you have multiple GitHub accounts, use:${NC}"
-    echo -e "  GITHUB_SSH_HOST=your-ssh-alias ./build.sh"
-    exit 1
+    echo -e "${YELLOW}  Recorded commit not found, fetching latest from remote...${NC}"
+    if ! git submodule update --init --remote third_party/gopher-orch 2>/dev/null; then
+        echo -e "${RED}Error: Failed to clone gopher-orch submodule${NC}"
+        echo -e "${YELLOW}If you have multiple GitHub accounts, use:${NC}"
+        echo -e "  GITHUB_SSH_HOST=your-ssh-alias ./build.sh"
+        exit 1
+    fi
 fi
 
 # Update nested submodule (gopher-mcp inside gopher-orch)
@@ -108,13 +112,13 @@ fi
 cd "${BUILD_DIR}"
 
 # Configure with CMake
-# BUILD_BUNDLED_SHARED creates a single self-contained library with all deps statically linked
+# BUILD_BUNDLED_SHARED=OFF means we need to copy all dependency libraries separately
 echo -e "${YELLOW}  Configuring CMake...${NC}"
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="${SCRIPT_DIR}/native" \
     -DBUILD_SHARED_LIBS=ON \
-    -DBUILD_BUNDLED_SHARED:BOOL=ON \
+    -DBUILD_BUNDLED_SHARED=OFF \
     -DBUILD_TESTS=OFF \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 
@@ -126,28 +130,25 @@ cmake --build . --config Release -j$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/d
 echo -e "${YELLOW}  Installing...${NC}"
 cmake --install .
 
-# With BUILD_BUNDLED_SHARED=ON, libgopher-orch is self-contained
-# No need to copy dependency libraries (gopher-mcp, fmt are statically linked)
-NATIVE_LIB_DIR="${SCRIPT_DIR}/native/lib"
-mkdir -p "${NATIVE_LIB_DIR}"
+# Copy dependency libraries (since BUILD_BUNDLED_SHARED=OFF)
+echo -e "${YELLOW}  Copying dependency libraries...${NC}"
+NATIVE_LIB="${SCRIPT_DIR}/native/lib"
+mkdir -p "${NATIVE_LIB}"
 
-# Fix library install name on macOS
-# With BUILD_BUNDLED_SHARED=ON, gopher-mcp, gopher-mcp-logging, and fmt are
-# statically embedded in libgopher-orch, so no additional libraries needed
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo -e "${YELLOW}  Fixing library install name for macOS...${NC}"
-    cd "${NATIVE_LIB_DIR}"
+# Copy gopher-mcp libraries
+cp -P "${BUILD_DIR}"/lib/libgopher-mcp*.dylib "${NATIVE_LIB}/" 2>/dev/null || true
+cp -P "${BUILD_DIR}"/lib/libgopher-mcp*.so* "${NATIVE_LIB}/" 2>/dev/null || true
+cp -P "${BUILD_DIR}"/lib/libgopher-mcp-event*.dylib "${NATIVE_LIB}/" 2>/dev/null || true
+cp -P "${BUILD_DIR}"/lib/libgopher-mcp-event*.so* "${NATIVE_LIB}/" 2>/dev/null || true
+cp -P "${BUILD_DIR}"/lib/libgopher-mcp-logging*.dylib "${NATIVE_LIB}/" 2>/dev/null || true
+cp -P "${BUILD_DIR}"/lib/libgopher-mcp-logging*.so* "${NATIVE_LIB}/" 2>/dev/null || true
 
-    # Fix libgopher-orch install name
-    if [ -f "libgopher-orch.0.1.0.dylib" ]; then
-        install_name_tool -id "libgopher-orch.0.dylib" libgopher-orch.0.1.0.dylib
-    fi
+# Copy fmt and llhttp static libraries
+cp -P "${BUILD_DIR}"/lib/libfmt*.a "${NATIVE_LIB}/" 2>/dev/null || true
+cp -P "${BUILD_DIR}"/lib/libllhttp*.a "${NATIVE_LIB}/" 2>/dev/null || true
+cp -P "${BUILD_DIR}"/_deps/fmt-build/libfmt*.a "${NATIVE_LIB}/" 2>/dev/null || true
 
-    # Remove any stale dependent libraries from previous builds
-    rm -f libgopher-mcp*.dylib libgopher-mcp-logging*.dylib libfmt*.dylib 2>/dev/null || true
-
-    cd "${SCRIPT_DIR}"
-fi
+cd "${SCRIPT_DIR}"
 
 echo -e "${GREEN}✓ Native library built successfully${NC}"
 echo ""
@@ -159,11 +160,10 @@ NATIVE_LIB_DIR="${SCRIPT_DIR}/native/lib"
 NATIVE_INCLUDE_DIR="${SCRIPT_DIR}/native/include"
 
 if [ -d "${NATIVE_LIB_DIR}" ]; then
-    echo -e "${GREEN}✓ Self-contained library installed to: ${NATIVE_LIB_DIR}${NC}"
-    ls -lh "${NATIVE_LIB_DIR}"/libgopher-orch*.dylib 2>/dev/null || \
-    ls -lh "${NATIVE_LIB_DIR}"/libgopher-orch*.so 2>/dev/null || \
-    ls -lh "${NATIVE_LIB_DIR}"/gopher-orch*.dll 2>/dev/null || true
-    echo -e "${GREEN}  (gopher-mcp, fmt are statically linked inside)${NC}"
+    echo -e "${GREEN}✓ Libraries installed to: ${NATIVE_LIB_DIR}${NC}"
+    ls -lh "${NATIVE_LIB_DIR}"/lib*.dylib 2>/dev/null || \
+    ls -lh "${NATIVE_LIB_DIR}"/lib*.so 2>/dev/null || \
+    ls -lh "${NATIVE_LIB_DIR}"/*.dll 2>/dev/null || true
 else
     echo -e "${YELLOW}⚠ Library directory not found: ${NATIVE_LIB_DIR}${NC}"
 fi
