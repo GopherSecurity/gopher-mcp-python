@@ -19,6 +19,7 @@ PROJECT_DIR="$(dirname "$EXAMPLES_DIR")"
 WORK_DIR="$SCRIPT_DIR/test-project"
 
 # SDK version to install (can be overridden via environment variable)
+# Note: gopher-orch now uses non-self-contained builds with separate dependency libraries
 SDK_VERSION="${SDK_VERSION:-}"
 
 # Detect platform and architecture
