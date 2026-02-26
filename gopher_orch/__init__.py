@@ -29,7 +29,7 @@ from gopher_orch.errors import AgentError, ApiKeyError, ConnectionError, Timeout
 from gopher_orch.server_config import ServerConfig
 from gopher_orch.ffi import GopherOrchLibrary
 
-__version__ = "0.1.0"
+__version__ = "0.1.0.dev20260226145002"
 
 __all__ = [
     # Main classes

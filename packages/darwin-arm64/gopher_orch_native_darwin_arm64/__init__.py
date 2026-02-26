@@ -7,7 +7,7 @@ This package contains the native gopher-orch library for macOS on Apple Silicon.
 import os
 from pathlib import Path
 
-__version__ = "0.1.0"
+__version__ = "0.1.0.dev20260226145002"
 
 # Platform identifier
 PLATFORM = "darwin"
