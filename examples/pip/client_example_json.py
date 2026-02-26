@@ -8,6 +8,7 @@ The native library is automatically loaded from the platform-specific package.
 
 import json
 import sys
+import os
 
 from gopher_orch import GopherAgent
 
@@ -43,8 +44,8 @@ SERVER_CONFIG = json.dumps({
 
 
 def main():
-    provider = "AnthropicProvider"
-    model = "claude-3-haiku-20240307"
+    provider = os.environ.get("LLM_PROVIDER", "AnthropicProvider")
+    model = os.environ.get("LLM_MODEL", "claude-3-haiku-20240307")
 
     try:
         # Create agent with JSON server configuration

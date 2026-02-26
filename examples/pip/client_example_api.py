@@ -14,11 +14,10 @@ from gopher_orch import GopherAgent
 
 
 def main():
-    provider = "AnthropicProvider"
-    model = "claude-3-haiku-20240307"
-
     # Your Gopher API key - get one from https://gopher.security
     api_key = os.environ.get("GOPHER_API_KEY", "{YOUR_GOPHER_API_KEY}")
+    provider = os.environ.get("LLM_PROVIDER", "AnthropicProvider")
+    model = os.environ.get("LLM_MODEL", "claude-3-haiku-20240307")
 
     if api_key == "{YOUR_GOPHER_API_KEY}":
         print("Error: Please set GOPHER_API_KEY environment variable", file=sys.stderr)
@@ -39,7 +38,7 @@ def main():
 
         # Get question from command line args or use default
         args = sys.argv[1:]
-        question = " ".join(args) if args else "What tools are available? List their names."
+        question = " ".join(args) if args else "List all my Gmail drafts."
 
         print(f"Question: {question}")
         print("")
