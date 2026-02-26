@@ -2,26 +2,62 @@ name: Publish Python Packages
 
 on:
   push:
+    branches: [br_release]
+
+permissions:
+  contents: write
 
 env:
-  GOPHER_ORCH_VERSION: v0.1.0-20260208-150923
-  PACKAGE_VERSION: 0.1.0.dev20260208150923
-  DRY_RUN: false
+  # Version is read from pyproject.toml - update with: python scripts/update_version.py <version>
+  DRY_RUN: 'false'
 
 jobs:
   download-binaries:
     name: Download gopher-orch binaries
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_tag: ${{ steps.version.outputs.version_tag }}
+      dry_run: ${{ steps.version.outputs.dry_run }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Read version from pyproject.toml
+        id: version
+        run: |
+          # Extract version from pyproject.toml using Python
+          VERSION=$(python -c "import re; content=open('pyproject.toml').read(); print(re.search(r'version\s*=\s*\"([^\"]+)\"', content).group(1))")
+
+          # Convert PEP 440 dev version to tag format
+          # e.g., 0.1.0.dev20260225132506 -> v0.1.0-20260225-132506
+          if [[ "$VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+)\.dev([0-9]{8})([0-9]{6})$ ]]; then
+            BASE_VERSION="${BASH_REMATCH[1]}"
+            DATE="${BASH_REMATCH[2]}"
+            TIME="${BASH_REMATCH[3]}"
+            VERSION_TAG="v${BASE_VERSION}-${DATE}-${TIME}"
+          else
+            # Fallback for simple versions like 0.1.0
+            VERSION_TAG="v${VERSION}"
+          fi
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+          echo "dry_run=${{ env.DRY_RUN }}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+          echo "Version Tag: ${VERSION_TAG}"
 
       - name: Download all release assets
         env:
           GH_TOKEN: ${{ secrets.GOPHER_ORCH_TOKEN }}
         run: |
           # Download all assets from the private gopher-orch repo
-          gh release download ${{ env.GOPHER_ORCH_VERSION }} \
+          gh release download ${{ steps.version.outputs.version_tag }} \
             -R GopherSecurity/gopher-orch \
             -D downloads
 
@@ -118,12 +154,13 @@ jobs:
       - name: Update package version
         run: |
           cd packages/${{ matrix.platform }}
+          VERSION="${{ needs.download-binaries.outputs.version }}"
 
           # Update version in pyproject.toml
-          sed -i "s/version = \".*\"/version = \"${{ env.PACKAGE_VERSION }}\"/" pyproject.toml
+          sed -i "s/version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
 
           # Update version in __init__.py
-          sed -i "s/__version__ = \".*\"/__version__ = \"${{ env.PACKAGE_VERSION }}\"/" ${{ matrix.pkg_name }}/__init__.py
+          sed -i "s/__version__ = \".*\"/__version__ = \"${VERSION}\"/" ${{ matrix.pkg_name }}/__init__.py
 
           echo "Updated pyproject.toml:"
           cat pyproject.toml
@@ -134,13 +171,13 @@ jobs:
           python -m build
 
       - name: Publish to TestPyPI
-        if: ${{ env.DRY_RUN != 'true' }}
+        if: needs.download-binaries.outputs.dry_run != 'true'
         run: |
           cd packages/${{ matrix.platform }}
           twine upload --repository testpypi --skip-existing dist/* --username __token__ --password ${{ secrets.TEST_PYPI_TOKEN }}
 
       - name: Dry run - show package contents
-        if: ${{ env.DRY_RUN == 'true' }}
+        if: needs.download-binaries.outputs.dry_run == 'true'
         run: |
           cd packages/${{ matrix.platform }}
           echo "=== Would publish package ==="
@@ -151,7 +188,7 @@ jobs:
 
   publish-main-package:
     name: Publish main package
-    needs: publish-platform-packages
+    needs: [download-binaries, publish-platform-packages]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -166,15 +203,21 @@ jobs:
         run: |
           pip install build twine
 
-      - name: Update package version
+      - name: Verify package version
         run: |
-          # Update version in pyproject.toml
-          sed -i "s/version = \".*\"/version = \"${{ env.PACKAGE_VERSION }}\"/" pyproject.toml
+          VERSION="${{ needs.download-binaries.outputs.version }}"
+          PKG_VERSION=$(python -c "import re; content=open('pyproject.toml').read(); print(re.search(r'version\s*=\s*\"([^\"]+)\"', content).group(1))")
 
-          # Update version in __init__.py
-          sed -i "s/__version__ = \".*\"/__version__ = \"${{ env.PACKAGE_VERSION }}\"/" gopher_orch/__init__.py
+          echo "Expected version: ${VERSION}"
+          echo "Package version: ${PKG_VERSION}"
 
-          echo "Updated pyproject.toml:"
+          if [ "${VERSION}" != "${PKG_VERSION}" ]; then
+            echo "Version mismatch! Updating pyproject.toml..."
+            sed -i "s/version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
+            sed -i "s/__version__ = \".*\"/__version__ = \"${VERSION}\"/" gopher_orch/__init__.py
+          fi
+
+          echo "Final version:"
           grep version pyproject.toml
 
       - name: Build package
@@ -182,15 +225,89 @@ jobs:
           python -m build
 
       - name: Publish to TestPyPI
-        if: ${{ env.DRY_RUN != 'true' }}
+        if: needs.download-binaries.outputs.dry_run != 'true'
         run: |
           twine upload --repository testpypi --skip-existing dist/* --username __token__ --password ${{ secrets.TEST_PYPI_TOKEN }}
 
       - name: Dry run - show package info
-        if: ${{ env.DRY_RUN == 'true' }}
+        if: needs.download-binaries.outputs.dry_run == 'true'
         run: |
           echo "=== Would publish main package ==="
           cat pyproject.toml
           echo ""
           echo "=== Built packages ==="
           ls -la dist/
+
+  create-release:
+    name: Create GitHub Release
+    needs: [download-binaries, publish-main-package]
+    runs-on: ubuntu-latest
+    if: needs.download-binaries.outputs.dry_run != 'true'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        run: |
+          VERSION="${{ needs.download-binaries.outputs.version }}"
+          VERSION_TAG="${{ needs.download-binaries.outputs.version_tag }}"
+
+          # Build Information
+          cat > RELEASE_NOTES.md << EOF
+          ## Build Information
+          - **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          - **Commit:** ${{ github.sha }}
+          - **Version:** ${VERSION}
+          - **PyPI package:** \`gopher-orch==${VERSION}\`
+
+          EOF
+
+          # Extract What's Changed from CHANGELOG.md
+          echo "## What's Changed" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+
+          if [ -f "CHANGELOG.md" ]; then
+            # Extract content from [Unreleased] section (between ## [Unreleased] and next ## [)
+            sed -n '/^## \[Unreleased\]/,/^## \[/p' CHANGELOG.md | \
+              grep -v "^## \[" | \
+              sed '/^$/d' >> RELEASE_NOTES.md || true
+
+            # If Unreleased section is empty, try to get the latest version section
+            if [ ! -s RELEASE_NOTES.md ] || [ $(wc -l < RELEASE_NOTES.md) -le 10 ]; then
+              echo "" >> RELEASE_NOTES.md
+              # Get content from the first versioned section
+              sed -n '/^## \[0-9\]/,/^## \[/p' CHANGELOG.md | \
+                head -50 | \
+                grep -v "^## \[" >> RELEASE_NOTES.md || true
+            fi
+          else
+            echo "No CHANGELOG.md found, listing recent commits..." >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            git log --pretty=format:"* %s (%h)" --no-merges -20 >> RELEASE_NOTES.md || true
+          fi
+
+          # Add full changelog link
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${VERSION_TAG}$" | head -1)
+          if [ -n "$PREV_TAG" ]; then
+            echo "" >> RELEASE_NOTES.md
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${VERSION_TAG}" >> RELEASE_NOTES.md
+          fi
+
+          echo ""
+          echo "=== Release Notes ==="
+          cat RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.download-binaries.outputs.version_tag }}
+          name: gopher-orch ${{ needs.download-binaries.outputs.version_tag }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
