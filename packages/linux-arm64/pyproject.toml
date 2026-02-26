@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gopher-orch-native-linux-arm64"
-version = "0.1.0"
+version = "0.1.0.dev20260226145002"
 description = "Native library for gopher-orch (Linux ARM64)"
 readme = "README.md"
 license = {text = "MIT"}

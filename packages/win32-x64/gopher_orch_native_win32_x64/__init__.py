@@ -7,7 +7,7 @@ This package contains the native gopher-orch library for Windows on x64.
 import os
 from pathlib import Path
 
-__version__ = "0.1.0"
+__version__ = "0.1.0.dev20260226145002"
 
 # Platform identifier
 PLATFORM = "win32"

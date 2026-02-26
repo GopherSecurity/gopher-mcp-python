@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gopher-orch"
-version = "0.1.0"
+version = "0.1.0.dev20260226145002"
 description = "Python SDK for Gopher Orch - AI Agent orchestration framework with native performance"
 readme = "README.md"
 license = {text = "MIT"}
