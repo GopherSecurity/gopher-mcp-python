@@ -7,7 +7,7 @@ This package contains the native gopher-security-mcp library for Linux on ARM64.
 import os
 from pathlib import Path
 
-__version__ = "0.1.0.dev20260226145002"
+__version__ = "0.1.0.dev20260227124047"
 
 # Platform identifier
 PLATFORM = "linux"

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-20260227-124047] - 2026-02-27
+
 ### Changed
 
 - **Package Rename** from `gopher-orch` to `gopher-security-mcp`
@@ -21,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Add `scripts/update_version.py` to update version across all files
   - Add `python scripts/update_version.py <version>` script
   - Workflow now reads version from `pyproject.toml` instead of hardcoded env
+
+### Fixed
+
+- Fix native library loading - keep library name as `libgopher-orch` (from C++ project)
+- Make `gopher_orch_set_log_level` function optional for compatibility
 
 ## [0.1.0] - 2026-02-08
 
@@ -54,5 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...HEAD
+[0.1.0-20260227-124047]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0...v0.1.0-20260227-124047
 [0.1.0]: https://github.com/GopherSecurity/gopher-mcp-python/releases/tag/v0.1.0
