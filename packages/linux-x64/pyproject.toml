@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gopher-security-mcp-native-linux-x64"
-version = "0.1.0.dev20260226145002"
+version = "0.1.0.dev20260227124047"
 description = "Native library for gopher-security-mcp (Linux x64)"
 readme = "README.md"
 license = {text = "MIT"}
