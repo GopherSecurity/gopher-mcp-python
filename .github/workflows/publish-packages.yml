@@ -13,7 +13,7 @@ env:
 
 jobs:
   download-binaries:
-    name: Download gopher-orch binaries
+    name: Download gopher-security-mcp binaries
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -56,9 +56,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GOPHER_ORCH_TOKEN }}
         run: |
-          # Download all assets from the private gopher-orch repo
+          # Download all assets from the private gopher-security-mcp repo
           gh release download ${{ steps.version.outputs.version_tag }} \
-            -R GopherSecurity/gopher-orch \
+            -R GopherSecurity/gopher-security-mcp \
             -D downloads
 
           # Extract to platform-specific directories
@@ -66,12 +66,12 @@ jobs:
           mkdir -p artifacts/darwin-x64 artifacts/darwin-arm64
           mkdir -p artifacts/win32-x64 artifacts/win32-arm64
 
-          tar -xzf downloads/libgopher-orch-linux-x64.tar.gz -C artifacts/linux-x64
-          tar -xzf downloads/libgopher-orch-linux-arm64.tar.gz -C artifacts/linux-arm64
-          tar -xzf downloads/libgopher-orch-macos-x64.tar.gz -C artifacts/darwin-x64
-          tar -xzf downloads/libgopher-orch-macos-arm64.tar.gz -C artifacts/darwin-arm64
-          unzip -o downloads/libgopher-orch-windows-x64.zip -d artifacts/win32-x64
-          unzip -o downloads/libgopher-orch-windows-arm64.zip -d artifacts/win32-arm64
+          tar -xzf downloads/libgopher-security-mcp-linux-x64.tar.gz -C artifacts/linux-x64
+          tar -xzf downloads/libgopher-security-mcp-linux-arm64.tar.gz -C artifacts/linux-arm64
+          tar -xzf downloads/libgopher-security-mcp-macos-x64.tar.gz -C artifacts/darwin-x64
+          tar -xzf downloads/libgopher-security-mcp-macos-arm64.tar.gz -C artifacts/darwin-arm64
+          unzip -o downloads/libgopher-security-mcp-windows-x64.zip -d artifacts/win32-x64
+          unzip -o downloads/libgopher-security-mcp-windows-arm64.zip -d artifacts/win32-arm64
 
       - name: List downloaded artifacts
         run: |
@@ -95,22 +95,22 @@ jobs:
         include:
           - platform: darwin-arm64
             lib_pattern: "*.dylib"
-            pkg_name: gopher_orch_native_darwin_arm64
+            pkg_name: gopher_security_mcp_native_darwin_arm64
           - platform: darwin-x64
             lib_pattern: "*.dylib"
-            pkg_name: gopher_orch_native_darwin_x64
+            pkg_name: gopher_security_mcp_native_darwin_x64
           - platform: linux-arm64
             lib_pattern: "*.so*"
-            pkg_name: gopher_orch_native_linux_arm64
+            pkg_name: gopher_security_mcp_native_linux_arm64
           - platform: linux-x64
             lib_pattern: "*.so*"
-            pkg_name: gopher_orch_native_linux_x64
+            pkg_name: gopher_security_mcp_native_linux_x64
           - platform: win32-arm64
             lib_pattern: "*.dll"
-            pkg_name: gopher_orch_native_win32_arm64
+            pkg_name: gopher_security_mcp_native_win32_arm64
           - platform: win32-x64
             lib_pattern: "*.dll"
-            pkg_name: gopher_orch_native_win32_x64
+            pkg_name: gopher_security_mcp_native_win32_x64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -214,7 +214,7 @@ jobs:
           if [ "${VERSION}" != "${PKG_VERSION}" ]; then
             echo "Version mismatch! Updating pyproject.toml..."
             sed -i "s/version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
-            sed -i "s/__version__ = \".*\"/__version__ = \"${VERSION}\"/" gopher_orch/__init__.py
+            sed -i "s/__version__ = \".*\"/__version__ = \"${VERSION}\"/" gopher_security_mcp/__init__.py
           fi
 
           echo "Final version:"
@@ -262,7 +262,7 @@ jobs:
           - **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           - **Commit:** ${{ github.sha }}
           - **Version:** ${VERSION}
-          - **PyPI package:** \`gopher-orch==${VERSION}\`
+          - **PyPI package:** \`gopher-security-mcp==${VERSION}\`
 
           EOF
 
@@ -305,7 +305,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.download-binaries.outputs.version_tag }}
-          name: gopher-orch ${{ needs.download-binaries.outputs.version_tag }}
+          name: gopher-security-mcp ${{ needs.download-binaries.outputs.version_tag }}
           body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false

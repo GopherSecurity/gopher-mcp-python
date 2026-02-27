@@ -1,7 +1,7 @@
 """Tests for GopherAgentConfig."""
 
 import pytest
-from gopher_orch.config import GopherAgentConfig
+from gopher_security_mcp.config import GopherAgentConfig
 
 
 class TestGopherAgentConfig:

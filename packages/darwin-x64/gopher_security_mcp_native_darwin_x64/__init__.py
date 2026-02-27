@@ -1,7 +1,7 @@
 """
-Native library package for gopher-orch (Windows ARM64).
+Native library package for gopher-security-mcp (macOS Intel).
 
-This package contains the native gopher-orch library for Windows on ARM64.
+This package contains the native gopher-security-mcp library for macOS on Intel.
 """
 
 import os
@@ -10,8 +10,8 @@ from pathlib import Path
 __version__ = "0.1.0.dev20260226145002"
 
 # Platform identifier
-PLATFORM = "win32"
-ARCH = "arm64"
+PLATFORM = "darwin"
+ARCH = "x64"
 
 
 def get_lib_path() -> Path:
@@ -21,4 +21,4 @@ def get_lib_path() -> Path:
 
 def get_library_file() -> Path:
     """Get the path to the native library file."""
-    return get_lib_path() / "gopher-orch.dll"
+    return get_lib_path() / "libgopher-security-mcp.dylib"

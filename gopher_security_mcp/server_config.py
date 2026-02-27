@@ -1,12 +1,12 @@
 """
-Server configuration utilities for the Gopher Orch SDK.
+Server configuration utilities for the Gopher Security MCP SDK.
 
 Provides utilities for fetching and managing MCP server configurations.
 """
 
 from typing import Optional
-from gopher_orch.ffi import GopherOrchLibrary
-from gopher_orch.errors import ApiKeyError, ConnectionError
+from gopher_security_mcp.ffi import GopherOrchLibrary
+from gopher_security_mcp.errors import ApiKeyError, ConnectionError
 
 
 class ServerConfig:

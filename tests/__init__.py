@@ -1,1 +1,1 @@
-"""Tests for gopher-orch Python SDK."""
+"""Tests for gopher-security-mcp Python SDK."""

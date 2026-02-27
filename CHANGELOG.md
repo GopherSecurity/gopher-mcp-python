@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Package Rename** from `gopher-orch` to `gopher-security-mcp`
+  - Main package: `gopher-security-mcp` (was `gopher-orch`)
+  - Import: `from gopher_security_mcp import GopherAgent` (was `gopher_orch`)
+  - Platform packages renamed from `gopher-orch-native-*` to `gopher-security-mcp-native-*`
+  - Environment variable: `GOPHER_SECURITY_MCP_LIBRARY_PATH` (was `GOPHER_ORCH_LIBRARY_PATH`)
+
 ### Added
 
 - **Centralized Version Management**
@@ -20,13 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Initial PyPI Release**
   - Platform-specific packages for native binaries
-    - `gopher-orch-native-darwin-arm64`
-    - `gopher-orch-native-darwin-x64`
-    - `gopher-orch-native-linux-arm64`
-    - `gopher-orch-native-linux-x64`
-    - `gopher-orch-native-win32-arm64`
-    - `gopher-orch-native-win32-x64`
-  - Main `gopher-orch` package with Python bindings
+    - `gopher-security-mcp-native-darwin-arm64`
+    - `gopher-security-mcp-native-darwin-x64`
+    - `gopher-security-mcp-native-linux-arm64`
+    - `gopher-security-mcp-native-linux-x64`
+    - `gopher-security-mcp-native-win32-arm64`
+    - `gopher-security-mcp-native-win32-x64`
+  - Main `gopher-security-mcp` package with Python bindings
 
 - **Core Features**
   - `GopherAgent` class for AI agent orchestration
@@ -41,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CI/CD**
   - GitHub Actions workflow for publishing to TestPyPI
-  - Automatic download of gopher-orch native binaries
+  - Automatic download of gopher-security-mcp native binaries
   - Multi-platform support (6 platforms)
 
 ---
