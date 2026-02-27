@@ -21,12 +21,10 @@ The package will automatically detect your platform and load the native library 
 | Windows | x64 | gopher-orch-native-win32-x64 |
 | Windows | ARM64 | gopher-orch-native-win32-arm64 |
 
-### Installing from TestPyPI
-
-For testing pre-release versions:
+### Installing from PyPI
 
 ```bash
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gopher-orch
+pip install gopher-orch
 ```
 
 ## Quick Start
@@ -112,7 +110,7 @@ cd examples/pip
 # Set your Gopher API key
 export GOPHER_API_KEY=your_api_key_here
 
-# Use default (latest) SDK version from TestPyPI
+# Use default (latest) SDK version from PyPI
 ./client_example_api_run.sh
 
 # Or specify a specific version
@@ -132,7 +130,7 @@ Use this approach when you want to specify MCP servers directly via JSON configu
 ```bash
 cd examples/pip
 
-# Use default (latest) SDK version from TestPyPI
+# Use default (latest) SDK version from PyPI
 ./client_example_json_run.sh
 
 # Or specify a specific version
@@ -146,11 +144,8 @@ SDK_VERSION=0.1.0.dev20260208150923 ./client_example_json_run.sh
 python3 -m venv venv
 source venv/bin/activate
 
-# Install from TestPyPI (for testing)
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gopher-orch gopher-orch-native-darwin-arm64
-
-# Or install from PyPI (when released)
-# pip install gopher-orch
+# Install from PyPI
+pip install gopher-orch gopher-orch-native-darwin-arm64
 
 # Run the API key example
 export GOPHER_API_KEY=your_api_key_here
