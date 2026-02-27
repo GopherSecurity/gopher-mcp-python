@@ -1,7 +1,7 @@
 """
-Native library package for gopher-orch (macOS ARM64).
+Native library package for gopher-security-mcp (macOS ARM64).
 
-This package contains the native gopher-orch library for macOS on Apple Silicon.
+This package contains the native gopher-security-mcp library for macOS on Apple Silicon.
 """
 
 import os
@@ -21,4 +21,4 @@ def get_lib_path() -> Path:
 
 def get_library_file() -> Path:
     """Get the path to the native library file."""
-    return get_lib_path() / "libgopher-orch.dylib"
+    return get_lib_path() / "libgopher-security-mcp.dylib"

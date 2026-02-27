@@ -1,5 +1,5 @@
 """
-Result classes for the Gopher Orch SDK.
+Result classes for the Gopher Security MCP SDK.
 
 Provides structured result objects with status, response, and metadata.
 """

@@ -1,5 +1,5 @@
 """
-Configuration classes for the Gopher Orch SDK.
+Configuration classes for the Gopher Security MCP SDK.
 
 Provides a builder pattern for creating agent configurations with validation.
 """

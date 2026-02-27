@@ -3,14 +3,14 @@
 Example using Gopher API key with pip-installed SDK.
 
 This example shows how to use GopherAgent.create_with_api_key() when
-the gopher-orch SDK is installed via pip. The API key is used to
+the gopher-security-mcp SDK is installed via pip. The API key is used to
 fetch MCP server configurations from the Gopher API.
 """
 
 import os
 import sys
 
-from gopher_orch import GopherAgent
+from gopher_security_mcp import GopherAgent
 
 
 def main():

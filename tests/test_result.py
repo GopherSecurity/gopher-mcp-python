@@ -1,7 +1,7 @@
 """Tests for AgentResult."""
 
 import pytest
-from gopher_orch.result import AgentResult, AgentResultStatus
+from gopher_security_mcp.result import AgentResult, AgentResultStatus
 
 
 class TestAgentResult:

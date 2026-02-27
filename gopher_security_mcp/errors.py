@@ -1,5 +1,5 @@
 """
-Custom error classes for the Gopher Orch SDK.
+Custom error classes for the Gopher Security MCP SDK.
 
 Provides typed exceptions for different error conditions:
 - AgentError: Base class for all agent-related errors
