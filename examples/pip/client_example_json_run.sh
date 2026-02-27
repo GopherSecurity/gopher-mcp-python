@@ -89,19 +89,15 @@ echo -e "${YELLOW}Creating virtual environment...${NC}"
 python3 -m venv venv
 source venv/bin/activate
 
-# Install SDK and native package from TestPyPI
-echo -e "${YELLOW}Installing gopher-security-mcp from TestPyPI...${NC}"
+# Install SDK and native package from PyPI
+echo -e "${YELLOW}Installing gopher-security-mcp from PyPI...${NC}"
 if [ -n "$SDK_VERSION" ]; then
     echo -e "${CYAN}Installing version: $SDK_VERSION${NC}"
-    pip install --index-url https://test.pypi.org/simple/ \
-                --extra-index-url https://pypi.org/simple/ \
-                "gopher-security-mcp==$SDK_VERSION" \
+    pip install "gopher-security-mcp==$SDK_VERSION" \
                 "${NATIVE_PACKAGE}==$SDK_VERSION"
 else
     echo -e "${CYAN}Installing latest version${NC}"
-    pip install --index-url https://test.pypi.org/simple/ \
-                --extra-index-url https://pypi.org/simple/ \
-                gopher-security-mcp \
+    pip install gopher-security-mcp \
                 "$NATIVE_PACKAGE"
 fi
 
@@ -156,7 +152,7 @@ echo -e "${GREEN}Example completed${NC}"
 echo ""
 echo -e "${CYAN}To run this example manually:${NC}"
 echo "  1. python3 -m venv venv && source venv/bin/activate"
-echo "  2. pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gopher-security-mcp $NATIVE_PACKAGE"
+echo "  2. pip install gopher-security-mcp $NATIVE_PACKAGE"
 echo "  3. python client_example_json.py"
 
 exit 0
