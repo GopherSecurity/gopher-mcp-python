@@ -155,21 +155,24 @@ class GopherOrchLibrary:
         self._lib.gopher_orch_free.argtypes = [c_void_p]
         self._lib.gopher_orch_free.restype = None
 
-        # Logging functions
-        self._lib.gopher_orch_set_log_level.argtypes = [c_int32]
-        self._lib.gopher_orch_set_log_level.restype = None
-
-        # Set default log level to Warning (3) for production use
-        # This suppresses debug and info logs that appear during normal operation
-        self._lib.gopher_orch_set_log_level(3)
+        # Logging functions (optional - may not exist in all versions)
+        try:
+            self._lib.gopher_orch_set_log_level.argtypes = [c_int32]
+            self._lib.gopher_orch_set_log_level.restype = None
+            # Set default log level to Warning (3) for production use
+            # This suppresses debug and info logs that appear during normal operation
+            self._lib.gopher_orch_set_log_level(3)
+        except AttributeError:
+            # Function not available in this version of the library
+            pass
 
     def _get_library_name(self) -> str:
         if sys.platform == "darwin":
-            return "libgopher-security-mcp.dylib"
+            return "libgopher-orch.dylib"
         elif sys.platform == "win32":
-            return "gopher-security-mcp.dll"
+            return "gopher-orch.dll"
         else:
-            return "libgopher-security-mcp.so"
+            return "libgopher-orch.so"
 
     def _get_platform_package_path(self) -> Optional[str]:
         """

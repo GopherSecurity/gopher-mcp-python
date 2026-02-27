@@ -21,4 +21,4 @@ def get_lib_path() -> Path:
 
 def get_library_file() -> Path:
     """Get the path to the native library file."""
-    return get_lib_path() / "libgopher-security-mcp.so"
+    return get_lib_path() / "libgopher-orch.so"
