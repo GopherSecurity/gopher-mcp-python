@@ -13,7 +13,7 @@ env:
 
 jobs:
   download-binaries:
-    name: Download gopher-security-mcp binaries
+    name: Download gopher-orch binaries
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -56,9 +56,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GOPHER_ORCH_TOKEN }}
         run: |
-          # Download all assets from the private gopher-security-mcp repo
+          # Download all assets from the private gopher-orch repo
           gh release download ${{ steps.version.outputs.version_tag }} \
-            -R GopherSecurity/gopher-security-mcp \
+            -R GopherSecurity/gopher-orch \
             -D downloads
 
           # Extract to platform-specific directories
@@ -66,12 +66,12 @@ jobs:
           mkdir -p artifacts/darwin-x64 artifacts/darwin-arm64
           mkdir -p artifacts/win32-x64 artifacts/win32-arm64
 
-          tar -xzf downloads/libgopher-security-mcp-linux-x64.tar.gz -C artifacts/linux-x64
-          tar -xzf downloads/libgopher-security-mcp-linux-arm64.tar.gz -C artifacts/linux-arm64
-          tar -xzf downloads/libgopher-security-mcp-macos-x64.tar.gz -C artifacts/darwin-x64
-          tar -xzf downloads/libgopher-security-mcp-macos-arm64.tar.gz -C artifacts/darwin-arm64
-          unzip -o downloads/libgopher-security-mcp-windows-x64.zip -d artifacts/win32-x64
-          unzip -o downloads/libgopher-security-mcp-windows-arm64.zip -d artifacts/win32-arm64
+          tar -xzf downloads/libgopher-orch-linux-x64.tar.gz -C artifacts/linux-x64
+          tar -xzf downloads/libgopher-orch-linux-arm64.tar.gz -C artifacts/linux-arm64
+          tar -xzf downloads/libgopher-orch-macos-x64.tar.gz -C artifacts/darwin-x64
+          tar -xzf downloads/libgopher-orch-macos-arm64.tar.gz -C artifacts/darwin-arm64
+          unzip -o downloads/libgopher-orch-windows-x64.zip -d artifacts/win32-x64
+          unzip -o downloads/libgopher-orch-windows-arm64.zip -d artifacts/win32-arm64
 
       - name: List downloaded artifacts
         run: |
