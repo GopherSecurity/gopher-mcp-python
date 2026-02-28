@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gopher-mcp-python"
-version = "0.1.0.dev20260227124047"
+version = "0.1.1"
 description = "Python SDK for Gopher MCP - AI Agent orchestration framework with native performance"
 readme = "README.md"
 license = {text = "Apache-2.0"}
