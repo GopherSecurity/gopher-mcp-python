@@ -29,7 +29,7 @@ from gopher_mcp_python.errors import AgentError, ApiKeyError, ConnectionError, T
 from gopher_mcp_python.server_config import ServerConfig
 from gopher_mcp_python.ffi import GopherOrchLibrary
 
-__version__ = "0.1.0.dev20260227124047"
+__version__ = "0.1.1"
 
 __all__ = [
     # Main classes
