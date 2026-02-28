@@ -19,7 +19,7 @@ PROJECT_DIR="$(dirname "$EXAMPLES_DIR")"
 WORK_DIR="$SCRIPT_DIR/test-project-api"
 
 # SDK version to install (can be overridden via environment variable)
-# Note: gopher-security-mcp now uses non-self-contained builds with separate dependency libraries
+# Note: gopher-mcp-python now uses non-self-contained builds with separate dependency libraries
 SDK_VERSION="${SDK_VERSION:-}"
 
 # Detect platform and architecture
@@ -42,7 +42,7 @@ detect_platform() {
         *) echo -e "${RED}Unsupported architecture: $arch${NC}"; exit 1 ;;
     esac
 
-    NATIVE_PACKAGE="gopher-security-mcp-native-${PLATFORM}-${ARCH}"
+    NATIVE_PACKAGE="gopher-mcp-python-native-${PLATFORM}-${ARCH}"
     echo -e "${CYAN}Detected platform: ${PLATFORM}-${ARCH}${NC}"
     echo -e "${CYAN}Native package: ${NATIVE_PACKAGE}${NC}"
 }
@@ -77,14 +77,14 @@ python3 -m venv venv
 source venv/bin/activate
 
 # Install SDK and native package from PyPI
-echo -e "${YELLOW}Installing gopher-security-mcp from PyPI...${NC}"
+echo -e "${YELLOW}Installing gopher-mcp-python from PyPI...${NC}"
 if [ -n "$SDK_VERSION" ]; then
     echo -e "${CYAN}Installing version: $SDK_VERSION${NC}"
-    pip install "gopher-security-mcp==$SDK_VERSION" \
+    pip install "gopher-mcp-python==$SDK_VERSION" \
                 "${NATIVE_PACKAGE}==$SDK_VERSION"
 else
     echo -e "${CYAN}Installing latest version${NC}"
-    pip install gopher-security-mcp \
+    pip install gopher-mcp-python \
                 "$NATIVE_PACKAGE"
 fi
 
@@ -109,7 +109,7 @@ echo ""
 echo -e "${CYAN}To run this example manually:${NC}"
 echo "  1. export GOPHER_API_KEY=your_api_key_here"
 echo "  2. python3 -m venv venv && source venv/bin/activate"
-echo "  3. pip install gopher-security-mcp $NATIVE_PACKAGE"
+echo "  3. pip install gopher-mcp-python $NATIVE_PACKAGE"
 echo "  4. python client_example_api.py"
 
 exit 0

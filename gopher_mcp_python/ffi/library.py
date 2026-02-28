@@ -1,5 +1,5 @@
 """
-ctypes interface to the gopher-security-mcp native library.
+ctypes interface to the gopher-mcp-python native library.
 """
 
 import ctypes
@@ -36,7 +36,7 @@ class GopherOrchErrorInfo(Structure):
 
 class GopherOrchLibrary:
     """
-    Wrapper for the gopher-security-mcp native library using ctypes.
+    Wrapper for the gopher-mcp-python native library using ctypes.
     """
 
     _instance: Optional["GopherOrchLibrary"] = None
@@ -71,7 +71,7 @@ class GopherOrchLibrary:
         search_paths = self._get_search_paths()
 
         # Try custom path from environment variable
-        env_path = os.environ.get("GOPHER_SECURITY_MCP_LIBRARY_PATH")
+        env_path = os.environ.get("GOPHER_MCP_PYTHON_LIBRARY_PATH")
         if env_path and os.path.exists(env_path):
             try:
                 self._lib = ctypes.CDLL(env_path)
@@ -81,7 +81,7 @@ class GopherOrchLibrary:
             except OSError as e:
                 if self._debug:
                     print(
-                        f"Failed to load from GOPHER_SECURITY_MCP_LIBRARY_PATH: {e}",
+                        f"Failed to load from GOPHER_MCP_PYTHON_LIBRARY_PATH: {e}",
                         file=sys.stderr,
                     )
 
@@ -106,7 +106,7 @@ class GopherOrchLibrary:
             return
         except OSError as e:
             if self._debug:
-                print(f"Failed to load gopher-security-mcp library: {e}", file=sys.stderr)
+                print(f"Failed to load gopher-mcp-python library: {e}", file=sys.stderr)
                 print("Searched paths:", file=sys.stderr)
                 for p in search_paths:
                     print(f"  - {p}", file=sys.stderr)
@@ -177,7 +177,7 @@ class GopherOrchLibrary:
     def _get_platform_package_path(self) -> Optional[str]:
         """
         Get the path to the platform-specific native package.
-        These packages are published as gopher-security-mcp-native-{platform}-{arch}
+        These packages are published as gopher-mcp-python-native-{platform}-{arch}
         and contain the native library for that specific platform.
         """
         import platform as plat
@@ -213,7 +213,7 @@ class GopherOrchLibrary:
             return None
 
         # Construct the package name
-        package_name = f"gopher_security_mcp_native_{platform_name}_{arch}"
+        package_name = f"gopher_mcp_python_native_{platform_name}_{arch}"
 
         try:
             # Try to import the platform-specific package

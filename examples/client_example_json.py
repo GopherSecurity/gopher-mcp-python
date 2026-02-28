@@ -6,7 +6,7 @@ Example using JSON server configuration.
 import json
 import sys
 
-from gopher_security_mcp import GopherAgent
+from gopher_mcp_python import GopherAgent
 
 
 # Server configuration for local MCP servers

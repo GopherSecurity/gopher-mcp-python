@@ -95,22 +95,22 @@ jobs:
         include:
           - platform: darwin-arm64
             lib_pattern: "*.dylib"
-            pkg_name: gopher_security_mcp_native_darwin_arm64
+            pkg_name: gopher_mcp_python_native_darwin_arm64
           - platform: darwin-x64
             lib_pattern: "*.dylib"
-            pkg_name: gopher_security_mcp_native_darwin_x64
+            pkg_name: gopher_mcp_python_native_darwin_x64
           - platform: linux-arm64
             lib_pattern: "*.so*"
-            pkg_name: gopher_security_mcp_native_linux_arm64
+            pkg_name: gopher_mcp_python_native_linux_arm64
           - platform: linux-x64
             lib_pattern: "*.so*"
-            pkg_name: gopher_security_mcp_native_linux_x64
+            pkg_name: gopher_mcp_python_native_linux_x64
           - platform: win32-arm64
             lib_pattern: "*.dll"
-            pkg_name: gopher_security_mcp_native_win32_arm64
+            pkg_name: gopher_mcp_python_native_win32_arm64
           - platform: win32-x64
             lib_pattern: "*.dll"
-            pkg_name: gopher_security_mcp_native_win32_x64
+            pkg_name: gopher_mcp_python_native_win32_x64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -214,7 +214,7 @@ jobs:
           if [ "${VERSION}" != "${PKG_VERSION}" ]; then
             echo "Version mismatch! Updating pyproject.toml..."
             sed -i "s/version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
-            sed -i "s/__version__ = \".*\"/__version__ = \"${VERSION}\"/" gopher_security_mcp/__init__.py
+            sed -i "s/__version__ = \".*\"/__version__ = \"${VERSION}\"/" gopher_mcp_python/__init__.py
           fi
 
           echo "Final version:"
@@ -262,7 +262,7 @@ jobs:
           - **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           - **Commit:** ${{ github.sha }}
           - **Version:** ${VERSION}
-          - **PyPI package:** \`gopher-security-mcp==${VERSION}\`
+          - **PyPI package:** \`gopher-mcp-python==${VERSION}\`
 
           EOF
 
@@ -305,7 +305,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.download-binaries.outputs.version_tag }}
-          name: gopher-security-mcp ${{ needs.download-binaries.outputs.version_tag }}
+          name: gopher-mcp-python ${{ needs.download-binaries.outputs.version_tag }}
           body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false

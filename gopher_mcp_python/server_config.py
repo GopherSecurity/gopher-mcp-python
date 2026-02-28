@@ -5,8 +5,8 @@ Provides utilities for fetching and managing MCP server configurations.
 """
 
 from typing import Optional
-from gopher_security_mcp.ffi import GopherOrchLibrary
-from gopher_security_mcp.errors import ApiKeyError, ConnectionError
+from gopher_mcp_python.ffi import GopherOrchLibrary
+from gopher_mcp_python.errors import ApiKeyError, ConnectionError
 
 
 class ServerConfig:

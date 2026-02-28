@@ -3,11 +3,11 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gopher-security-mcp"
+name = "gopher-mcp-python"
 version = "0.1.0.dev20260227124047"
-description = "Python SDK for Gopher Security MCP - AI Agent orchestration framework with native performance"
+description = "Python SDK for Gopher MCP - AI Agent orchestration framework with native performance"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 authors = [
     {name = "Gopher Security", email = "dev@gophersecurity.com"}
 ]
@@ -15,7 +15,7 @@ keywords = ["gopher", "mcp", "ai", "agent", "orchestration", "llm", "ffi"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
@@ -36,12 +36,12 @@ dev = [
     "ruff>=0.3.0",
 ]
 # Platform-specific native library packages
-darwin-arm64 = ["gopher-security-mcp-native-darwin-arm64>=0.1.0"]
-darwin-x64 = ["gopher-security-mcp-native-darwin-x64>=0.1.0"]
-linux-arm64 = ["gopher-security-mcp-native-linux-arm64>=0.1.0"]
-linux-x64 = ["gopher-security-mcp-native-linux-x64>=0.1.0"]
-win32-arm64 = ["gopher-security-mcp-native-win32-arm64>=0.1.0"]
-win32-x64 = ["gopher-security-mcp-native-win32-x64>=0.1.0"]
+darwin-arm64 = ["gopher-mcp-python-native-darwin-arm64>=0.1.0"]
+darwin-x64 = ["gopher-mcp-python-native-darwin-x64>=0.1.0"]
+linux-arm64 = ["gopher-mcp-python-native-linux-arm64>=0.1.0"]
+linux-x64 = ["gopher-mcp-python-native-linux-x64>=0.1.0"]
+win32-arm64 = ["gopher-mcp-python-native-win32-arm64>=0.1.0"]
+win32-x64 = ["gopher-mcp-python-native-win32-x64>=0.1.0"]
 
 [project.urls]
 Homepage = "https://github.com/GopherSecurity/gopher-mcp-python"
@@ -50,7 +50,7 @@ Issues = "https://github.com/GopherSecurity/gopher-mcp-python/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["gopher_security_mcp*"]
+include = ["gopher_mcp_python*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -114,4 +114,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["gopher_security_mcp"]
+known-first-party = ["gopher_mcp_python"]
