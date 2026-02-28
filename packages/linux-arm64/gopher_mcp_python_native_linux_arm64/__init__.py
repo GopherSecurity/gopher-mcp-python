@@ -1,7 +1,7 @@
 """
-Native library package for gopher-security-mcp (Linux ARM64).
+Native library package for gopher-mcp-python (Linux ARM64).
 
-This package contains the native gopher-security-mcp library for Linux on ARM64.
+This package contains the native gopher-mcp-python library for Linux on ARM64.
 """
 
 import os

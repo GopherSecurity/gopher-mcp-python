@@ -1,7 +1,7 @@
 """
-Native library package for gopher-security-mcp (macOS Intel).
+Native library package for gopher-mcp-python (macOS Intel).
 
-This package contains the native gopher-security-mcp library for macOS on Intel.
+This package contains the native gopher-mcp-python library for macOS on Intel.
 """
 
 import os

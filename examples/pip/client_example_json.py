@@ -2,7 +2,7 @@
 """
 Example using JSON server configuration with pip-installed SDK.
 
-This example shows how to use the gopher-security-mcp SDK when installed via pip.
+This example shows how to use the gopher-mcp-python SDK when installed via pip.
 The native library is automatically loaded from the platform-specific package.
 """
 
@@ -10,7 +10,7 @@ import json
 import sys
 import os
 
-from gopher_security_mcp import GopherAgent
+from gopher_mcp_python import GopherAgent
 
 
 # Server configuration for local MCP servers

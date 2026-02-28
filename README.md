@@ -1,6 +1,6 @@
-# gopher-security-mcp Python SDK
+# gopher-mcp-python Python SDK
 
-Python SDK for gopher-security-mcp, providing AI agent orchestration with native C++ performance through ctypes FFI bindings.
+Python SDK for gopher-mcp-python, providing AI agent orchestration with native C++ performance through ctypes FFI bindings.
 
 ## Features
 
@@ -15,7 +15,7 @@ Python SDK for gopher-security-mcp, providing AI agent orchestration with native
 ## Requirements
 
 - Python 3.8 or higher
-- Native gopher-security-mcp library (built from source)
+- Native gopher-mcp-python library (built from source)
 
 ## Installation
 
@@ -42,7 +42,7 @@ pip install -e .
 ### Using API Key
 
 ```python
-from gopher_security_mcp import GopherAgent, GopherAgentConfig
+from gopher_mcp_python import GopherAgent, GopherAgentConfig
 
 # Create configuration with API key
 config = (GopherAgentConfig.builder()
@@ -60,7 +60,7 @@ with GopherAgent.create(config) as agent:
 ### Using JSON Server Configuration
 
 ```python
-from gopher_security_mcp import GopherAgent, GopherAgentConfig
+from gopher_mcp_python import GopherAgent, GopherAgentConfig
 
 # Create configuration with server config
 config = (GopherAgentConfig.builder()
@@ -81,7 +81,7 @@ finally:
 ### Using Convenience Methods
 
 ```python
-from gopher_security_mcp import GopherAgent
+from gopher_mcp_python import GopherAgent
 
 # Create with API key (shorthand)
 agent = GopherAgent.create_with_api_key(
@@ -101,7 +101,7 @@ agent = GopherAgent.create_with_server_config(
 ### Getting Detailed Results
 
 ```python
-from gopher_security_mcp import GopherAgent
+from gopher_mcp_python import GopherAgent
 
 with GopherAgent.create(config) as agent:
     result = agent.run_detailed("What time is it?")
@@ -120,7 +120,7 @@ with GopherAgent.create(config) as agent:
 
 ### GopherAgent
 
-Main class for interacting with the gopher-security-mcp native library.
+Main class for interacting with the gopher-mcp-python native library.
 
 #### Static Methods
 
@@ -217,7 +217,7 @@ ruff check --fix .
 
 ## Environment Variables
 
-- `GOPHER_SECURITY_MCP_LIBRARY_PATH` - Custom path to native library
+- `GOPHER_MCP_PYTHON_LIBRARY_PATH` - Custom path to native library
 - `DEBUG` - Enable debug output for library loading
 
 ## License

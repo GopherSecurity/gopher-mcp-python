@@ -1,7 +1,7 @@
 """
-GopherAgent - Main entry point for the gopher-security-mcp Python SDK.
+GopherAgent - Main entry point for the gopher-mcp-python Python SDK.
 
-Provides a clean, Pythonic interface to the gopher-security-mcp agent functionality.
+Provides a clean, Pythonic interface to the gopher-mcp-python agent functionality.
 
 Example:
     # Create an agent with API key
@@ -29,10 +29,10 @@ Example with context manager:
 import atexit
 from typing import Optional
 
-from gopher_security_mcp.config import GopherAgentConfig
-from gopher_security_mcp.result import AgentResult, AgentResultStatus
-from gopher_security_mcp.errors import AgentError, TimeoutError
-from gopher_security_mcp.ffi import GopherOrchLibrary, GopherOrchHandle
+from gopher_mcp_python.config import GopherAgentConfig
+from gopher_mcp_python.result import AgentResult, AgentResultStatus
+from gopher_mcp_python.errors import AgentError, TimeoutError
+from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
 
 _initialized = False
@@ -41,7 +41,7 @@ _cleanup_handler_registered = False
 
 class GopherAgent:
     """
-    Main agent class for interacting with the gopher-security-mcp native library.
+    Main agent class for interacting with the gopher-mcp-python native library.
     """
 
     def __init__(self, handle: GopherOrchHandle) -> None:
@@ -64,7 +64,7 @@ class GopherAgent:
     @staticmethod
     def init() -> None:
         """
-        Initialize the gopher-security-mcp library.
+        Initialize the gopher-mcp-python library.
 
         Must be called before creating any agents. Called automatically by
         create() if not already initialized.
@@ -78,7 +78,7 @@ class GopherAgent:
 
         lib = GopherOrchLibrary.get_instance()
         if lib is None:
-            raise AgentError("Failed to load gopher-security-mcp native library")
+            raise AgentError("Failed to load gopher-mcp-python native library")
 
         _initialized = True
         _setup_cleanup_handler()
@@ -86,7 +86,7 @@ class GopherAgent:
     @staticmethod
     def shutdown() -> None:
         """
-        Shutdown the gopher-security-mcp library.
+        Shutdown the gopher-mcp-python library.
 
         Called automatically on process exit, but can be called manually.
         """

@@ -3,18 +3,18 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gopher-security-mcp-native-darwin-arm64"
+name = "gopher-mcp-python-native-darwin-arm64"
 version = "0.1.0.dev20260227124047"
-description = "Native library for gopher-security-mcp (macOS ARM64)"
+description = "Native library for gopher-mcp-python (macOS ARM64)"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 authors = [
     {name = "Gopher Security", email = "dev@gophersecurity.com"}
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
@@ -30,7 +30,7 @@ Homepage = "https://github.com/GopherSecurity/gopher-mcp-python"
 Repository = "https://github.com/GopherSecurity/gopher-mcp-python"
 
 [tool.setuptools]
-packages = ["gopher_security_mcp_native_darwin_arm64"]
+packages = ["gopher_mcp_python_native_darwin_arm64"]
 
 [tool.setuptools.package-data]
-gopher_security_mcp_native_darwin_arm64 = ["lib/*"]
+gopher_mcp_python_native_darwin_arm64 = ["lib/*"]

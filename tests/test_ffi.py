@@ -1,5 +1,5 @@
 """
-Tests for FFI bindings to the native gopher-security-mcp library.
+Tests for FFI bindings to the native gopher-mcp-python library.
 
 These tests verify that the Python side can correctly call C++ functions
 through ctypes FFI bindings.
@@ -10,7 +10,7 @@ import os
 
 import pytest
 
-from gopher_security_mcp.ffi import GopherOrchLibrary
+from gopher_mcp_python.ffi import GopherOrchLibrary
 
 
 def is_native_library_available() -> bool:
