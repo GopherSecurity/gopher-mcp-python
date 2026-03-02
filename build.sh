@@ -39,7 +39,7 @@ echo ""
 echo -e "${YELLOW}Step 1: Updating submodules...${NC}"
 
 # Support custom SSH host for multiple GitHub accounts
-# Usage: GITHUB_SSH_HOST=bettercallsaulj ./build.sh
+# Usage: GITHUB_SSH_HOST=my-ssh-alias ./build.sh
 SSH_HOST="${GITHUB_SSH_HOST:-github.com}"
 if [ -n "${GITHUB_SSH_HOST}" ]; then
     echo -e "${YELLOW}  Using custom SSH host: ${GITHUB_SSH_HOST}${NC}"
