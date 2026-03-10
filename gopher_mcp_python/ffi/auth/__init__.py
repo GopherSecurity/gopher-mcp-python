@@ -24,6 +24,8 @@ from gopher_mcp_python.ffi.auth.loader import (
     load_library,
     is_library_loaded,
     get_library,
+    is_auth_available,
+    get_auth_functions,
 )
 
 __all__ = [
@@ -49,4 +51,6 @@ __all__ = [
     "load_library",
     "is_library_loaded",
     "get_library",
+    "is_auth_available",
+    "get_auth_functions",
 ]

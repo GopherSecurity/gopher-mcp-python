@@ -222,3 +222,183 @@ def get_library() -> Optional[ctypes.CDLL]:
         The loaded CDLL instance, or None if not loaded.
     """
     return _lib
+
+
+# ============================================================================
+# FFI Function Bindings
+# ============================================================================
+
+# Track if functions are set up
+_functions_setup: bool = False
+_auth_functions_available: bool = False
+
+# Function binding specifications: (name, argtypes, restype)
+_FUNCTION_SPECS = [
+    # Library lifecycle
+    ("gopher_auth_init", [], c_int32),
+    ("gopher_auth_shutdown", [], c_int32),
+    ("gopher_auth_version", [], c_char_p),
+    # Client
+    ("gopher_auth_client_create", [POINTER(c_void_p), c_char_p, c_char_p], c_int32),
+    ("gopher_auth_client_destroy", [c_void_p], c_int32),
+    ("gopher_auth_client_set_option", [c_void_p, c_char_p, c_char_p], c_int32),
+    # Options
+    ("gopher_auth_validation_options_create", [POINTER(c_void_p)], c_int32),
+    ("gopher_auth_validation_options_destroy", [c_void_p], c_int32),
+    ("gopher_auth_validation_options_set_scopes", [c_void_p, c_char_p], c_int32),
+    ("gopher_auth_validation_options_set_audience", [c_void_p, c_char_p], c_int32),
+    ("gopher_auth_validation_options_set_clock_skew", [c_void_p, c_int64], c_int32),
+    # Validation
+    ("gopher_auth_validate_token", [c_void_p, c_char_p, c_void_p, POINTER(GopherAuthValidationResult)], c_int32),
+    ("gopher_auth_extract_payload", [c_char_p, POINTER(c_void_p)], c_int32),
+    # Payload
+    ("gopher_auth_payload_get_subject", [c_void_p, POINTER(c_char_p)], c_int32),
+    ("gopher_auth_payload_get_scopes", [c_void_p, POINTER(c_char_p)], c_int32),
+    ("gopher_auth_payload_get_audience", [c_void_p, POINTER(c_char_p)], c_int32),
+    ("gopher_auth_payload_get_expiration", [c_void_p, POINTER(c_int64)], c_int32),
+    ("gopher_auth_payload_get_issuer", [c_void_p, POINTER(c_char_p)], c_int32),
+    ("gopher_auth_payload_destroy", [c_void_p], c_int32),
+    # Utility
+    ("gopher_auth_free_string", [c_char_p], None),
+    ("gopher_auth_generate_www_authenticate", [c_char_p, c_char_p, c_char_p, POINTER(c_char_p)], c_int32),
+    ("gopher_auth_generate_www_authenticate_v2", [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, POINTER(c_char_p)], c_int32),
+]
+
+
+def _setup_functions() -> bool:
+    """
+    Setup FFI function bindings for all gopher_auth_* functions.
+
+    This configures argument types and return types for all exported
+    C functions in the library. Functions that don't exist in the
+    library are skipped.
+
+    Returns:
+        True if at least gopher_auth_init is available, False otherwise.
+    """
+    global _functions_setup, _auth_functions_available
+
+    if _functions_setup:
+        return _auth_functions_available
+
+    if _lib is None:
+        return False
+
+    bound_count = 0
+    for name, argtypes, restype in _FUNCTION_SPECS:
+        try:
+            func = getattr(_lib, name)
+            func.argtypes = argtypes
+            func.restype = restype
+            bound_count += 1
+        except AttributeError:
+            if _debug:
+                print(f"Function not found: {name}", file=sys.stderr)
+
+    _functions_setup = True
+    # Consider auth available if we bound at least the init function
+    _auth_functions_available = bound_count > 0 and _has_function("gopher_auth_init")
+
+    if _debug:
+        print(f"Bound {bound_count}/{len(_FUNCTION_SPECS)} auth functions", file=sys.stderr)
+
+    return _auth_functions_available
+
+
+def _has_function(name: str) -> bool:
+    """
+    Check if a specific function exists in the library.
+
+    Args:
+        name: The function name to check.
+
+    Returns:
+        True if function exists, False otherwise.
+    """
+    if _lib is None:
+        return False
+    try:
+        getattr(_lib, name)
+        return True
+    except AttributeError:
+        return False
+
+
+def _get_function(name: str) -> Optional[Any]:
+    """
+    Get a function from the library if it exists.
+
+    Args:
+        name: The function name to get.
+
+    Returns:
+        The function object if found, None otherwise.
+    """
+    if _lib is None:
+        return None
+    try:
+        return getattr(_lib, name)
+    except AttributeError:
+        return None
+
+
+def is_auth_available() -> bool:
+    """
+    Check if auth functions are available in the loaded library.
+
+    Returns:
+        True if auth functions are available, False otherwise.
+    """
+    if not load_library():
+        return False
+    _setup_functions()
+    return _auth_functions_available
+
+
+def get_auth_functions() -> Dict[str, Any]:
+    """
+    Get dictionary of all auth function references.
+
+    This ensures the library is loaded and functions are set up,
+    then returns references to all the C functions. Functions that
+    don't exist in the library will have None as their value.
+
+    Returns:
+        Dictionary mapping function names to ctypes function objects
+        or None for unavailable functions.
+    """
+    if not load_library():
+        return {}
+
+    _setup_functions()
+
+    return {
+        # Library lifecycle
+        "auth_init": _get_function("gopher_auth_init"),
+        "auth_shutdown": _get_function("gopher_auth_shutdown"),
+        "auth_version": _get_function("gopher_auth_version"),
+        # Client
+        "client_create": _get_function("gopher_auth_client_create"),
+        "client_destroy": _get_function("gopher_auth_client_destroy"),
+        "client_set_option": _get_function("gopher_auth_client_set_option"),
+        # Options
+        "options_create": _get_function("gopher_auth_validation_options_create"),
+        "options_destroy": _get_function("gopher_auth_validation_options_destroy"),
+        "options_set_scopes": _get_function("gopher_auth_validation_options_set_scopes"),
+        "options_set_audience": _get_function("gopher_auth_validation_options_set_audience"),
+        "options_set_clock_skew": _get_function("gopher_auth_validation_options_set_clock_skew"),
+        # Validation
+        "validate_token": _get_function("gopher_auth_validate_token"),
+        "extract_payload": _get_function("gopher_auth_extract_payload"),
+        # Payload
+        "payload_get_subject": _get_function("gopher_auth_payload_get_subject"),
+        "payload_get_scopes": _get_function("gopher_auth_payload_get_scopes"),
+        "payload_get_audience": _get_function("gopher_auth_payload_get_audience"),
+        "payload_get_expiration": _get_function("gopher_auth_payload_get_expiration"),
+        "payload_get_issuer": _get_function("gopher_auth_payload_get_issuer"),
+        "payload_destroy": _get_function("gopher_auth_payload_destroy"),
+        # Utility
+        "free_string": _get_function("gopher_auth_free_string"),
+        "generate_www_authenticate": _get_function("gopher_auth_generate_www_authenticate"),
+        "generate_www_authenticate_v2": _get_function("gopher_auth_generate_www_authenticate_v2"),
+    }
