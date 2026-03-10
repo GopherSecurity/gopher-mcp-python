@@ -33,6 +33,16 @@ from gopher_mcp_python.ffi.auth.validation_options import (
     create_validation_options,
 )
 
+from gopher_mcp_python.ffi.auth.auth_client import (
+    AuthClient,
+    init_auth_library,
+    shutdown_auth_library,
+    get_auth_library_version,
+    is_auth_library_initialized,
+    generate_www_authenticate_header,
+    generate_www_authenticate_header_v2,
+)
+
 __all__ = [
     # Enums
     "GopherAuthError",
@@ -61,4 +71,12 @@ __all__ = [
     # Validation options
     "ValidationOptions",
     "create_validation_options",
+    # Auth client
+    "AuthClient",
+    "init_auth_library",
+    "shutdown_auth_library",
+    "get_auth_library_version",
+    "is_auth_library_initialized",
+    "generate_www_authenticate_header",
+    "generate_www_authenticate_header_v2",
 ]
