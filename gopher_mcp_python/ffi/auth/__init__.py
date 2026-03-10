@@ -16,6 +16,16 @@ from gopher_mcp_python.ffi.auth.types import (
     create_empty_auth_context,
 )
 
+from gopher_mcp_python.ffi.auth.loader import (
+    GopherAuthClientPtr,
+    GopherAuthPayloadPtr,
+    GopherAuthOptionsPtr,
+    GopherAuthValidationResult,
+    load_library,
+    is_library_loaded,
+    get_library,
+)
+
 __all__ = [
     # Enums
     "GopherAuthError",
@@ -25,8 +35,18 @@ __all__ = [
     "ValidationResult",
     "TokenPayload",
     "AuthContext",
-    # Functions
+    # Type functions
     "is_gopher_auth_error",
     "get_error_description",
     "create_empty_auth_context",
+    # Pointer types
+    "GopherAuthClientPtr",
+    "GopherAuthPayloadPtr",
+    "GopherAuthOptionsPtr",
+    # Structures
+    "GopherAuthValidationResult",
+    # Loader functions
+    "load_library",
+    "is_library_loaded",
+    "get_library",
 ]
