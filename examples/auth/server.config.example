@@ -1,0 +1,75 @@
+# Auth MCP Server Configuration
+# Copy this file to server.config and customize as needed
+
+# ============================================
+# Server Settings
+# ============================================
+
+# Host to bind to (default: 0.0.0.0)
+host=0.0.0.0
+
+# Port to listen on (default: 3001)
+port=3001
+
+# Server URL (used for OAuth metadata and redirects)
+# This should be the externally accessible URL of this server
+server_url=http://localhost:3001
+
+# ============================================
+# OAuth/IDP Settings
+# ============================================
+
+# OAuth client ID (required when auth is enabled)
+# client_id=your-client-id
+
+# OAuth client secret (required when auth is enabled)
+# client_secret=your-client-secret
+
+# Base URL for the OAuth/OIDC server
+# Many endpoints will be derived from this URL if not explicitly set
+# auth_server_url=https://keycloak.example.com/realms/mcp
+
+# ============================================
+# Direct OAuth Endpoint URLs
+# Optional - derived from auth_server_url if not set
+# ============================================
+
+# JWKS URI for fetching public keys
+# jwks_uri=https://keycloak.example.com/realms/mcp/protocol/openid-connect/certs
+
+# Token issuer (usually same as auth_server_url)
+# issuer=https://keycloak.example.com/realms/mcp
+
+# OAuth authorization endpoint
+# oauth_authorize_url=https://keycloak.example.com/realms/mcp/protocol/openid-connect/auth
+
+# OAuth token endpoint
+# oauth_token_url=https://keycloak.example.com/realms/mcp/protocol/openid-connect/token
+
+# ============================================
+# Scopes
+# ============================================
+
+# Space-separated list of allowed scopes
+allowed_scopes=openid profile email mcp:read mcp:admin
+
+# ============================================
+# Cache Settings
+# ============================================
+
+# JWKS cache duration in seconds (default: 3600)
+jwks_cache_duration=3600
+
+# Enable automatic JWKS refresh (default: true)
+jwks_auto_refresh=true
+
+# HTTP request timeout in seconds (default: 30)
+request_timeout=30
+
+# ============================================
+# Authentication Mode
+# ============================================
+
+# Set to true to disable authentication (for development/testing)
+# When disabled, all endpoints are accessible without a token
+auth_disabled=true
