@@ -29,6 +29,22 @@ from gopher_mcp_python.errors import AgentError, ApiKeyError, ConnectionError, T
 from gopher_mcp_python.server_config import ServerConfig
 from gopher_mcp_python.ffi import GopherOrchLibrary
 
+# Auth module re-exports
+from gopher_mcp_python.ffi.auth import (
+    # Types
+    GopherAuthError,
+    ValidationResult,
+    TokenPayload,
+    AuthContext,
+    # Classes
+    AuthClient,
+    ValidationOptions,
+    # Functions
+    init_auth_library,
+    shutdown_auth_library,
+    is_auth_available,
+)
+
 __version__ = "0.1.1"
 
 __all__ = [
@@ -47,6 +63,16 @@ __all__ = [
     "TimeoutError",
     # FFI
     "GopherOrchLibrary",
+    # Auth
+    "GopherAuthError",
+    "ValidationResult",
+    "TokenPayload",
+    "AuthContext",
+    "AuthClient",
+    "ValidationOptions",
+    "init_auth_library",
+    "shutdown_auth_library",
+    "is_auth_available",
     # Version
     "__version__",
 ]
