@@ -7,10 +7,10 @@ from gopher_mcp_python.ffi.auth.types import (
     ERROR_DESCRIPTIONS,
     ValidationResult,
     TokenPayload,
-    AuthContext,
+    GopherAuthContext,
     is_gopher_auth_error,
     get_error_description,
-    create_empty_auth_context,
+    gopher_create_empty_auth_context,
 )
 
 
@@ -163,12 +163,12 @@ class TestTokenPayload:
         assert payload.issuer == "https://auth.example.com"
 
 
-class TestAuthContext:
-    """Tests for AuthContext dataclass."""
+class TestGopherAuthContext:
+    """Tests for GopherAuthContext dataclass."""
 
     def test_create_authenticated_context(self):
         """Test creating an authenticated context."""
-        context = AuthContext(
+        context = GopherAuthContext(
             user_id="user123",
             scopes="read write",
             audience="my-api",
@@ -183,7 +183,7 @@ class TestAuthContext:
 
     def test_create_unauthenticated_context(self):
         """Test creating an unauthenticated context."""
-        context = AuthContext(
+        context = GopherAuthContext(
             user_id="",
             scopes="",
             audience="",
@@ -193,35 +193,35 @@ class TestAuthContext:
         assert context.authenticated is False
 
 
-class TestCreateEmptyAuthContext:
-    """Tests for create_empty_auth_context function."""
+class TestGopherCreateEmptyAuthContext:
+    """Tests for gopher_create_empty_auth_context function."""
 
     def test_returns_auth_context(self):
-        """Test function returns AuthContext instance."""
-        context = create_empty_auth_context()
-        assert isinstance(context, AuthContext)
+        """Test function returns GopherAuthContext instance."""
+        context = gopher_create_empty_auth_context()
+        assert isinstance(context, GopherAuthContext)
 
     def test_empty_user_id(self):
         """Test empty auth context has empty user_id."""
-        context = create_empty_auth_context()
+        context = gopher_create_empty_auth_context()
         assert context.user_id == ""
 
     def test_empty_scopes(self):
         """Test empty auth context has empty scopes."""
-        context = create_empty_auth_context()
+        context = gopher_create_empty_auth_context()
         assert context.scopes == ""
 
     def test_empty_audience(self):
         """Test empty auth context has empty audience."""
-        context = create_empty_auth_context()
+        context = gopher_create_empty_auth_context()
         assert context.audience == ""
 
     def test_zero_token_expiry(self):
         """Test empty auth context has zero token_expiry."""
-        context = create_empty_auth_context()
+        context = gopher_create_empty_auth_context()
         assert context.token_expiry == 0
 
     def test_not_authenticated(self):
         """Test empty auth context is not authenticated."""
-        context = create_empty_auth_context()
+        context = gopher_create_empty_auth_context()
         assert context.authenticated is False
