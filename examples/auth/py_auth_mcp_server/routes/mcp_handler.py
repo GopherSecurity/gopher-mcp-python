@@ -23,13 +23,24 @@ class JsonRpcErrorCode:
     INTERNAL_ERROR = -32603
 
 
-@dataclass
-class JsonRpcError:
-    """JSON-RPC 2.0 Error structure."""
+class JsonRpcError(Exception):
+    """JSON-RPC 2.0 Error structure.
 
-    code: int
-    message: str
-    data: Any = None
+    Inherits from Exception to allow raising as an exception.
+    """
+
+    def __init__(self, code: int, message: str, data: Any = None) -> None:
+        """Initialize JSON-RPC error.
+
+        Args:
+            code: JSON-RPC error code.
+            message: Error message.
+            data: Optional additional error data.
+        """
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.data = data
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
