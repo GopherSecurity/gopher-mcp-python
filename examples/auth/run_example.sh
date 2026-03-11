@@ -23,17 +23,17 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "Auth MCP Server Example"
     echo ""
     echo "Usage:"
-    echo "  ./run_example.sh           Run with auth enabled (requires OAuth config)"
-    echo "  ./run_example.sh --no-auth Run without auth (development mode)"
+    echo "  ./run_example.sh           Run using server.config settings"
+    echo "  ./run_example.sh --no-auth Override config to disable auth"
     echo "  ./run_example.sh --help    Show this help"
     echo ""
     echo "Options:"
-    echo "  --no-auth    Disable OAuth authentication (for development/testing)"
+    echo "  --no-auth    Disable OAuth authentication (overrides server.config)"
     echo "  --host HOST  Bind to specific host (default: 0.0.0.0)"
     echo "  --port PORT  Listen on specific port (default: 3001)"
     echo ""
     echo "Configuration:"
-    echo "  Edit server.config to configure OAuth settings"
+    echo "  Edit server.config to configure OAuth settings (auth_disabled=true/false)"
     echo "  See server.config.example for all available options"
     echo ""
     echo "Test endpoints:"
@@ -79,13 +79,8 @@ if [ -d "${NATIVE_LIB}" ]; then
 fi
 
 echo -e "${GREEN}Starting Auth MCP Server...${NC}"
+echo -e "Configuration: ${YELLOW}server.config${NC}"
 echo ""
 
-# Default to --no-auth if no arguments provided (for easier development)
-if [ $# -eq 0 ]; then
-    echo -e "${YELLOW}Tip: Running with --no-auth for development. Use './run_example.sh' with OAuth config for production.${NC}"
-    echo ""
-    exec python3 -m py_auth_mcp_server --no-auth
-else
-    exec python3 -m py_auth_mcp_server "$@"
-fi
+# Run server with arguments (uses server.config by default)
+exec python3 -m py_auth_mcp_server "$@"
