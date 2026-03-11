@@ -4,6 +4,8 @@ Example MCP tools demonstrating OAuth scope-based access control.
 Mirrors the weather tools from the C++ auth example.
 """
 
+from __future__ import annotations
+
 import json
 from typing import Any
 
@@ -168,10 +170,12 @@ def access_denied(scope: str) -> ToolResult:
         content=[
             ToolContentItem(
                 type="text",
-                text=json.dumps({
-                    "error": "access_denied",
-                    "message": f"Access denied. Required scope: {scope}",
-                }),
+                text=json.dumps(
+                    {
+                        "error": "access_denied",
+                        "message": f"Access denied. Required scope: {scope}",
+                    }
+                ),
             ),
         ],
         is_error=True,

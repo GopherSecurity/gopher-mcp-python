@@ -4,8 +4,11 @@ Flask middleware for JWT token validation using gopher-auth FFI.
 Mirrors OAuthAuthFilter from the C++ example.
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 from flask import Response, g, jsonify, request
 

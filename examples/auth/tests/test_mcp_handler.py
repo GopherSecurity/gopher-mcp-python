@@ -1,13 +1,10 @@
 """Tests for MCP JSON-RPC handler."""
 
-import pytest
 
 from py_auth_mcp_server.routes.mcp_handler import (
     JsonRpcError,
     JsonRpcErrorCode,
-    JsonRpcRequest,
     JsonRpcResponse,
-    McpHandler,
     ToolContentItem,
     ToolResult,
     ToolSpec,
@@ -221,7 +218,10 @@ class TestMcpHandlerHandleRequest:
         mcp_handler.register_tool(
             name="echo",
             description="Echo tool",
-            input_schema={"type": "object", "properties": {"message": {"type": "string"}}},
+            input_schema={
+                "type": "object",
+                "properties": {"message": {"type": "string"}},
+            },
             handler=lambda args: ToolResult(
                 content=[ToolContentItem(type="text", text=args.get("message", ""))]
             ),

@@ -1,11 +1,12 @@
 """Pytest fixtures for py_auth_mcp_server tests."""
 
+from __future__ import annotations
+
 import pytest
 from flask import Flask
 from flask.testing import FlaskClient
 
 from gopher_mcp_python.ffi.auth import AuthContext
-
 from py_auth_mcp_server import AuthServerConfig, create_app, create_default_config
 from py_auth_mcp_server.routes.mcp_handler import McpHandler
 

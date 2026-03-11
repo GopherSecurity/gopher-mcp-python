@@ -4,7 +4,9 @@ Mirrors AuthServerConfig from the C++ example:
 /gopher-orch/examples/auth/auth_server_config.h
 """
 
-from dataclasses import dataclass, field
+from __future__ import annotations
+
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -157,9 +159,7 @@ def build_config(config_map: dict[str, str]) -> AuthServerConfig:
     # Derive endpoints from auth_server_url if not explicitly set
     if config.auth_server_url:
         if not config.jwks_uri:
-            config.jwks_uri = (
-                f"{config.auth_server_url}/protocol/openid-connect/certs"
-            )
+            config.jwks_uri = f"{config.auth_server_url}/protocol/openid-connect/certs"
         if not config.token_endpoint:
             config.token_endpoint = (
                 f"{config.auth_server_url}/protocol/openid-connect/token"

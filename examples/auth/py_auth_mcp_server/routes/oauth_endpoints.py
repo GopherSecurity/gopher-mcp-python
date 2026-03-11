@@ -8,6 +8,8 @@ Implements OAuth 2.0 discovery endpoints:
 - /oauth/register (RFC 7591 dynamic registration)
 """
 
+from __future__ import annotations
+
 import math
 import time
 from typing import Any
@@ -28,9 +30,7 @@ def _set_cors_headers(response: Response) -> Response:
         Response with CORS headers set.
     """
     response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = (
-        "GET, POST, PUT, DELETE, OPTIONS"
-    )
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = (
         "Authorization, Content-Type, Accept, Origin, X-Requested-With"
     )

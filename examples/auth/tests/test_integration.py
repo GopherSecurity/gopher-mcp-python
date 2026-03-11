@@ -2,7 +2,6 @@
 
 import json
 
-import pytest
 from flask.testing import FlaskClient
 
 
@@ -176,7 +175,9 @@ class TestMcpEndpoint:
         tool_names = [t["name"] for t in data["result"]["tools"]]
         assert "get-weather" in tool_names
 
-    def test_tools_call_get_weather(self, client: FlaskClient, json_rpc_tools_call_request):
+    def test_tools_call_get_weather(
+        self, client: FlaskClient, json_rpc_tools_call_request
+    ):
         """Test tools/call for get-weather."""
         response = client.post(
             "/mcp",

@@ -4,6 +4,8 @@ Provides a simple health check endpoint for monitoring
 and load balancer health checks.
 """
 
+from __future__ import annotations
+
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone

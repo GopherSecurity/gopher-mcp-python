@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from py_auth_mcp_server.tools.weather_tools import (
     CONDITIONS,
     access_denied,

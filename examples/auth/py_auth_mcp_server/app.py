@@ -3,8 +3,9 @@
 Creates and configures the Flask application for the Auth MCP Server.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any
 
 from flask import Flask
 from flask_cors import CORS
@@ -79,7 +80,9 @@ def create_app(
                 if config.jwks_auto_refresh:
                     auth_client.set_option("auto_refresh", "true")
                 if config.request_timeout > 0:
-                    auth_client.set_option("request_timeout", str(config.request_timeout))
+                    auth_client.set_option(
+                        "request_timeout", str(config.request_timeout)
+                    )
 
                 app.config["AUTH_CLIENT"] = auth_client
             except Exception as e:
