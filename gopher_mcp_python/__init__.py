@@ -35,13 +35,13 @@ from gopher_mcp_python.ffi.auth import (
     GopherAuthError,
     ValidationResult,
     TokenPayload,
-    AuthContext,
+    GopherAuthContext,
     # Classes
-    AuthClient,
-    ValidationOptions,
+    GopherAuthClient,
+    GopherValidationOptions,
     # Functions
-    init_auth_library,
-    shutdown_auth_library,
+    gopher_init_auth_library,
+    gopher_shutdown_auth_library,
     is_auth_available,
 )
 
@@ -67,11 +67,11 @@ __all__ = [
     "GopherAuthError",
     "ValidationResult",
     "TokenPayload",
-    "AuthContext",
-    "AuthClient",
-    "ValidationOptions",
-    "init_auth_library",
-    "shutdown_auth_library",
+    "GopherAuthContext",
+    "GopherAuthClient",
+    "GopherValidationOptions",
+    "gopher_init_auth_library",
+    "gopher_shutdown_auth_library",
     "is_auth_available",
     # Version
     "__version__",
