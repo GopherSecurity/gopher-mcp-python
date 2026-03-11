@@ -109,7 +109,7 @@ class TokenPayload:
 
 
 @dataclass
-class AuthContext:
+class GopherAuthContext:
     """Authentication context for the current request."""
 
     user_id: str
@@ -119,14 +119,14 @@ class AuthContext:
     authenticated: bool
 
 
-def create_empty_auth_context() -> AuthContext:
+def gopher_create_empty_auth_context() -> GopherAuthContext:
     """
     Create an empty auth context (unauthenticated).
 
     Returns:
-        An AuthContext with default empty values and authenticated=False.
+        A GopherAuthContext with default empty values and authenticated=False.
     """
-    return AuthContext(
+    return GopherAuthContext(
         user_id="",
         scopes="",
         audience="",

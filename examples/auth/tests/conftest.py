@@ -6,7 +6,7 @@ import pytest
 from flask import Flask
 from flask.testing import FlaskClient
 
-from gopher_mcp_python.ffi.auth import AuthContext
+from gopher_mcp_python.ffi.auth import GopherAuthContext
 from py_auth_mcp_server import AuthServerConfig, create_app, create_default_config
 from py_auth_mcp_server.routes.mcp_handler import McpHandler
 
@@ -66,13 +66,13 @@ def mcp_handler() -> McpHandler:
 
 
 @pytest.fixture
-def mock_auth_context() -> AuthContext:
-    """Create a mock AuthContext with test data.
+def mock_auth_context() -> GopherAuthContext:
+    """Create a mock GopherAuthContext with test data.
 
     Returns:
-        AuthContext with sample values.
+        GopherAuthContext with sample values.
     """
-    return AuthContext(
+    return GopherAuthContext(
         user_id="test-user-123",
         scopes="openid profile email mcp:read",
         audience="test-audience",
@@ -82,13 +82,13 @@ def mock_auth_context() -> AuthContext:
 
 
 @pytest.fixture
-def mock_admin_auth_context() -> AuthContext:
-    """Create a mock AuthContext with admin scopes.
+def mock_admin_auth_context() -> GopherAuthContext:
+    """Create a mock GopherAuthContext with admin scopes.
 
     Returns:
-        AuthContext with mcp:admin scope.
+        GopherAuthContext with mcp:admin scope.
     """
-    return AuthContext(
+    return GopherAuthContext(
         user_id="admin-user-456",
         scopes="openid profile email mcp:read mcp:admin",
         audience="test-audience",
@@ -98,13 +98,13 @@ def mock_admin_auth_context() -> AuthContext:
 
 
 @pytest.fixture
-def mock_unauthenticated_context() -> AuthContext:
-    """Create a mock unauthenticated AuthContext.
+def mock_unauthenticated_context() -> GopherAuthContext:
+    """Create a mock unauthenticated GopherAuthContext.
 
     Returns:
-        AuthContext with authenticated=False.
+        GopherAuthContext with authenticated=False.
     """
-    return AuthContext(
+    return GopherAuthContext(
         user_id="",
         scopes="",
         audience="",

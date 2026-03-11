@@ -20,7 +20,7 @@ from gopher_mcp_python.ffi.auth.types import (
     TokenPayload,
     get_error_description,
 )
-from gopher_mcp_python.ffi.auth.validation_options import ValidationOptions
+from gopher_mcp_python.ffi.auth.validation_options import GopherValidationOptions
 
 
 # ============================================================================
@@ -30,7 +30,7 @@ from gopher_mcp_python.ffi.auth.validation_options import ValidationOptions
 _auth_initialized: bool = False
 
 
-def init_auth_library() -> bool:
+def gopher_init_auth_library() -> bool:
     """
     Initialize the auth library.
 
@@ -63,7 +63,7 @@ def init_auth_library() -> bool:
     return False
 
 
-def shutdown_auth_library() -> bool:
+def gopher_shutdown_auth_library() -> bool:
     """
     Shutdown the auth library and release resources.
 
@@ -88,7 +88,7 @@ def shutdown_auth_library() -> bool:
     return False
 
 
-def get_auth_library_version() -> Optional[str]:
+def gopher_get_auth_library_version() -> Optional[str]:
     """
     Get the auth library version string.
 
@@ -109,7 +109,7 @@ def get_auth_library_version() -> Optional[str]:
     return None
 
 
-def is_auth_library_initialized() -> bool:
+def gopher_is_auth_library_initialized() -> bool:
     """
     Check if the auth library has been initialized.
 
@@ -124,7 +124,7 @@ def is_auth_library_initialized() -> bool:
 # ============================================================================
 
 
-def generate_www_authenticate_header(
+def gopher_generate_www_authenticate_header(
     realm: str,
     error: str = "",
     description: str = "",
@@ -170,12 +170,12 @@ def generate_www_authenticate_header(
     return None
 
 
-def generate_www_authenticate_header_v2(
+def gopher_generate_www_authenticate_header_v2(
     realm: str,
     resource_metadata_url: str,
     scopes: List[str],
     error: str = "",
-    description: str = "",
+    error_description: str = "",
 ) -> Optional[str]:
     """
     Generate a WWW-Authenticate header with RFC 9728 support.
@@ -185,7 +185,7 @@ def generate_www_authenticate_header_v2(
         resource_metadata_url: URL to the OAuth protected resource metadata.
         scopes: List of required scopes.
         error: Optional error code.
-        description: Optional error description.
+        error_description: Optional error description.
 
     Returns:
         The WWW-Authenticate header value, or None on error.
@@ -205,7 +205,7 @@ def generate_www_authenticate_header_v2(
         resource_metadata_url.encode("utf-8"),
         scopes_str.encode("utf-8"),
         error.encode("utf-8"),
-        description.encode("utf-8"),
+        error_description.encode("utf-8"),
         byref(header_out),
     )
 
@@ -228,7 +228,7 @@ def generate_www_authenticate_header_v2(
 # ============================================================================
 
 
-class AuthClient:
+class GopherAuthClient:
     """
     JWT token validation client.
 
@@ -237,14 +237,14 @@ class AuthClient:
 
     Usage:
         # Using context manager (recommended)
-        with AuthClient("https://auth.example.com/.well-known/jwks.json",
-                        "https://auth.example.com") as client:
+        with GopherAuthClient("https://auth.example.com/.well-known/jwks.json",
+                              "https://auth.example.com") as client:
             result = client.validate_token(token)
             if result.valid:
                 payload = client.extract_payload(token)
 
         # Manual lifecycle management
-        client = AuthClient(jwks_uri, issuer)
+        client = GopherAuthClient(jwks_uri, issuer)
         try:
             result, payload = client.validate_and_extract(token)
         finally:
@@ -272,8 +272,8 @@ class AuthClient:
             raise RuntimeError("Auth functions not available in library")
 
         # Initialize library if needed
-        if not is_auth_library_initialized():
-            if not init_auth_library():
+        if not gopher_is_auth_library_initialized():
+            if not gopher_init_auth_library():
                 raise RuntimeError("Failed to initialize auth library")
 
         funcs = get_auth_functions()
@@ -327,7 +327,7 @@ class AuthClient:
     def validate_token(
         self,
         token: str,
-        options: Optional[ValidationOptions] = None,
+        options: Optional[GopherValidationOptions] = None,
     ) -> ValidationResult:
         """
         Validate a JWT token.
@@ -475,7 +475,7 @@ class AuthClient:
     def validate_and_extract(
         self,
         token: str,
-        options: Optional[ValidationOptions] = None,
+        options: Optional[GopherValidationOptions] = None,
     ) -> Tuple[ValidationResult, Optional[TokenPayload]]:
         """
         Validate a token and extract its payload in one call.
@@ -532,9 +532,9 @@ class AuthClient:
             RuntimeError: If the client has been destroyed.
         """
         if self._destroyed:
-            raise RuntimeError("AuthClient has been destroyed")
+            raise RuntimeError("GopherAuthClient has been destroyed")
 
-    def __enter__(self) -> "AuthClient":
+    def __enter__(self) -> "GopherAuthClient":
         """Enter context manager."""
         return self
 
