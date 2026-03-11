@@ -1,7 +1,6 @@
 """Tests for configuration module."""
 
 import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -68,7 +67,7 @@ class TestParseConfigFile:
     def test_only_comments(self):
         """Test parsing content with only comments."""
         content = "# comment 1\n# comment 2"
-        result = parse_config_file("")
+        result = parse_config_file(content)
         assert result == {}
 
 
@@ -86,11 +85,13 @@ class TestBuildConfig:
 
     def test_custom_values(self):
         """Test custom values override defaults."""
-        config = build_config({
-            "host": "127.0.0.1",
-            "port": "8080",
-            "auth_disabled": "true",
-        })
+        config = build_config(
+            {
+                "host": "127.0.0.1",
+                "port": "8080",
+                "auth_disabled": "true",
+            }
+        )
         assert config.host == "127.0.0.1"
         assert config.port == 8080
 
@@ -102,10 +103,12 @@ class TestBuildConfig:
 
     def test_boolean_type_conversion(self):
         """Test boolean values are converted correctly."""
-        config = build_config({
-            "auth_disabled": "true",
-            "jwks_auto_refresh": "false",
-        })
+        config = build_config(
+            {
+                "auth_disabled": "true",
+                "jwks_auto_refresh": "false",
+            }
+        )
         assert config.auth_disabled is True
         assert config.jwks_auto_refresh is False
 
@@ -116,10 +119,12 @@ class TestBuildConfig:
 
     def test_server_url_custom(self):
         """Test custom server_url."""
-        config = build_config({
-            "server_url": "https://api.example.com",
-            "auth_disabled": "true",
-        })
+        config = build_config(
+            {
+                "server_url": "https://api.example.com",
+                "auth_disabled": "true",
+            }
+        )
         assert config.server_url == "https://api.example.com"
 
 
@@ -128,44 +133,52 @@ class TestEndpointDerivation:
 
     def test_derives_jwks_uri(self):
         """Test jwks_uri is derived from auth_server_url."""
-        config = build_config({
-            "auth_server_url": "https://auth.example.com/realms/test",
-            "client_id": "test-client",
-            "client_secret": "secret",
-        })
+        config = build_config(
+            {
+                "auth_server_url": "https://auth.example.com/realms/test",
+                "client_id": "test-client",
+                "client_secret": "secret",
+            }
+        )
         assert config.jwks_uri == (
             "https://auth.example.com/realms/test/protocol/openid-connect/certs"
         )
 
     def test_derives_token_endpoint(self):
         """Test token_endpoint is derived from auth_server_url."""
-        config = build_config({
-            "auth_server_url": "https://auth.example.com/realms/test",
-            "client_id": "test-client",
-            "client_secret": "secret",
-        })
+        config = build_config(
+            {
+                "auth_server_url": "https://auth.example.com/realms/test",
+                "client_id": "test-client",
+                "client_secret": "secret",
+            }
+        )
         assert config.token_endpoint == (
             "https://auth.example.com/realms/test/protocol/openid-connect/token"
         )
 
     def test_derives_issuer(self):
         """Test issuer is derived from auth_server_url."""
-        config = build_config({
-            "auth_server_url": "https://auth.example.com/realms/test",
-            "client_id": "test-client",
-            "client_secret": "secret",
-        })
+        config = build_config(
+            {
+                "auth_server_url": "https://auth.example.com/realms/test",
+                "client_id": "test-client",
+                "client_secret": "secret",
+            }
+        )
         assert config.issuer == "https://auth.example.com/realms/test"
 
     def test_explicit_values_not_overwritten(self):
         """Test explicit values are not overwritten by derivation."""
-        config = build_config({
-            "auth_server_url": "https://auth.example.com/realms/test",
-            "jwks_uri": "https://custom.example.com/jwks",
-            "issuer": "https://custom-issuer.example.com",
-            "client_id": "test-client",
-            "client_secret": "secret",
-        })
+        config = build_config(
+            {
+                "auth_server_url": "https://auth.example.com/realms/test",
+                "jwks_uri": "https://custom.example.com/jwks",
+                "issuer": "https://custom-issuer.example.com",
+                "client_id": "test-client",
+                "client_secret": "secret",
+            }
+        )
         assert config.jwks_uri == "https://custom.example.com/jwks"
         assert config.issuer == "https://custom-issuer.example.com"
 

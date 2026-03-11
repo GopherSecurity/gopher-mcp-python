@@ -4,10 +4,13 @@ Implements the Model Context Protocol (MCP) JSON-RPC handler
 for tool registration and invocation.
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Callable, TypedDict
+from __future__ import annotations
 
-from flask import Blueprint, Flask, Response, g, jsonify, request
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any, TypedDict
+
+from flask import Blueprint, Flask, Response, jsonify, request
 
 
 class JsonRpcErrorCode:
@@ -238,16 +241,12 @@ class McpHandler:
         request_id = rpc_request.id
 
         try:
-            result = self._dispatch_method(
-                rpc_request.method, rpc_request.params or {}
-            )
+            result = self._dispatch_method(rpc_request.method, rpc_request.params or {})
             return JsonRpcResponse(jsonrpc="2.0", id=request_id, result=result)
         except JsonRpcError as e:
             return JsonRpcResponse(jsonrpc="2.0", id=request_id, error=e)
         except Exception as e:
-            error = JsonRpcError(
-                code=JsonRpcErrorCode.INTERNAL_ERROR, message=str(e)
-            )
+            error = JsonRpcError(code=JsonRpcErrorCode.INTERNAL_ERROR, message=str(e))
             return JsonRpcResponse(jsonrpc="2.0", id=request_id, error=error)
 
     def _parse_request(self, body: Any) -> JsonRpcRequest | JsonRpcError:
@@ -285,9 +284,7 @@ class McpHandler:
             params=params,
         )
 
-    def _dispatch_method(
-        self, method: str, params: dict[str, Any]
-    ) -> Any:
+    def _dispatch_method(self, method: str, params: dict[str, Any]) -> Any:
         """Dispatch a method call to the appropriate handler."""
         if method == "initialize":
             return self._handle_initialize(params)

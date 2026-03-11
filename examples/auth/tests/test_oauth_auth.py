@@ -1,7 +1,6 @@
 """Tests for OAuth authentication middleware."""
 
-import pytest
-from flask import Flask, g
+from flask import Flask
 
 from py_auth_mcp_server.config import create_default_config
 from py_auth_mcp_server.middleware.oauth_auth import OAuthAuthMiddleware, require_auth
@@ -120,11 +119,11 @@ class TestRequiresAuth:
     def test_protected_paths_listed(self):
         """Test protected paths are correctly identified."""
         # This test documents expected protected paths
-        protected_paths = ["/mcp", "/rpc", "/events", "/sse"]
         # Path checking logic is internal, but we verify the class has the method
         config = create_default_config()
         middleware = OAuthAuthMiddleware(None, config)
         assert hasattr(middleware, "requires_auth")
+        # Protected paths: /mcp, /rpc, /events, /sse (documented for reference)
 
 
 class TestSendUnauthorized:
