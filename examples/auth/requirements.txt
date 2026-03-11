@@ -1,0 +1,11 @@
+# Production dependencies
+flask>=3.0.0
+flask-cors>=4.0.0
+gopher-mcp-python
+
+# Development dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.0.0
+ruff>=0.1.0
+mypy>=1.7.0

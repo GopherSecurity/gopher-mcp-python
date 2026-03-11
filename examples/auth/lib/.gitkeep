@@ -1,0 +1,5 @@
+# This directory is for the native gopher-orch library.
+# Place the compiled library file here:
+# - macOS: libgopher-orch.dylib
+# - Linux: libgopher-orch.so
+# - Windows: gopher-orch.dll
