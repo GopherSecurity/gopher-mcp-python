@@ -17,7 +17,7 @@ from gopher_mcp_python.ffi.auth.loader import (
 from gopher_mcp_python.ffi.auth.types import GopherAuthError
 
 
-class ValidationOptions:
+class GopherValidationOptions:
     """
     Configuration options for JWT token validation.
 
@@ -26,12 +26,12 @@ class ValidationOptions:
 
     Usage:
         # Using context manager (recommended)
-        with ValidationOptions() as options:
+        with GopherValidationOptions() as options:
             options.set_scopes(["read", "write"]).set_audience("my-api")
             result = client.validate_token(token, options)
 
         # Manual lifecycle management
-        options = ValidationOptions()
+        options = GopherValidationOptions()
         try:
             options.set_scopes(["read"])
             result = client.validate_token(token, options)
@@ -39,7 +39,7 @@ class ValidationOptions:
             options.destroy()
 
         # Using factory function with defaults
-        options = create_validation_options(clock_skew=60)
+        options = gopher_create_validation_options(clock_skew=60)
     """
 
     def __init__(self) -> None:
@@ -71,7 +71,7 @@ class ValidationOptions:
 
         self._handle = handle
 
-    def set_scopes(self, scopes: List[str]) -> "ValidationOptions":
+    def set_scopes(self, scopes: List[str]) -> "GopherValidationOptions":
         """
         Set the required scopes for token validation.
 
@@ -97,7 +97,7 @@ class ValidationOptions:
 
         return self
 
-    def set_audience(self, audience: str) -> "ValidationOptions":
+    def set_audience(self, audience: str) -> "GopherValidationOptions":
         """
         Set the required audience for token validation.
 
@@ -121,7 +121,7 @@ class ValidationOptions:
 
         return self
 
-    def set_clock_skew(self, seconds: int) -> "ValidationOptions":
+    def set_clock_skew(self, seconds: int) -> "GopherValidationOptions":
         """
         Set the clock skew tolerance for token expiration checks.
 
@@ -192,9 +192,9 @@ class ValidationOptions:
             RuntimeError: If the options have been destroyed.
         """
         if self._destroyed:
-            raise RuntimeError("ValidationOptions has been destroyed")
+            raise RuntimeError("GopherValidationOptions has been destroyed")
 
-    def __enter__(self) -> "ValidationOptions":
+    def __enter__(self) -> "GopherValidationOptions":
         """Enter context manager."""
         return self
 
@@ -207,13 +207,13 @@ class ValidationOptions:
         self.destroy()
 
 
-def create_validation_options(
+def gopher_create_validation_options(
     scopes: Optional[List[str]] = None,
     audience: Optional[str] = None,
     clock_skew: int = 30,
-) -> ValidationOptions:
+) -> GopherValidationOptions:
     """
-    Factory function to create ValidationOptions with common defaults.
+    Factory function to create GopherValidationOptions with common defaults.
 
     Args:
         scopes: Optional list of required scopes.
@@ -221,12 +221,12 @@ def create_validation_options(
         clock_skew: Clock skew tolerance in seconds (default: 30).
 
     Returns:
-        A configured ValidationOptions instance.
+        A configured GopherValidationOptions instance.
 
     Raises:
         RuntimeError: If the library is not loaded or auth is not available.
     """
-    options = ValidationOptions()
+    options = GopherValidationOptions()
 
     if scopes is not None:
         options.set_scopes(scopes)

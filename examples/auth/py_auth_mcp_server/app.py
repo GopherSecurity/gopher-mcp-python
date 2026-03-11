@@ -11,11 +11,11 @@ from flask import Flask
 from flask_cors import CORS
 
 from gopher_mcp_python.ffi.auth import (
-    AuthClient,
-    get_auth_library_version,
-    init_auth_library,
+    GopherAuthClient,
+    gopher_get_auth_library_version,
+    gopher_init_auth_library,
     is_auth_available,
-    shutdown_auth_library,
+    gopher_shutdown_auth_library,
 )
 
 from .config import (
@@ -60,17 +60,17 @@ def create_app(
     app.config["AUTH_SERVER_CONFIG"] = config
 
     # Initialize auth library if auth is enabled
-    auth_client: AuthClient | None = None
+    auth_client: GopherAuthClient | None = None
 
     if not config.auth_disabled:
         if is_auth_available():
             try:
-                init_auth_library()
-                version = get_auth_library_version()
+                gopher_init_auth_library()
+                version = gopher_get_auth_library_version()
                 app.config["AUTH_LIBRARY_VERSION"] = version
 
                 # Create auth client
-                auth_client = AuthClient(config.jwks_uri, config.issuer)
+                auth_client = GopherAuthClient(config.jwks_uri, config.issuer)
 
                 # Set client options
                 if config.jwks_cache_duration > 0:
@@ -152,6 +152,6 @@ def cleanup_app(app: Flask) -> None:
     config = app.config.get("AUTH_SERVER_CONFIG")
     if config and not config.auth_disabled:
         try:
-            shutdown_auth_library()
+            gopher_shutdown_auth_library()
         except Exception:
             pass

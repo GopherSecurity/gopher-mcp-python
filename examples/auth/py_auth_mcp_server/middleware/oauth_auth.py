@@ -13,11 +13,11 @@ from typing import Any
 from flask import Response, g, jsonify, request
 
 from gopher_mcp_python.ffi.auth import (
-    AuthClient,
-    AuthContext,
-    ValidationOptions,
-    create_empty_auth_context,
-    generate_www_authenticate_header_v2,
+    GopherAuthClient,
+    GopherAuthContext,
+    GopherValidationOptions,
+    gopher_create_empty_auth_context,
+    gopher_generate_www_authenticate_header_v2,
 )
 
 from ..config import AuthServerConfig
@@ -31,18 +31,18 @@ class OAuthAuthMiddleware:
     """
 
     def __init__(
-        self, auth_client: AuthClient | None, config: AuthServerConfig
+        self, auth_client: GopherAuthClient | None, config: AuthServerConfig
     ) -> None:
         """Create new OAuth middleware.
 
         Args:
-            auth_client: AuthClient instance for token validation
+            auth_client: GopherAuthClient instance for token validation
                 (None if auth disabled).
             config: Server configuration.
         """
         self.auth_client = auth_client
         self.config = config
-        self._current_auth_context: AuthContext = create_empty_auth_context()
+        self._current_auth_context: GopherAuthContext = gopher_create_empty_auth_context()
 
     def before_request(self) -> Response | None:
         """Flask before_request handler.
@@ -150,7 +150,7 @@ class OAuthAuthMiddleware:
         if self.auth_client is None:
             return False, "Auth client not initialized"
 
-        with ValidationOptions() as options:
+        with GopherValidationOptions() as options:
             options.set_clock_skew(30)
 
             result = self.auth_client.validate_token(token, options)
@@ -162,7 +162,7 @@ class OAuthAuthMiddleware:
             try:
                 payload = self.auth_client.extract_payload(token)
 
-                self._current_auth_context = AuthContext(
+                self._current_auth_context = GopherAuthContext(
                     user_id=payload.subject,
                     scopes=payload.scopes,
                     audience=payload.audience or "",
@@ -171,7 +171,7 @@ class OAuthAuthMiddleware:
                 )
             except Exception:
                 # Payload extraction failed, but token is valid
-                self._current_auth_context = AuthContext(
+                self._current_auth_context = GopherAuthContext(
                     user_id="",
                     scopes="",
                     audience="",
@@ -192,7 +192,7 @@ class OAuthAuthMiddleware:
             Flask Response object.
         """
         try:
-            www_authenticate = generate_www_authenticate_header_v2(
+            www_authenticate = gopher_generate_www_authenticate_header_v2(
                 realm=self.config.server_url,
                 resource_metadata_url=(
                     f"{self.config.server_url}/.well-known/oauth-protected-resource"
@@ -239,7 +239,7 @@ class OAuthAuthMiddleware:
         )
         return response
 
-    def get_auth_context(self) -> AuthContext:
+    def get_auth_context(self) -> GopherAuthContext:
         """Get the current authentication context."""
         return self._current_auth_context
 
