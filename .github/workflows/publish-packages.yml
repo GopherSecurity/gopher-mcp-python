@@ -10,6 +10,8 @@ permissions:
 env:
   # Version is read from pyproject.toml - update with: python scripts/update_version.py <version>
   DRY_RUN: 'false'
+  # gopher-orch version to download native binaries from (may differ from SDK version)
+  GOPHER_ORCH_VERSION: 'v0.1.2'
 
 jobs:
   download-binaries:
@@ -57,7 +59,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GOPHER_ORCH_TOKEN }}
         run: |
           # Download all assets from the private gopher-orch repo
-          gh release download ${{ steps.version.outputs.version_tag }} \
+          # Uses GOPHER_ORCH_VERSION which may differ from SDK version
+          gh release download ${{ env.GOPHER_ORCH_VERSION }} \
             -R GopherSecurity/gopher-orch \
             -D downloads
 
