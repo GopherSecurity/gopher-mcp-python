@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gopher-mcp-python-native-win32-x64"
-version = "0.1.1"
+version = "0.1.2"
 description = "Native library for gopher-mcp-python (Windows x64)"
 readme = "README.md"
 license = {text = "Apache-2.0"}

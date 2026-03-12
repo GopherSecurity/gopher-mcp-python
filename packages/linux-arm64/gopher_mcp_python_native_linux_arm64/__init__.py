@@ -7,7 +7,7 @@ This package contains the native gopher-mcp-python library for Linux on ARM64.
 import os
 from pathlib import Path
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 # Platform identifier
 PLATFORM = "linux"
