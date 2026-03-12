@@ -45,7 +45,7 @@ from gopher_mcp_python.ffi.auth import (
     is_auth_available,
 )
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = [
     # Main classes
