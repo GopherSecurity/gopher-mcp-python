@@ -94,7 +94,7 @@ def _get_platform_package_path() -> Optional[str]:
     if not platform_name:
         return None
 
-    package_name = f"gopher_orch_{platform_name}_{normalized_arch}"
+    package_name = f"gopher_mcp_python_native_{platform_name}_{normalized_arch}"
 
     # Try to find the package in site-packages
     for site_path in sys.path:
