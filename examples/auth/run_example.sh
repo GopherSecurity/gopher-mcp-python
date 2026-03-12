@@ -56,31 +56,59 @@ if ! python3 -c "import flask" 2>/dev/null; then
     pip3 install -r requirements.txt --quiet 2>/dev/null || pip3 install -r requirements.txt
 fi
 
-# Ensure PYTHONPATH includes the parent gopher-mcp-python package
-PARENT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-export PYTHONPATH="${PARENT_DIR}:${PYTHONPATH}"
+# Check if gopher-mcp-python is installed
+if ! python3 -c "import gopher_mcp_python" 2>/dev/null; then
+    echo -e "${YELLOW}Installing gopher-mcp-python...${NC}"
+    pip3 install gopher-mcp-python --quiet 2>/dev/null || pip3 install gopher-mcp-python
+fi
 
-# Copy native library to lib/ if not present
-LIB_DIR="${SCRIPT_DIR}/lib"
-mkdir -p "${LIB_DIR}"
+# Check if native library package is installed and install platform-specific one if not
+if ! python3 -c "from gopher_mcp_python.ffi import get_library_path; get_library_path()" 2>/dev/null; then
+    echo -e "${YELLOW}Installing platform-specific native library...${NC}"
 
-NATIVE_LIB="${PARENT_DIR}/native/lib"
-if [ -d "${NATIVE_LIB}" ]; then
-    # macOS
-    if [ -f "${NATIVE_LIB}/libgopher-orch.dylib" ] && [ ! -f "${LIB_DIR}/libgopher-orch.dylib" ]; then
-        echo -e "${YELLOW}Copying native library to lib/...${NC}"
-        cp -P "${NATIVE_LIB}"/libgopher-orch*.dylib "${LIB_DIR}/" 2>/dev/null || true
-    fi
-    # Linux
-    if [ -f "${NATIVE_LIB}/libgopher-orch.so" ] && [ ! -f "${LIB_DIR}/libgopher-orch.so" ]; then
-        echo -e "${YELLOW}Copying native library to lib/...${NC}"
-        cp -P "${NATIVE_LIB}"/libgopher-orch*.so* "${LIB_DIR}/" 2>/dev/null || true
-    fi
+    # Detect platform and architecture
+    PLATFORM="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    ARCH="$(uname -m)"
+
+    case "${PLATFORM}" in
+        darwin)
+            if [ "${ARCH}" = "arm64" ]; then
+                pip3 install gopher-mcp-python-native-darwin-arm64 --quiet 2>/dev/null || \
+                    pip3 install gopher-mcp-python-native-darwin-arm64
+            else
+                pip3 install gopher-mcp-python-native-darwin-x64 --quiet 2>/dev/null || \
+                    pip3 install gopher-mcp-python-native-darwin-x64
+            fi
+            ;;
+        linux)
+            if [ "${ARCH}" = "aarch64" ] || [ "${ARCH}" = "arm64" ]; then
+                pip3 install gopher-mcp-python-native-linux-arm64 --quiet 2>/dev/null || \
+                    pip3 install gopher-mcp-python-native-linux-arm64
+            else
+                pip3 install gopher-mcp-python-native-linux-x64 --quiet 2>/dev/null || \
+                    pip3 install gopher-mcp-python-native-linux-x64
+            fi
+            ;;
+        msys*|mingw*|cygwin*)
+            if [ "${ARCH}" = "aarch64" ] || [ "${ARCH}" = "arm64" ]; then
+                pip3 install gopher-mcp-python-native-win32-arm64 --quiet 2>/dev/null || \
+                    pip3 install gopher-mcp-python-native-win32-arm64
+            else
+                pip3 install gopher-mcp-python-native-win32-x64 --quiet 2>/dev/null || \
+                    pip3 install gopher-mcp-python-native-win32-x64
+            fi
+            ;;
+        *)
+            echo -e "${RED}Unsupported platform: ${PLATFORM}${NC}"
+            echo "Please manually install the appropriate native library package."
+            exit 1
+            ;;
+    esac
 fi
 
 echo -e "${GREEN}Starting Auth MCP Server...${NC}"
 echo -e "Configuration: ${YELLOW}server.config${NC}"
 echo ""
 
-# Run server with arguments (uses server.config by default)
-exec python3 -m py_auth_mcp_server "$@"
+# Run server with config file and any additional arguments
+exec python3 -m py_auth_mcp_server "${SCRIPT_DIR}/server.config" "$@"

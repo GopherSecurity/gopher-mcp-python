@@ -3,6 +3,20 @@ flask>=3.0.0
 flask-cors>=4.0.0
 gopher-mcp-python
 
+# Platform-specific native libraries (install one based on your platform)
+# macOS Apple Silicon:
+#   pip install gopher-mcp-python-native-darwin-arm64
+# macOS Intel:
+#   pip install gopher-mcp-python-native-darwin-x64
+# Linux ARM64:
+#   pip install gopher-mcp-python-native-linux-arm64
+# Linux x64:
+#   pip install gopher-mcp-python-native-linux-x64
+# Windows ARM64:
+#   pip install gopher-mcp-python-native-win32-arm64
+# Windows x64:
+#   pip install gopher-mcp-python-native-win32-x64
+
 # Development dependencies
 pytest>=7.4.0
 pytest-cov>=4.1.0
