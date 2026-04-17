@@ -423,12 +423,22 @@ class GopherAuthClient:
                 if get_exp(payload_handle, byref(exp_value)) == GopherAuthError.SUCCESS:
                     expiration = exp_value.value
 
+            # Extract extended claims via payload_get_claim
+            email = self._get_payload_claim(payload_handle, "email")
+            name_val = self._get_payload_claim(payload_handle, "name")
+            organization_id = self._get_payload_claim(payload_handle, "organization_id")
+            server_id = self._get_payload_claim(payload_handle, "server_id")
+
             return TokenPayload(
                 subject=subject or "",
                 scopes=scopes or "",
                 audience=audience,
                 expiration=expiration,
                 issuer=issuer,
+                email=email,
+                name=name_val,
+                organization_id=organization_id,
+                server_id=server_id,
             )
         finally:
             # Clean up payload handle
@@ -465,6 +475,45 @@ class GopherAuthClient:
         if value_out.value:
             value = value_out.value.decode("utf-8")
             # Free the allocated string
+            free_string = funcs.get("free_string")
+            if free_string:
+                free_string(value_out)
+            return value
+
+        return None
+
+    def _get_payload_claim(
+        self,
+        payload_handle: c_void_p,
+        claim_name: str,
+    ) -> Optional[str]:
+        """
+        Get a custom claim from payload by name.
+
+        Args:
+            payload_handle: The payload handle.
+            claim_name: The claim name to extract.
+
+        Returns:
+            The claim value, or None if not present.
+        """
+        funcs = get_auth_functions()
+        get_claim = funcs.get("payload_get_claim")
+        if get_claim is None:
+            return None
+
+        value_out = c_char_p()
+        result = get_claim(
+            payload_handle,
+            claim_name.encode("utf-8"),
+            byref(value_out),
+        )
+
+        if result != GopherAuthError.SUCCESS:
+            return None
+
+        if value_out.value:
+            value = value_out.value.decode("utf-8")
             free_string = funcs.get("free_string")
             if free_string:
                 free_string(value_out)

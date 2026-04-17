@@ -6,7 +6,7 @@ These types mirror the C API from gopher-orch/include/gopher/orch/auth/auth_c_ap
 
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 class GopherAuthError(IntEnum):
@@ -106,6 +106,11 @@ class TokenPayload:
     audience: Optional[str] = None
     expiration: Optional[int] = None
     issuer: Optional[str] = None
+    email: Optional[str] = None
+    name: Optional[str] = None
+    organization_id: Optional[str] = None
+    server_id: Optional[str] = None
+    claims: Optional[Dict[str, str]] = None
 
 
 @dataclass
@@ -117,6 +122,11 @@ class GopherAuthContext:
     audience: str
     token_expiry: int
     authenticated: bool
+    email: Optional[str] = None
+    name: Optional[str] = None
+    organization_id: Optional[str] = None
+    server_id: Optional[str] = None
+    raw_token: Optional[str] = None
 
 
 def gopher_create_empty_auth_context() -> GopherAuthContext:
