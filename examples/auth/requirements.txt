@@ -1,6 +1,5 @@
 # Production dependencies
-flask>=3.0.0
-flask-cors>=4.0.0
+mcp>=1.0.0
 gopher-mcp-python
 
 # Platform-specific native libraries (install one based on your platform)
@@ -12,14 +11,6 @@ gopher-mcp-python
 #   pip install gopher-mcp-python-native-linux-arm64
 # Linux x64:
 #   pip install gopher-mcp-python-native-linux-x64
-# Windows ARM64:
-#   pip install gopher-mcp-python-native-win32-arm64
-# Windows x64:
-#   pip install gopher-mcp-python-native-win32-x64
 
 # Development dependencies
 pytest>=7.4.0
-pytest-cov>=4.1.0
-black>=23.0.0
-ruff>=0.1.0
-mypy>=1.7.0
