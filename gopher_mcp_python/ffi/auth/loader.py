@@ -15,6 +15,7 @@ import sys
 from ctypes import (
     POINTER,
     Structure,
+    byref,
     c_bool,
     c_char_p,
     c_int,
@@ -512,3 +513,159 @@ def get_auth_functions() -> Dict[str, Any]:
         "generate_www_authenticate": _get_function("gopher_auth_generate_www_authenticate"),
         "generate_www_authenticate_v2": _get_function("gopher_auth_generate_www_authenticate_v2"),
     }
+
+
+# ============================================================================
+# High-level wrapper functions
+# ============================================================================
+
+
+def gopher_auth_validate_idp(exchange_idps_csv: str, requested_issuer: str) -> bool:
+    """Check if IDP alias is in the comma-separated whitelist."""
+    funcs = get_auth_functions()
+    fn = funcs.get("validate_idp")
+    if not fn:
+        return False
+    out = c_bool(False)
+    fn(exchange_idps_csv.encode("utf-8"), requested_issuer.encode("utf-8"), byref(out))
+    return out.value
+
+
+def gopher_auth_validate_all_scopes(scopes: str, required_scopes: str) -> bool:
+    """Check if ALL required scopes are present (AND logic)."""
+    funcs = get_auth_functions()
+    fn = funcs.get("validate_all_scopes")
+    if not fn:
+        return False
+    out = c_bool(False)
+    fn(scopes.encode("utf-8"), required_scopes.encode("utf-8"), byref(out))
+    return out.value
+
+
+def gopher_auth_validate_any_scopes(scopes: str, required_scopes: str) -> bool:
+    """Check if ANY required scope is present (OR logic)."""
+    funcs = get_auth_functions()
+    fn = funcs.get("validate_any_scopes")
+    if not fn:
+        return False
+    out = c_bool(False)
+    fn(scopes.encode("utf-8"), required_scopes.encode("utf-8"), byref(out))
+    return out.value
+
+
+def gopher_auth_url_encode(input_str: str) -> str:
+    """RFC 3986 percent-encode a string."""
+    funcs = get_auth_functions()
+    fn = funcs.get("url_encode")
+    if not fn:
+        return ""
+    out = c_char_p()
+    fn(input_str.encode("utf-8"), byref(out))
+    return out.value.decode("utf-8") if out.value else ""
+
+
+def gopher_auth_url_decode(input_str: str) -> str:
+    """Decode a percent-encoded string."""
+    funcs = get_auth_functions()
+    fn = funcs.get("url_decode")
+    if not fn:
+        return ""
+    out = c_char_p()
+    fn(input_str.encode("utf-8"), byref(out))
+    return out.value.decode("utf-8") if out.value else ""
+
+
+def gopher_auth_build_protected_resource_metadata(
+    resource_url: str, auth_server_url: str, scopes: Optional[str] = None
+) -> dict:
+    """Build RFC 9728 Protected Resource Metadata."""
+    import json
+    funcs = get_auth_functions()
+    fn = funcs.get("metadata_build_protected_resource")
+    if not fn:
+        return {}
+    out = c_char_p()
+    fn(resource_url.encode("utf-8"), auth_server_url.encode("utf-8"),
+       scopes.encode("utf-8") if scopes else None, byref(out))
+    if out.value:
+        return json.loads(out.value.decode("utf-8"))
+    return {}
+
+
+def gopher_auth_build_oauth_server_metadata(
+    issuer: str, auth_endpoint: str, token_endpoint: str,
+    registration_endpoint: Optional[str] = None, jwks_uri: Optional[str] = None,
+    scopes: Optional[str] = None
+) -> dict:
+    """Build RFC 8414 Authorization Server Metadata."""
+    import json
+    funcs = get_auth_functions()
+    fn = funcs.get("metadata_build_oauth_server")
+    if not fn:
+        return {}
+    out = c_char_p()
+    fn(issuer.encode("utf-8"), auth_endpoint.encode("utf-8"), token_endpoint.encode("utf-8"),
+       registration_endpoint.encode("utf-8") if registration_endpoint else None,
+       jwks_uri.encode("utf-8") if jwks_uri else None,
+       scopes.encode("utf-8") if scopes else None, byref(out))
+    if out.value:
+        return json.loads(out.value.decode("utf-8"))
+    return {}
+
+
+def gopher_auth_build_oidc_discovery_metadata(
+    issuer: str, auth_endpoint: str, token_endpoint: str,
+    jwks_uri: Optional[str] = None, registration_endpoint: Optional[str] = None,
+    scopes: Optional[str] = None, userinfo_endpoint: Optional[str] = None,
+    end_session_endpoint: Optional[str] = None
+) -> dict:
+    """Build OpenID Connect Discovery Metadata."""
+    import json
+    funcs = get_auth_functions()
+    fn = funcs.get("metadata_build_oidc_discovery")
+    if not fn:
+        return {}
+    out = c_char_p()
+    fn(issuer.encode("utf-8"), auth_endpoint.encode("utf-8"), token_endpoint.encode("utf-8"),
+       jwks_uri.encode("utf-8") if jwks_uri else None,
+       registration_endpoint.encode("utf-8") if registration_endpoint else None,
+       scopes.encode("utf-8") if scopes else None,
+       userinfo_endpoint.encode("utf-8") if userinfo_endpoint else None,
+       end_session_endpoint.encode("utf-8") if end_session_endpoint else None,
+       byref(out))
+    if out.value:
+        return json.loads(out.value.decode("utf-8"))
+    return {}
+
+
+def gopher_auth_extract_bearer_token(http_data: str) -> Optional[str]:
+    """Extract bearer token from raw HTTP request data."""
+    funcs = get_auth_functions()
+    fn = funcs.get("http_extract_bearer_token")
+    if not fn:
+        return None
+    out = c_char_p()
+    fn(http_data.encode("utf-8"), byref(out))
+    return out.value.decode("utf-8") if out.value else None
+
+
+def gopher_auth_extract_method(http_data: str) -> Optional[str]:
+    """Extract HTTP method from request line."""
+    funcs = get_auth_functions()
+    fn = funcs.get("http_extract_method")
+    if not fn:
+        return None
+    out = c_char_p()
+    fn(http_data.encode("utf-8"), byref(out))
+    return out.value.decode("utf-8") if out.value else None
+
+
+def gopher_auth_extract_path(http_data: str) -> Optional[str]:
+    """Extract path from HTTP request line (without query string)."""
+    funcs = get_auth_functions()
+    fn = funcs.get("http_extract_path")
+    if not fn:
+        return None
+    out = c_char_p()
+    fn(http_data.encode("utf-8"), byref(out))
+    return out.value.decode("utf-8") if out.value else None
