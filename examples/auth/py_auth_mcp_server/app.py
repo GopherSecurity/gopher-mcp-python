@@ -168,6 +168,7 @@ def create_app(config_path: str | None = None) -> tuple[Starlette, GopherAuth, i
 
     app = Starlette(
         routes=routes,
+        lifespan=mcp_app.router.lifespan_context,
         middleware=[
             Middleware(
                 CORSMiddleware,
