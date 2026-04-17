@@ -101,6 +101,22 @@ if [ ! -d "${NATIVE_DIR}" ]; then
 fi
 
 # Step 3: Build gopher-orch native library
+# Skip build if native lib already has the required auth symbols
+SKIP_NATIVE_BUILD=false
+EXISTING_LIB="${SCRIPT_DIR}/native/lib/libgopher-orch.dylib"
+if [ ! -f "${EXISTING_LIB}" ]; then
+    EXISTING_LIB="${SCRIPT_DIR}/native/lib/libgopher-orch.so"
+fi
+
+if [ -f "${EXISTING_LIB}" ]; then
+    if nm -gU "${EXISTING_LIB}" 2>/dev/null | grep -q "gopher_auth_config_create"; then
+        echo -e "${GREEN}✓ Native library already has auth symbols — skipping rebuild${NC}"
+        echo -e "  (To force rebuild, delete native/lib/ first)"
+        SKIP_NATIVE_BUILD=true
+    fi
+fi
+
+if [ "${SKIP_NATIVE_BUILD}" = false ]; then
 echo -e "${YELLOW}Step 2: Building gopher-orch native library...${NC}"
 cd "${NATIVE_DIR}"
 
@@ -152,6 +168,8 @@ cd "${SCRIPT_DIR}"
 
 echo -e "${GREEN}✓ Native library built successfully${NC}"
 echo ""
+
+fi  # end SKIP_NATIVE_BUILD
 
 # Step 4: Verify build artifacts
 echo -e "${YELLOW}Step 3: Verifying native build artifacts...${NC}"
@@ -218,6 +236,13 @@ echo -e "${YELLOW}Step 5: Running tests...${NC}"
 
 # Use PYTHONPATH to ensure gopher_orch module can be found even without editable install
 export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH}"
+
+# Use the freshly built native library (not a stale pip-installed version)
+export GOPHER_ORCH_LIBRARY_PATH="${NATIVE_LIB_DIR}/libgopher-orch.dylib"
+if [ ! -f "${GOPHER_ORCH_LIBRARY_PATH}" ]; then
+    # Try .so for Linux
+    export GOPHER_ORCH_LIBRARY_PATH="${NATIVE_LIB_DIR}/libgopher-orch.so"
+fi
 
 # Try to run pytest, handling different installation scenarios
 if python3 -c "import pytest" 2>/dev/null; then
