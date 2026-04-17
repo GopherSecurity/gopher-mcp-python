@@ -28,9 +28,14 @@ def create_server(config_path: str | None = None) -> tuple[FastMCP, GopherAuth]:
     auth = GopherAuth(config_path=config_path)
     auth.initialize()
 
+    port = auth.native_config.get_int("port") if auth.native_config else 3001
+    host = auth.native_config.get_string("host") if auth.native_config else "0.0.0.0"
+
     # Create MCP server with FastMCP
     mcp = FastMCP(
         "py-auth-mcp-server",
+        host=host,
+        port=port,
         json_response=True,
     )
 
@@ -83,8 +88,8 @@ def main() -> None:
 
     mcp, auth = create_server(config_path)
 
-    port = auth.native_config.get_int("port") if auth.native_config else 3001
-    host = auth.native_config.get_string("host") if auth.native_config else "0.0.0.0"
+    port = mcp.settings.port
+    host = mcp.settings.host
 
     print(f"Server: http://{host}:{port}")
     print(f"MCP: http://{host}:{port}/mcp")
@@ -102,11 +107,7 @@ def main() -> None:
     signal.signal(signal.SIGTERM, shutdown_handler)
 
     # Run with Streamable HTTP transport
-    mcp.run(
-        transport="streamable-http",
-        host=host,
-        port=port,
-    )
+    mcp.run(transport="streamable-http")
 
 
 if __name__ == "__main__":
