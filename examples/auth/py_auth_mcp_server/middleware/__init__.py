@@ -1,8 +1,1 @@
-"""OAuth middleware for request authentication."""
-
-from .oauth_auth import OAuthAuthMiddleware, require_auth
-
-__all__ = [
-    "OAuthAuthMiddleware",
-    "require_auth",
-]
+"""OAuth middleware — now handled by gopher_mcp_python.auth module."""
