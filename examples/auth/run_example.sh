@@ -26,27 +26,41 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     exit 0
 fi
 
-# Check Python 3.10+
-if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}Error: Python 3 not found${NC}"
+# Find Python 3.10+ (try versioned first, then generic python3)
+PYTHON=""
+for cmd in python3.13 python3.12 python3.11 python3.10; do
+    if command -v "$cmd" &> /dev/null; then
+        PYTHON="$cmd"
+        break
+    fi
+done
+
+if [ -z "$PYTHON" ]; then
+    if command -v python3 &> /dev/null; then
+        PY_MINOR=$(python3 -c "import sys; print(sys.version_info.minor)")
+        if [ "$PY_MINOR" -ge 10 ]; then
+            PYTHON="python3"
+        fi
+    fi
+fi
+
+if [ -z "$PYTHON" ]; then
+    echo -e "${RED}Error: Python 3.10+ required${NC}"
+    echo "Install with: brew install python@3.12"
     exit 1
 fi
 
-PY_VERSION=$(python3 -c "import sys; print(sys.version_info.minor)")
-if [ "$PY_VERSION" -lt 10 ]; then
-    echo -e "${RED}Error: Python 3.10+ required (found 3.${PY_VERSION})${NC}"
-    exit 1
-fi
+echo -e "Using: ${YELLOW}$($PYTHON --version)${NC}"
 
 # Check dependencies
-if ! python3 -c "import mcp" 2>/dev/null; then
+if ! $PYTHON -c "import mcp" 2>/dev/null; then
     echo -e "${YELLOW}Installing mcp SDK...${NC}"
-    pip3 install "mcp>=1.0.0"
+    $PYTHON -m pip install "mcp>=1.0.0"
 fi
 
-if ! python3 -c "import gopher_mcp_python" 2>/dev/null; then
+if ! $PYTHON -c "import gopher_mcp_python" 2>/dev/null; then
     echo -e "${YELLOW}Installing gopher-mcp-python...${NC}"
-    pip3 install gopher-mcp-python
+    $PYTHON -m pip install -e "${SCRIPT_DIR}/../.."
 fi
 
 echo -e "${GREEN}Starting Auth MCP Server (Streamable HTTP)...${NC}"
@@ -55,4 +69,4 @@ echo ""
 
 # Run server
 CONFIG="${1:-${SCRIPT_DIR}/server.config}"
-exec python3 -m py_auth_mcp_server "$CONFIG"
+exec $PYTHON -m py_auth_mcp_server "$CONFIG"
