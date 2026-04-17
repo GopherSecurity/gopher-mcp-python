@@ -12,7 +12,9 @@ import sys
 import time
 from pathlib import Path
 
+import uvicorn
 from mcp.server.fastmcp import FastMCP
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 
@@ -188,7 +190,17 @@ def main() -> None:
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
 
-    mcp.run(transport="streamable-http")
+    # Get the Starlette app and add CORS middleware
+    app = mcp.streamable_http_app()
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["mcp-session-id", "Mcp-Session-Id"],
+    )
+
+    uvicorn.run(app, host=mcp.settings.host, port=mcp.settings.port)
 
 
 if __name__ == "__main__":
