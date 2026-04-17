@@ -13,6 +13,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="${SCRIPT_DIR}/.venv"
 cd "${SCRIPT_DIR}"
 
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
@@ -22,11 +23,12 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "  ./run_example.sh                 Run using server.config"
     echo "  ./run_example.sh /path/config    Run with custom config"
     echo ""
-    echo "Requires: Python 3.10+, mcp>=1.0.0, gopher-mcp-python"
+    echo "Requires: Python 3.10+"
+    echo "Dependencies installed automatically in .venv/"
     exit 0
 fi
 
-# Find Python 3.10+ (try versioned first, then generic python3)
+# Find Python 3.10+
 PYTHON=""
 for cmd in python3.13 python3.12 python3.11 python3.10; do
     if command -v "$cmd" &> /dev/null; then
@@ -52,15 +54,20 @@ fi
 
 echo -e "Using: ${YELLOW}$($PYTHON --version)${NC}"
 
-# Check dependencies
-if ! $PYTHON -c "import mcp" 2>/dev/null; then
-    echo -e "${YELLOW}Installing mcp SDK...${NC}"
-    $PYTHON -m pip install "mcp>=1.0.0"
+# Create virtual environment if it doesn't exist
+if [ ! -d "${VENV_DIR}" ]; then
+    echo -e "${YELLOW}Creating virtual environment...${NC}"
+    $PYTHON -m venv "${VENV_DIR}"
 fi
 
-if ! $PYTHON -c "import gopher_mcp_python" 2>/dev/null; then
-    echo -e "${YELLOW}Installing gopher-mcp-python...${NC}"
-    $PYTHON -m pip install -e "${SCRIPT_DIR}/../.."
+# Activate virtual environment
+source "${VENV_DIR}/bin/activate"
+
+# Install dependencies if needed
+if ! python -c "import mcp" 2>/dev/null; then
+    echo -e "${YELLOW}Installing dependencies...${NC}"
+    pip install --quiet "mcp>=1.0.0"
+    pip install --quiet -e "${SCRIPT_DIR}/../.."
 fi
 
 echo -e "${GREEN}Starting Auth MCP Server (Streamable HTTP)...${NC}"
@@ -69,4 +76,4 @@ echo ""
 
 # Run server
 CONFIG="${1:-${SCRIPT_DIR}/server.config}"
-exec $PYTHON -m py_auth_mcp_server "$CONFIG"
+exec python -m py_auth_mcp_server "$CONFIG"
