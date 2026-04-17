@@ -258,6 +258,7 @@ _FUNCTION_SPECS = [
     ("gopher_auth_payload_get_expiration", [c_void_p, POINTER(c_int64)], c_int32),
     ("gopher_auth_payload_get_issuer", [c_void_p, POINTER(c_char_p)], c_int32),
     ("gopher_auth_payload_destroy", [c_void_p], c_int32),
+    ("gopher_auth_payload_get_claim", [c_void_p, c_char_p, POINTER(c_char_p)], c_int32),
     # Utility
     ("gopher_auth_free_string", [c_char_p], None),
     ("gopher_auth_generate_www_authenticate", [c_char_p, c_char_p, c_char_p, POINTER(c_char_p)], c_int32),
@@ -396,6 +397,7 @@ def get_auth_functions() -> Dict[str, Any]:
         "payload_get_audience": _get_function("gopher_auth_payload_get_audience"),
         "payload_get_expiration": _get_function("gopher_auth_payload_get_expiration"),
         "payload_get_issuer": _get_function("gopher_auth_payload_get_issuer"),
+        "payload_get_claim": _get_function("gopher_auth_payload_get_claim"),
         "payload_destroy": _get_function("gopher_auth_payload_destroy"),
         # Utility
         "free_string": _get_function("gopher_auth_free_string"),
