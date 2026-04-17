@@ -1,22 +1,25 @@
-"""MCP Server using FastMCP with Streamable HTTP transport.
+"""MCP Server using Server + StreamableHTTP transport.
 
-Mirrors the JS auth example pattern using the official Python MCP SDK.
-OAuth discovery endpoints registered via mcp.custom_route().
+Follows the official Python MCP SDK pattern (simple-streamablehttp example)
+with GopherAuth for OAuth discovery endpoints.
 """
 
 from __future__ import annotations
 
-import json
 import signal
 import sys
 import time
 from pathlib import Path
 
 import uvicorn
-from mcp.server.fastmcp import FastMCP
+from mcp import types
+from mcp.server import Server
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
+from starlette.routing import Mount, Route
 
 from gopher_mcp_python.auth import GopherAuth
 from gopher_mcp_python.ffi.auth.loader import (
@@ -27,8 +30,10 @@ from gopher_mcp_python.ffi.auth.loader import (
 )
 
 
-def create_server(config_path: str | None = None) -> tuple[FastMCP, GopherAuth]:
-    """Create MCP server and GopherAuth instance."""
+def create_app(config_path: str | None = None) -> tuple[Starlette, GopherAuth, int, str]:
+    """Create the Starlette ASGI app with MCP + OAuth routes."""
+
+    # Initialize GopherAuth
     auth = GopherAuth(config_path=config_path)
     auth.initialize()
 
@@ -45,77 +50,83 @@ def create_server(config_path: str | None = None) -> tuple[FastMCP, GopherAuth]:
     client_id = cfg.get_string("client_id") if cfg else ""
     client_secret = cfg.get_string("client_secret") if cfg else ""
 
-    mcp = FastMCP(
+    # ── MCP Server ─────────────────────────────────────────────────
+
+    async def handle_list_tools(ctx, params):
+        return types.ListToolsResult(tools=[
+            types.Tool(name="get-weather", description="Get current weather for a city",
+                       inputSchema={"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}),
+            types.Tool(name="get-forecast", description="Get 5-day forecast (requires mcp:read)",
+                       inputSchema={"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}),
+            types.Tool(name="get-weather-alerts", description="Get weather alerts (requires mcp:admin)",
+                       inputSchema={"type": "object", "properties": {"region": {"type": "string"}}, "required": ["region"]}),
+        ])
+
+    async def handle_call_tool(ctx, params):
+        name = params.name
+        args = params.arguments or {}
+        if name == "get-weather":
+            city = args.get("city", "Unknown")
+            h = sum(ord(c) for c in city)
+            conds = ["Sunny", "Cloudy", "Rainy", "Partly Cloudy", "Windy"]
+            text = f"Weather in {city}: {10+h%26}C, {conds[h%len(conds)]}, Humidity: {40+h%40}%"
+        elif name == "get-forecast":
+            city = args.get("city", "Unknown")
+            h = sum(ord(c) for c in city)
+            conds = ["Sunny", "Cloudy", "Rainy", "Partly Cloudy", "Windy"]
+            lines = [f"{d}: {10+((h+i*7)%26)+5}C/{10+((h+i*7)%26)-5}C {conds[(h+i)%len(conds)]}"
+                     for i, d in enumerate(["Today", "Tomorrow", "Day 3", "Day 4", "Day 5"])]
+            text = f"5-Day Forecast for {city}:\n" + "\n".join(lines)
+        elif name == "get-weather-alerts":
+            region = args.get("region", "Unknown")
+            h = sum(ord(c) for c in region)
+            text = (f"Alert for {region}: Heat Warning" if h % 3 == 0
+                    else f"Alerts for {region}: Storm Watch, Wind Advisory" if h % 3 == 1
+                    else f"No active alerts for {region}")
+        else:
+            text = f"Unknown tool: {name}"
+        return types.CallToolResult(content=[types.TextContent(type="text", text=text)])
+
+    mcp_server = Server(
         "py-auth-mcp-server",
-        host=host,
-        port=port,
-        json_response=True,
+        on_list_tools=handle_list_tools,
+        on_call_tool=handle_call_tool,
     )
 
-    # ── Weather Tools ──────────────────────────────────────────────
+    # Get the StreamableHTTP Starlette app
+    mcp_app = mcp_server.streamable_http_app(json_response=True)
 
-    @mcp.tool()
-    def get_weather(city: str) -> str:
-        """Get current weather for a city. No auth required."""
-        h = sum(ord(c) for c in city)
-        conds = ["Sunny", "Cloudy", "Rainy", "Partly Cloudy", "Windy"]
-        return f"Weather in {city}: {10 + h % 26}C, {conds[h % len(conds)]}, Humidity: {40 + h % 40}%"
+    # ── OAuth Discovery Routes ─────────────────────────────────────
 
-    @mcp.tool()
-    def get_forecast(city: str) -> str:
-        """Get 5-day forecast. Requires mcp:read scope."""
-        h = sum(ord(c) for c in city)
-        conds = ["Sunny", "Cloudy", "Rainy", "Partly Cloudy", "Windy"]
-        lines = [f"{d}: {10+((h+i*7)%26)+5}C/{10+((h+i*7)%26)-5}C {conds[(h+i)%len(conds)]}"
-                 for i, d in enumerate(["Today", "Tomorrow", "Day 3", "Day 4", "Day 5"])]
-        return f"5-Day Forecast for {city}:\n" + "\n".join(lines)
-
-    @mcp.tool()
-    def get_weather_alerts(region: str) -> str:
-        """Get weather alerts. Requires mcp:admin scope."""
-        h = sum(ord(c) for c in region)
-        if h % 3 == 0:
-            return f"Alert for {region}: Heat Warning"
-        elif h % 3 == 1:
-            return f"Alerts for {region}: Storm Watch, Wind Advisory"
-        return f"No active alerts for {region}"
-
-    # ── OAuth Discovery Endpoints ──────────────────────────────────
-
-    def _cors_headers() -> dict:
+    def _cors() -> dict:
         return {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
             "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, Mcp-Session-Id",
             "Access-Control-Expose-Headers": "WWW-Authenticate, Mcp-Session-Id",
-            "Access-Control-Max-Age": "86400",
         }
 
-    @mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET", "OPTIONS"])
-    @mcp.custom_route("/.well-known/oauth-protected-resource/mcp", methods=["GET", "OPTIONS"])
     async def protected_resource(request: Request) -> Response:
         if request.method == "OPTIONS":
-            return Response(status_code=204, headers=_cors_headers())
+            return Response(status_code=204, headers=_cors())
         meta = gopher_auth_build_protected_resource_metadata(
             f"{server_url}/mcp", server_url, scopes or None)
-        return JSONResponse(meta, headers=_cors_headers())
+        return JSONResponse(meta, headers=_cors())
 
-    @mcp.custom_route("/.well-known/oauth-authorization-server", methods=["GET", "OPTIONS"])
-    async def auth_server_metadata(request: Request) -> Response:
+    async def auth_server_meta(request: Request) -> Response:
         if request.method == "OPTIONS":
-            return Response(status_code=204, headers=_cors_headers())
+            return Response(status_code=204, headers=_cors())
         meta = gopher_auth_build_oauth_server_metadata(
             issuer, oauth_authorize_url or f"{server_url}/oauth/authorize",
             oauth_token_url or f"{server_url}/oauth/token",
             f"{server_url}/oauth/register", jwks_uri or None, scopes or None)
         if auth_server_url:
             meta["end_session_endpoint"] = f"{auth_server_url}/protocol/openid-connect/logout"
-        return JSONResponse(meta, headers=_cors_headers())
+        return JSONResponse(meta, headers=_cors())
 
-    @mcp.custom_route("/.well-known/openid-configuration", methods=["GET", "OPTIONS"])
     async def oidc_discovery(request: Request) -> Response:
         if request.method == "OPTIONS":
-            return Response(status_code=204, headers=_cors_headers())
+            return Response(status_code=204, headers=_cors())
         userinfo = f"{auth_server_url}/protocol/openid-connect/userinfo" if auth_server_url else None
         end_session = f"{auth_server_url}/protocol/openid-connect/logout" if auth_server_url else None
         meta = gopher_auth_build_oidc_discovery_metadata(
@@ -123,12 +134,11 @@ def create_server(config_path: str | None = None) -> tuple[FastMCP, GopherAuth]:
             oauth_token_url or f"{server_url}/oauth/token",
             jwks_uri or None, f"{server_url}/oauth/register",
             scopes or None, userinfo, end_session)
-        return JSONResponse(meta, headers=_cors_headers())
+        return JSONResponse(meta, headers=_cors())
 
-    @mcp.custom_route("/oauth/authorize", methods=["GET", "OPTIONS"])
     async def oauth_authorize(request: Request) -> Response:
         if request.method == "OPTIONS":
-            return Response(status_code=204, headers=_cors_headers())
+            return Response(status_code=204, headers=_cors())
         q = request.query_params
         target = oauth_authorize_url or f"{auth_server_url}/protocol/openid-connect/auth"
         url = f"{target}?client_id={gopher_auth_url_encode(q.get('client_id', ''))}"
@@ -139,12 +149,11 @@ def create_server(config_path: str | None = None) -> tuple[FastMCP, GopherAuth]:
             url += f"&code_challenge_method={q['code_challenge_method']}"
         return RedirectResponse(url, status_code=302)
 
-    @mcp.custom_route("/oauth/register", methods=["POST", "OPTIONS"])
     async def oauth_register(request: Request) -> Response:
         if request.method == "OPTIONS":
-            return Response(status_code=204, headers=_cors_headers())
-        body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
-        resp = {
+            return Response(status_code=204, headers=_cors())
+        body = await request.json() if "json" in (request.headers.get("content-type") or "") else {}
+        return JSONResponse({
             "client_id": client_id,
             **({"client_secret": client_secret} if client_secret else {}),
             "client_id_issued_at": int(time.time()),
@@ -153,19 +162,42 @@ def create_server(config_path: str | None = None) -> tuple[FastMCP, GopherAuth]:
             "grant_types": ["authorization_code", "refresh_token"],
             "response_types": ["code"],
             "token_endpoint_auth_method": "client_secret_post" if client_secret else "none",
-        }
-        return JSONResponse(resp, status_code=201, headers=_cors_headers())
+        }, status_code=201, headers=_cors())
 
-    @mcp.custom_route("/health", methods=["GET"])
     async def health(request: Request) -> Response:
-        return JSONResponse({"status": "healthy", "service": "py-auth-mcp-server",
-                            "timestamp": int(time.time())})
+        return JSONResponse({"status": "healthy", "timestamp": int(time.time())})
 
-    return mcp, auth
+    # ── Starlette App (OAuth routes + MCP mount) ───────────────────
+
+    routes = [
+        Route("/.well-known/oauth-protected-resource", protected_resource, methods=["GET", "OPTIONS"]),
+        Route("/.well-known/oauth-protected-resource/mcp", protected_resource, methods=["GET", "OPTIONS"]),
+        Route("/.well-known/oauth-authorization-server", auth_server_meta, methods=["GET", "OPTIONS"]),
+        Route("/.well-known/openid-configuration", oidc_discovery, methods=["GET", "OPTIONS"]),
+        Route("/oauth/authorize", oauth_authorize, methods=["GET", "OPTIONS"]),
+        Route("/oauth/register", oauth_register, methods=["POST", "OPTIONS"]),
+        Route("/health", health, methods=["GET"]),
+        Mount("/mcp", app=mcp_app),
+    ]
+
+    app = Starlette(
+        routes=routes,
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=["*"],
+                allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+                allow_headers=["*"],
+                expose_headers=["Mcp-Session-Id"],
+            ),
+        ],
+    )
+
+    return app, auth, port, host
 
 
 def main() -> None:
-    """Run the MCP server with Streamable HTTP transport."""
+    """Run the MCP server."""
     config_path = sys.argv[1] if len(sys.argv) > 1 else str(
         Path(__file__).parent.parent / "server.config"
     )
@@ -174,10 +206,10 @@ def main() -> None:
     print("   Python Auth MCP Server")
     print("========================================")
 
-    mcp, auth = create_server(config_path)
+    app, auth, port, host = create_app(config_path)
 
-    print(f"Server: http://{mcp.settings.host}:{mcp.settings.port}")
-    print(f"MCP: http://{mcp.settings.host}:{mcp.settings.port}/mcp")
+    print(f"Server: http://{host}:{port}")
+    print(f"MCP: http://{host}:{port}/mcp")
     print(f"Config: {config_path}")
     print(f"Auth: {'DISABLED' if auth.is_disabled else 'ENABLED'}")
     print()
@@ -190,17 +222,7 @@ def main() -> None:
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
 
-    # Get the Starlette app and add CORS middleware
-    app = mcp.streamable_http_app()
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["mcp-session-id", "Mcp-Session-Id"],
-    )
-
-    uvicorn.run(app, host=mcp.settings.host, port=mcp.settings.port)
+    uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":
