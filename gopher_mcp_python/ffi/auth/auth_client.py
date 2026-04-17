@@ -564,6 +564,11 @@ class GopherAuthClient:
         self._handle = None
         self._destroyed = True
 
+    def get_handle(self) -> c_void_p:
+        """Get the native handle (for internal use by auto-refresh)."""
+        self._ensure_not_destroyed()
+        return self._handle
+
     def is_destroyed(self) -> bool:
         """
         Check if this client has been destroyed.
