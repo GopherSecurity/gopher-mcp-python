@@ -12,8 +12,7 @@ import time
 from pathlib import Path
 
 import uvicorn
-from mcp import types
-from mcp.server import Server
+from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
@@ -52,46 +51,36 @@ def create_app(config_path: str | None = None) -> tuple[Starlette, GopherAuth, i
 
     # ── MCP Server ─────────────────────────────────────────────────
 
-    mcp_server = Server("py-auth-mcp-server")
+    mcp_server = FastMCP("py-auth-mcp-server", json_response=True)
 
-    @mcp_server.list_tools()
-    async def handle_list_tools():
-        return [
-            types.Tool(name="get-weather", description="Get current weather for a city",
-                       inputSchema={"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}),
-            types.Tool(name="get-forecast", description="Get 5-day forecast (requires mcp:read)",
-                       inputSchema={"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}),
-            types.Tool(name="get-weather-alerts", description="Get weather alerts (requires mcp:admin)",
-                       inputSchema={"type": "object", "properties": {"region": {"type": "string"}}, "required": ["region"]}),
-        ]
+    @mcp_server.tool()
+    def get_weather(city: str) -> str:
+        """Get current weather for a city. No auth required."""
+        h = sum(ord(c) for c in city)
+        conds = ["Sunny", "Cloudy", "Rainy", "Partly Cloudy", "Windy"]
+        return f"Weather in {city}: {10+h%26}C, {conds[h%len(conds)]}, Humidity: {40+h%40}%"
 
-    @mcp_server.call_tool()
-    async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent]:
-        args = arguments or {}
-        if name == "get-weather":
-            city = args.get("city", "Unknown")
-            h = sum(ord(c) for c in city)
-            conds = ["Sunny", "Cloudy", "Rainy", "Partly Cloudy", "Windy"]
-            text = f"Weather in {city}: {10+h%26}C, {conds[h%len(conds)]}, Humidity: {40+h%40}%"
-        elif name == "get-forecast":
-            city = args.get("city", "Unknown")
-            h = sum(ord(c) for c in city)
-            conds = ["Sunny", "Cloudy", "Rainy", "Partly Cloudy", "Windy"]
-            lines = [f"{d}: {10+((h+i*7)%26)+5}C/{10+((h+i*7)%26)-5}C {conds[(h+i)%len(conds)]}"
-                     for i, d in enumerate(["Today", "Tomorrow", "Day 3", "Day 4", "Day 5"])]
-            text = f"5-Day Forecast for {city}:\n" + "\n".join(lines)
-        elif name == "get-weather-alerts":
-            region = args.get("region", "Unknown")
-            h = sum(ord(c) for c in region)
-            text = (f"Alert for {region}: Heat Warning" if h % 3 == 0
-                    else f"Alerts for {region}: Storm Watch, Wind Advisory" if h % 3 == 1
-                    else f"No active alerts for {region}")
-        else:
-            text = f"Unknown tool: {name}"
-        return [types.TextContent(type="text", text=text)]
+    @mcp_server.tool()
+    def get_forecast(city: str) -> str:
+        """Get 5-day forecast. Requires mcp:read scope."""
+        h = sum(ord(c) for c in city)
+        conds = ["Sunny", "Cloudy", "Rainy", "Partly Cloudy", "Windy"]
+        lines = [f"{d}: {10+((h+i*7)%26)+5}C/{10+((h+i*7)%26)-5}C {conds[(h+i)%len(conds)]}"
+                 for i, d in enumerate(["Today", "Tomorrow", "Day 3", "Day 4", "Day 5"])]
+        return f"5-Day Forecast for {city}:\n" + "\n".join(lines)
 
-    # Get the StreamableHTTP Starlette app
-    mcp_app = mcp_server.streamable_http_app(json_response=True)
+    @mcp_server.tool()
+    def get_weather_alerts(region: str) -> str:
+        """Get weather alerts. Requires mcp:admin scope."""
+        h = sum(ord(c) for c in region)
+        if h % 3 == 0:
+            return f"Alert for {region}: Heat Warning"
+        elif h % 3 == 1:
+            return f"Alerts for {region}: Storm Watch, Wind Advisory"
+        return f"No active alerts for {region}"
+
+    # Get the StreamableHTTP Starlette app from FastMCP
+    mcp_app = mcp_server.streamable_http_app()
 
     # ── OAuth Discovery Routes ─────────────────────────────────────
 
