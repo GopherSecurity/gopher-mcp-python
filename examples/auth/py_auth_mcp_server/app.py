@@ -13,6 +13,7 @@ from pathlib import Path
 
 import uvicorn
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
@@ -52,7 +53,13 @@ def create_app(config_path: str | None = None) -> tuple[Starlette, GopherAuth, i
 
     # ── MCP Server ─────────────────────────────────────────────────
 
-    mcp_server = FastMCP("py-auth-mcp-server", json_response=True)
+    mcp_server = FastMCP(
+        "py-auth-mcp-server",
+        json_response=True,
+        transport_security=TransportSecuritySettings(
+            enable_dns_rebinding_protection=False,
+        ),
+    )
 
     @mcp_server.tool()
     def get_weather(city: str) -> str:
