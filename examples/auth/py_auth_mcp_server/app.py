@@ -163,7 +163,7 @@ def create_app(config_path: str | None = None) -> tuple[Starlette, GopherAuth, i
         Route("/oauth/authorize", oauth_authorize, methods=["GET", "OPTIONS"]),
         Route("/oauth/register", oauth_register, methods=["POST", "OPTIONS"]),
         Route("/health", health, methods=["GET"]),
-        Mount("/mcp", app=mcp_app),
+        Mount("/", app=mcp_app),
     ]
 
     app = Starlette(
