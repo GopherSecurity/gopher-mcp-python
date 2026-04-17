@@ -33,6 +33,10 @@ from gopher_mcp_python.ffi.auth.validation_options import (
     gopher_create_validation_options,
 )
 
+from gopher_mcp_python.ffi.auth.config_loader import (
+    GopherAuthConfig,
+)
+
 from gopher_mcp_python.ffi.auth.auth_client import (
     GopherAuthClient,
     gopher_init_auth_library,
@@ -71,6 +75,8 @@ __all__ = [
     # Validation options
     "GopherValidationOptions",
     "gopher_create_validation_options",
+    # Config loader
+    "GopherAuthConfig",
     # Auth client
     "GopherAuthClient",
     "gopher_init_auth_library",
