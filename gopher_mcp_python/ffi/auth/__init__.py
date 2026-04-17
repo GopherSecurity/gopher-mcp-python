@@ -37,6 +37,12 @@ from gopher_mcp_python.ffi.auth.config_loader import (
     GopherAuthConfig,
 )
 
+from gopher_mcp_python.ffi.auth.oauth_client import (
+    GopherOAuthClient,
+    TokenResponse,
+    RegistrationResponse,
+)
+
 from gopher_mcp_python.ffi.auth.auth_client import (
     GopherAuthClient,
     gopher_init_auth_library,
