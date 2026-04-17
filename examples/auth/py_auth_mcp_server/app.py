@@ -19,6 +19,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.routing import Mount, Route
+from starlette.types import ASGIApp, Receive, Scope as ASGIScope, Send
 
 from gopher_mcp_python.auth import GopherAuth
 from gopher_mcp_python.ffi.auth.loader import (
@@ -153,6 +154,52 @@ def create_app(config_path: str | None = None) -> tuple[Starlette, GopherAuth, i
     async def health(request: Request) -> Response:
         return JSONResponse({"status": "healthy", "timestamp": int(time.time())})
 
+    # ── Auth Middleware for /mcp ────────────────────────────────────
+
+    class McpAuthMiddleware:
+        """Returns 401 with WWW-Authenticate on /mcp when no Bearer token."""
+
+        def __init__(self, app: ASGIApp) -> None:
+            self.app = app
+
+        async def __call__(self, scope: ASGIScope, receive: Receive, send: Send) -> None:
+            if scope["type"] != "http":
+                await self.app(scope, receive, send)
+                return
+
+            path = scope.get("path", "")
+            method = scope.get("method", "")
+
+            # Only protect /mcp path
+            if not path.startswith("/mcp"):
+                await self.app(scope, receive, send)
+                return
+
+            # Let OPTIONS through (CORS preflight)
+            if method == "OPTIONS":
+                await self.app(scope, receive, send)
+                return
+
+            # Check for Bearer token
+            headers = dict(scope.get("headers", []))
+            auth_header = headers.get(b"authorization", b"").decode("utf-8", errors="ignore")
+
+            if not auth_header.startswith("Bearer "):
+                # Return 401 to trigger OAuth flow
+                www_auth = auth.get_www_authenticate_header(
+                    error="invalid_request",
+                    error_description="Missing bearer token",
+                )
+                response = JSONResponse(
+                    {"error": "invalid_request", "error_description": "Missing bearer token"},
+                    status_code=401,
+                    headers={"WWW-Authenticate": www_auth, **_cors()},
+                )
+                await response(scope, receive, send)
+                return
+
+            await self.app(scope, receive, send)
+
     # ── Starlette App (OAuth routes + MCP mount) ───────────────────
 
     routes = [
@@ -177,6 +224,7 @@ def create_app(config_path: str | None = None) -> tuple[Starlette, GopherAuth, i
                 allow_headers=["*"],
                 expose_headers=["Mcp-Session-Id"],
             ),
+            Middleware(McpAuthMiddleware),
         ],
     )
 
