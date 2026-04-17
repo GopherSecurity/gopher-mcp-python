@@ -1,22 +1,15 @@
 """Python MCP server with OAuth authentication.
 
-OAuth-protected MCP server example using gopher-auth FFI bindings.
-Demonstrates JWT token validation and scope-based access control
-for MCP tools.
+Uses FastMCP with Streamable HTTP transport and GopherAuth
+from gopher_mcp_python.auth for OAuth/JWT authentication.
 """
 
 __version__ = "1.0.0"
-__author__ = "Gopher Security"
 
-from .app import cleanup_app, create_app
-from .config import AuthServerConfig, create_default_config, load_config_from_file
+from .app import create_server, main
 
 __all__ = [
     "__version__",
-    "__author__",
-    "create_app",
-    "cleanup_app",
-    "AuthServerConfig",
-    "create_default_config",
-    "load_config_from_file",
+    "create_server",
+    "main",
 ]
