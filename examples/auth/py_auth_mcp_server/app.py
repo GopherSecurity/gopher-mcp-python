@@ -52,19 +52,22 @@ def create_app(config_path: str | None = None) -> tuple[Starlette, GopherAuth, i
 
     # ── MCP Server ─────────────────────────────────────────────────
 
-    async def handle_list_tools(ctx, params):
-        return types.ListToolsResult(tools=[
+    mcp_server = Server("py-auth-mcp-server")
+
+    @mcp_server.list_tools()
+    async def handle_list_tools():
+        return [
             types.Tool(name="get-weather", description="Get current weather for a city",
                        inputSchema={"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}),
             types.Tool(name="get-forecast", description="Get 5-day forecast (requires mcp:read)",
                        inputSchema={"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}),
             types.Tool(name="get-weather-alerts", description="Get weather alerts (requires mcp:admin)",
                        inputSchema={"type": "object", "properties": {"region": {"type": "string"}}, "required": ["region"]}),
-        ])
+        ]
 
-    async def handle_call_tool(ctx, params):
-        name = params.name
-        args = params.arguments or {}
+    @mcp_server.call_tool()
+    async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent]:
+        args = arguments or {}
         if name == "get-weather":
             city = args.get("city", "Unknown")
             h = sum(ord(c) for c in city)
@@ -85,13 +88,7 @@ def create_app(config_path: str | None = None) -> tuple[Starlette, GopherAuth, i
                     else f"No active alerts for {region}")
         else:
             text = f"Unknown tool: {name}"
-        return types.CallToolResult(content=[types.TextContent(type="text", text=text)])
-
-    mcp_server = Server(
-        "py-auth-mcp-server",
-        on_list_tools=handle_list_tools,
-        on_call_tool=handle_call_tool,
-    )
+        return [types.TextContent(type="text", text=text)]
 
     # Get the StreamableHTTP Starlette app
     mcp_app = mcp_server.streamable_http_app(json_response=True)
