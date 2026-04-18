@@ -6,7 +6,10 @@ from ctypes import POINTER, byref, c_char_p
 from dataclasses import dataclass
 from typing import Optional
 
-from gopher_mcp_python.ffi.auth.loader import GopherAuthValidationResult, get_auth_functions
+from gopher_mcp_python.ffi.auth.loader import (
+    GopherAuthValidationResult,
+    get_auth_functions,
+)
 from gopher_mcp_python.ffi.auth.auth_client import GopherAuthClient
 from gopher_mcp_python.ffi.auth.oauth_client import GopherOAuthClient
 from gopher_mcp_python.ffi.auth.session_manager import GopherSessionManager
@@ -16,6 +19,7 @@ from gopher_mcp_python.ffi.auth.types import GopherAuthError
 @dataclass
 class AutoRefreshResult:
     """Result of auto-refresh operation."""
+
     valid: bool
     new_access_token: Optional[str] = None
     error_code: int = 0
@@ -59,7 +63,11 @@ def gopher_auth_auto_refresh(
         return AutoRefreshResult(
             valid=False,
             error_code=err,
-            error_message=result_out.error_message.decode("utf-8") if result_out.error_message else f"Error code {err}",
+            error_message=(
+                result_out.error_message.decode("utf-8")
+                if result_out.error_message
+                else f"Error code {err}"
+            ),
         )
 
     new_token = None
@@ -73,5 +81,9 @@ def gopher_auth_auto_refresh(
         valid=result_out.valid,
         new_access_token=new_token,
         error_code=result_out.error_code,
-        error_message=result_out.error_message.decode("utf-8") if result_out.error_message else None,
+        error_message=(
+            result_out.error_message.decode("utf-8")
+            if result_out.error_message
+            else None
+        ),
     )

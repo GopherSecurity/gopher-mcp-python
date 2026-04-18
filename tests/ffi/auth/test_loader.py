@@ -91,16 +91,19 @@ class TestPointerTypes:
     def test_client_ptr_is_void_p(self):
         """Test GopherAuthClientPtr is c_void_p."""
         from ctypes import c_void_p
+
         assert GopherAuthClientPtr == c_void_p
 
     def test_payload_ptr_is_void_p(self):
         """Test GopherAuthPayloadPtr is c_void_p."""
         from ctypes import c_void_p
+
         assert GopherAuthPayloadPtr == c_void_p
 
     def test_options_ptr_is_void_p(self):
         """Test GopherAuthOptionsPtr is c_void_p."""
         from ctypes import c_void_p
+
         assert GopherAuthOptionsPtr == c_void_p
 
 
@@ -167,6 +170,7 @@ class TestGetLibrary:
         lib = get_library()
         if lib is not None:
             import ctypes
+
             assert isinstance(lib, ctypes.CDLL)
 
 

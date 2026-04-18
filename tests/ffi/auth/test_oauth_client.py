@@ -3,14 +3,18 @@
 import pytest
 from gopher_mcp_python.ffi.auth.loader import is_auth_available
 
-pytestmark = pytest.mark.skipif(not is_auth_available(), reason="Native library not available")
+pytestmark = pytest.mark.skipif(
+    not is_auth_available(), reason="Native library not available"
+)
 
 from gopher_mcp_python.ffi.auth.oauth_client import GopherOAuthClient
 from gopher_mcp_python.ffi.auth.auth_client import gopher_init_auth_library
 
+
 @pytest.fixture(autouse=True)
 def init_lib():
     gopher_init_auth_library()
+
 
 class TestOAuthClient:
     def test_create_with_all_params(self):

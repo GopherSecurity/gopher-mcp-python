@@ -14,33 +14,35 @@ from gopher_mcp_python import GopherAgent
 
 
 # Server configuration for local MCP servers
-SERVER_CONFIG = json.dumps({
-    "succeeded": True,
-    "code": 200000000,
-    "message": "success",
-    "data": {
-        "servers": [
-            {
-                "version": "2025-01-09",
-                "serverId": "1",
-                "name": "server1",
-                "transport": "http_sse",
-                "config": {"url": "http://127.0.0.1:3001/mcp", "headers": {}},
-                "connectTimeout": 5000,
-                "requestTimeout": 30000,
-            },
-            {
-                "version": "2025-01-09",
-                "serverId": "2",
-                "name": "server2",
-                "transport": "http_sse",
-                "config": {"url": "http://127.0.0.1:3002/mcp", "headers": {}},
-                "connectTimeout": 5000,
-                "requestTimeout": 30000,
-            },
-        ],
-    },
-})
+SERVER_CONFIG = json.dumps(
+    {
+        "succeeded": True,
+        "code": 200000000,
+        "message": "success",
+        "data": {
+            "servers": [
+                {
+                    "version": "2025-01-09",
+                    "serverId": "1",
+                    "name": "server1",
+                    "transport": "http_sse",
+                    "config": {"url": "http://127.0.0.1:3001/mcp", "headers": {}},
+                    "connectTimeout": 5000,
+                    "requestTimeout": 30000,
+                },
+                {
+                    "version": "2025-01-09",
+                    "serverId": "2",
+                    "name": "server2",
+                    "transport": "http_sse",
+                    "config": {"url": "http://127.0.0.1:3002/mcp", "headers": {}},
+                    "connectTimeout": 5000,
+                    "requestTimeout": 30000,
+                },
+            ],
+        },
+    }
+)
 
 
 def main():
@@ -67,6 +69,7 @@ def main():
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

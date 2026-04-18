@@ -65,11 +65,13 @@ class TestLoadFile:
 
 class TestLoadFromPairs:
     def test_basic(self):
-        config = GopherAuthConfig.load_from_pairs({
-            "client_id": "pair-client",
-            "client_secret": "pair-secret",
-            "auth_server_url": "http://kc:8080/realms/test",
-        })
+        config = GopherAuthConfig.load_from_pairs(
+            {
+                "client_id": "pair-client",
+                "client_secret": "pair-secret",
+                "auth_server_url": "http://kc:8080/realms/test",
+            }
+        )
         assert config.get_string("client_id") == "pair-client"
         assert "protocol/openid-connect/certs" in config.get_string("jwks_uri")
         config.destroy()
@@ -89,8 +91,7 @@ class TestExchangeIdps:
     def test_csv_parsing(self, tmp_path):
         config_file = tmp_path / "test.config"
         config_file.write_text(
-            "auth_disabled = true\n"
-            "exchange_idps = google,github,azure\n"
+            "auth_disabled = true\n" "exchange_idps = google,github,azure\n"
         )
         config = GopherAuthConfig.load_file(str(config_file))
         assert config.get_exchange_idps() == ["google", "github", "azure"]

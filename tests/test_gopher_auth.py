@@ -1,4 +1,5 @@
 """Tests for GopherAuth reusable auth module."""
+
 import os
 import pytest
 
@@ -38,6 +39,7 @@ class TestErrorClasses:
 class TestGopherAuth:
     def test_init_from_file(self, tmp_path):
         from gopher_mcp_python.auth import GopherAuth
+
         config_file = tmp_path / "test.config"
         config_file.write_text(
             "client_id = cid\nclient_secret = cs\n"
@@ -50,17 +52,21 @@ class TestGopherAuth:
 
     def test_init_from_dict(self):
         from gopher_mcp_python.auth import GopherAuth
-        auth = GopherAuth(config={
-            "auth_server_url": "http://kc:8080/realms/test",
-            "client_id": "cid",
-            "client_secret": "cs",
-        })
+
+        auth = GopherAuth(
+            config={
+                "auth_server_url": "http://kc:8080/realms/test",
+                "client_id": "cid",
+                "client_secret": "cs",
+            }
+        )
         auth.initialize()
         assert auth.get_token_endpoint() != ""
         auth.shutdown()
 
     def test_init_disabled(self):
         from gopher_mcp_python.auth import GopherAuth
+
         auth = GopherAuth(auth_disabled=True)
         auth.initialize()
         assert auth.is_disabled
@@ -68,19 +74,23 @@ class TestGopherAuth:
 
     def test_no_config_raises(self):
         from gopher_mcp_python.auth import GopherAuth
+
         auth = GopherAuth()
         with pytest.raises(ConfigurationError):
             auth.initialize()
 
     def test_metadata(self):
         from gopher_mcp_python.auth import GopherAuth
-        auth = GopherAuth(config={
-            "auth_server_url": "http://kc:8080/realms/test",
-            "client_id": "cid",
-            "client_secret": "cs",
-            "server_url": "http://localhost:3001",
-            "allowed_scopes": "openid mcp:read",
-        })
+
+        auth = GopherAuth(
+            config={
+                "auth_server_url": "http://kc:8080/realms/test",
+                "client_id": "cid",
+                "client_secret": "cs",
+                "server_url": "http://localhost:3001",
+                "allowed_scopes": "openid mcp:read",
+            }
+        )
         auth.initialize()
         meta = auth.get_protected_resource_metadata()
         assert "/mcp" in meta.get("resource", "")
@@ -88,6 +98,7 @@ class TestGopherAuth:
 
     def test_context_manager(self, tmp_path):
         from gopher_mcp_python.auth import GopherAuth
+
         config_file = tmp_path / "test.config"
         config_file.write_text(
             "client_id = cid\nclient_secret = cs\n"
@@ -98,10 +109,14 @@ class TestGopherAuth:
 
     def test_shutdown_idempotent(self):
         from gopher_mcp_python.auth import GopherAuth
-        auth = GopherAuth(config={
-            "auth_server_url": "http://kc:8080/realms/test",
-            "client_id": "cid", "client_secret": "cs",
-        })
+
+        auth = GopherAuth(
+            config={
+                "auth_server_url": "http://kc:8080/realms/test",
+                "client_id": "cid",
+                "client_secret": "cs",
+            }
+        )
         auth.initialize()
         auth.shutdown()
         auth.shutdown()  # Should not raise
@@ -112,17 +127,20 @@ class TestScopeHelpers:
     def test_has_scope(self):
         from gopher_mcp_python.auth import has_scope
         from gopher_mcp_python.ffi.auth.types import GopherAuthContext
+
         ctx = GopherAuthContext("u", "openid mcp:read", "", 0, True)
         assert has_scope(ctx, "mcp:read") is True
         assert has_scope(ctx, "mcp:admin") is False
 
     def test_has_scope_none(self):
         from gopher_mcp_python.auth import has_scope
+
         assert has_scope(None, "mcp:read") is False
 
     def test_has_all_scopes(self):
         from gopher_mcp_python.auth import has_all_scopes
         from gopher_mcp_python.ffi.auth.types import GopherAuthContext
+
         ctx = GopherAuthContext("u", "openid mcp:read mcp:admin", "", 0, True)
         assert has_all_scopes(ctx, ["mcp:read", "mcp:admin"]) is True
         assert has_all_scopes(ctx, ["mcp:read", "mcp:write"]) is False
@@ -130,6 +148,7 @@ class TestScopeHelpers:
     def test_has_any_scope(self):
         from gopher_mcp_python.auth import has_any_scope
         from gopher_mcp_python.ffi.auth.types import GopherAuthContext
+
         ctx = GopherAuthContext("u", "openid mcp:read", "", 0, True)
         assert has_any_scope(ctx, ["mcp:read", "mcp:admin"]) is True
         assert has_any_scope(ctx, ["mcp:write", "mcp:admin"]) is False
