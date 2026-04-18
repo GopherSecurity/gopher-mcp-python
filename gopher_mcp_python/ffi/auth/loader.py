@@ -126,12 +126,14 @@ def _get_search_paths() -> List[str]:
     module_dir = Path(__file__).parent.parent.parent.parent
 
     # Development paths
-    paths.extend([
-        str(Path.cwd() / "native" / "lib"),
-        str(Path.cwd() / "lib"),
-        str(module_dir / "native" / "lib"),
-        str(module_dir.parent / "native" / "lib"),
-    ])
+    paths.extend(
+        [
+            str(Path.cwd() / "native" / "lib"),
+            str(Path.cwd() / "lib"),
+            str(module_dir / "native" / "lib"),
+            str(module_dir.parent / "native" / "lib"),
+        ]
+    )
 
     # System paths
     system = platform.system().lower()
@@ -250,7 +252,11 @@ _FUNCTION_SPECS = [
     ("gopher_auth_validation_options_set_audience", [c_void_p, c_char_p], c_int32),
     ("gopher_auth_validation_options_set_clock_skew", [c_void_p, c_int64], c_int32),
     # Validation
-    ("gopher_auth_validate_token", [c_void_p, c_char_p, c_void_p, POINTER(GopherAuthValidationResult)], c_int32),
+    (
+        "gopher_auth_validate_token",
+        [c_void_p, c_char_p, c_void_p, POINTER(GopherAuthValidationResult)],
+        c_int32,
+    ),
     ("gopher_auth_extract_payload", [c_char_p, POINTER(c_void_p)], c_int32),
     # Payload
     ("gopher_auth_payload_get_subject", [c_void_p, POINTER(c_char_p)], c_int32),
@@ -265,40 +271,119 @@ _FUNCTION_SPECS = [
     ("gopher_auth_config_destroy", [c_void_p], c_int32),
     ("gopher_auth_config_load_file", [c_void_p, c_char_p], c_int32),
     ("gopher_auth_config_load_env", [c_void_p], c_int32),
-    ("gopher_auth_config_load_from_pairs", [c_void_p, POINTER(c_char_p), POINTER(c_char_p), c_int], c_int32),
+    (
+        "gopher_auth_config_load_from_pairs",
+        [c_void_p, POINTER(c_char_p), POINTER(c_char_p), c_int],
+        c_int32,
+    ),
     ("gopher_auth_config_validate", [c_void_p], c_int32),
     ("gopher_auth_config_get_string", [c_void_p, c_char_p, POINTER(c_char_p)], c_int32),
     ("gopher_auth_config_get_int", [c_void_p, c_char_p, POINTER(c_int)], c_int32),
     ("gopher_auth_config_get_bool", [c_void_p, c_char_p, POINTER(c_bool)], c_int32),
     ("gopher_auth_config_get_exchange_idps", [c_void_p, POINTER(c_char_p)], c_int32),
     # OAuthClient
-    ("gopher_auth_oauth_client_create", [POINTER(c_void_p), c_char_p, c_char_p, c_char_p, c_int], c_int32),
+    (
+        "gopher_auth_oauth_client_create",
+        [POINTER(c_void_p), c_char_p, c_char_p, c_char_p, c_int],
+        c_int32,
+    ),
     ("gopher_auth_oauth_client_destroy", [c_void_p], c_int32),
-    ("gopher_auth_oauth_exchange_code", [c_void_p, c_char_p, c_char_p, c_char_p, POINTER(c_void_p)], c_int32),
-    ("gopher_auth_oauth_refresh_token", [c_void_p, c_char_p, POINTER(c_void_p)], c_int32),
-    ("gopher_auth_oauth_token_exchange", [c_void_p, c_char_p, c_char_p, c_char_p, c_char_p, POINTER(c_void_p)], c_int32),
-    ("gopher_auth_oauth_register_client", [c_void_p, c_char_p, c_char_p, POINTER(c_char_p), c_int, c_char_p, POINTER(c_void_p)], c_int32),
-    ("gopher_auth_token_response_get_access_token", [c_void_p, POINTER(c_char_p)], c_int32),
-    ("gopher_auth_token_response_get_refresh_token", [c_void_p, POINTER(c_char_p)], c_int32),
-    ("gopher_auth_token_response_get_expires_in", [c_void_p, POINTER(c_int64)], c_int32),
+    (
+        "gopher_auth_oauth_exchange_code",
+        [c_void_p, c_char_p, c_char_p, c_char_p, POINTER(c_void_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_oauth_refresh_token",
+        [c_void_p, c_char_p, POINTER(c_void_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_oauth_token_exchange",
+        [c_void_p, c_char_p, c_char_p, c_char_p, c_char_p, POINTER(c_void_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_oauth_register_client",
+        [
+            c_void_p,
+            c_char_p,
+            c_char_p,
+            POINTER(c_char_p),
+            c_int,
+            c_char_p,
+            POINTER(c_void_p),
+        ],
+        c_int32,
+    ),
+    (
+        "gopher_auth_token_response_get_access_token",
+        [c_void_p, POINTER(c_char_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_token_response_get_refresh_token",
+        [c_void_p, POINTER(c_char_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_token_response_get_expires_in",
+        [c_void_p, POINTER(c_int64)],
+        c_int32,
+    ),
     ("gopher_auth_token_response_get_error", [c_void_p, POINTER(c_char_p)], c_int32),
     ("gopher_auth_token_response_is_success", [c_void_p], c_bool),
     ("gopher_auth_token_response_destroy", [c_void_p], c_int32),
-    ("gopher_auth_registration_response_get_client_id", [c_void_p, POINTER(c_char_p)], c_int32),
-    ("gopher_auth_registration_response_get_client_secret", [c_void_p, POINTER(c_char_p)], c_int32),
+    (
+        "gopher_auth_registration_response_get_client_id",
+        [c_void_p, POINTER(c_char_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_registration_response_get_client_secret",
+        [c_void_p, POINTER(c_char_p)],
+        c_int32,
+    ),
     ("gopher_auth_registration_response_is_success", [c_void_p], c_bool),
     ("gopher_auth_registration_response_destroy", [c_void_p], c_int32),
     # SessionManager
     ("gopher_auth_session_manager_create", [POINTER(c_void_p), c_int], c_int32),
     ("gopher_auth_session_manager_destroy", [c_void_p], c_int32),
-    ("gopher_auth_session_store_token", [c_void_p, c_char_p, c_char_p, c_char_p, c_int64], c_int32),
-    ("gopher_auth_session_get_access_token", [c_void_p, c_char_p, POINTER(c_char_p)], c_int32),
-    ("gopher_auth_session_get_refresh_token", [c_void_p, c_char_p, POINTER(c_char_p)], c_int32),
-    ("gopher_auth_session_has_valid_token", [c_void_p, c_char_p, POINTER(c_bool)], c_int32),
+    (
+        "gopher_auth_session_store_token",
+        [c_void_p, c_char_p, c_char_p, c_char_p, c_int64],
+        c_int32,
+    ),
+    (
+        "gopher_auth_session_get_access_token",
+        [c_void_p, c_char_p, POINTER(c_char_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_session_get_refresh_token",
+        [c_void_p, c_char_p, POINTER(c_char_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_session_has_valid_token",
+        [c_void_p, c_char_p, POINTER(c_bool)],
+        c_int32,
+    ),
     ("gopher_auth_session_cleanup", [c_void_p], c_int32),
     ("gopher_auth_session_generate_id", [POINTER(c_char_p)], c_int32),
     # Auto-Refresh
-    ("gopher_auth_auto_refresh", [c_void_p, c_void_p, c_void_p, c_char_p, POINTER(c_char_p), POINTER(GopherAuthValidationResult)], c_int32),
+    (
+        "gopher_auth_auto_refresh",
+        [
+            c_void_p,
+            c_void_p,
+            c_void_p,
+            c_char_p,
+            POINTER(c_char_p),
+            POINTER(GopherAuthValidationResult),
+        ],
+        c_int32,
+    ),
     # Validation
     ("gopher_auth_validate_idp", [c_char_p, c_char_p, POINTER(c_bool)], c_int32),
     ("gopher_auth_validate_all_scopes", [c_char_p, c_char_p, POINTER(c_bool)], c_int32),
@@ -307,17 +392,47 @@ _FUNCTION_SPECS = [
     ("gopher_auth_url_encode", [c_char_p, POINTER(c_char_p)], c_int32),
     ("gopher_auth_url_decode", [c_char_p, POINTER(c_char_p)], c_int32),
     # Metadata Builders
-    ("gopher_auth_metadata_build_protected_resource", [c_char_p, c_char_p, c_char_p, POINTER(c_char_p)], c_int32),
-    ("gopher_auth_metadata_build_oauth_server", [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, POINTER(c_char_p)], c_int32),
-    ("gopher_auth_metadata_build_oidc_discovery", [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, POINTER(c_char_p)], c_int32),
+    (
+        "gopher_auth_metadata_build_protected_resource",
+        [c_char_p, c_char_p, c_char_p, POINTER(c_char_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_metadata_build_oauth_server",
+        [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, POINTER(c_char_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_metadata_build_oidc_discovery",
+        [
+            c_char_p,
+            c_char_p,
+            c_char_p,
+            c_char_p,
+            c_char_p,
+            c_char_p,
+            c_char_p,
+            c_char_p,
+            POINTER(c_char_p),
+        ],
+        c_int32,
+    ),
     # HTTP Parsing
     ("gopher_auth_http_extract_bearer_token", [c_char_p, POINTER(c_char_p)], c_int32),
     ("gopher_auth_http_extract_method", [c_char_p, POINTER(c_char_p)], c_int32),
     ("gopher_auth_http_extract_path", [c_char_p, POINTER(c_char_p)], c_int32),
     # Utility
     ("gopher_auth_free_string", [c_char_p], None),
-    ("gopher_auth_generate_www_authenticate", [c_char_p, c_char_p, c_char_p, POINTER(c_char_p)], c_int32),
-    ("gopher_auth_generate_www_authenticate_v2", [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, POINTER(c_char_p)], c_int32),
+    (
+        "gopher_auth_generate_www_authenticate",
+        [c_char_p, c_char_p, c_char_p, POINTER(c_char_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_generate_www_authenticate_v2",
+        [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, POINTER(c_char_p)],
+        c_int32,
+    ),
 ]
 
 
@@ -356,7 +471,10 @@ def _setup_functions() -> bool:
     _auth_functions_available = bound_count > 0 and _has_function("gopher_auth_init")
 
     if _debug:
-        print(f"Bound {bound_count}/{len(_FUNCTION_SPECS)} auth functions", file=sys.stderr)
+        print(
+            f"Bound {bound_count}/{len(_FUNCTION_SPECS)} auth functions",
+            file=sys.stderr,
+        )
 
     return _auth_functions_available
 
@@ -440,9 +558,15 @@ def get_auth_functions() -> Dict[str, Any]:
         # Options
         "options_create": _get_function("gopher_auth_validation_options_create"),
         "options_destroy": _get_function("gopher_auth_validation_options_destroy"),
-        "options_set_scopes": _get_function("gopher_auth_validation_options_set_scopes"),
-        "options_set_audience": _get_function("gopher_auth_validation_options_set_audience"),
-        "options_set_clock_skew": _get_function("gopher_auth_validation_options_set_clock_skew"),
+        "options_set_scopes": _get_function(
+            "gopher_auth_validation_options_set_scopes"
+        ),
+        "options_set_audience": _get_function(
+            "gopher_auth_validation_options_set_audience"
+        ),
+        "options_set_clock_skew": _get_function(
+            "gopher_auth_validation_options_set_clock_skew"
+        ),
         # Validation
         "validate_token": _get_function("gopher_auth_validate_token"),
         "extract_payload": _get_function("gopher_auth_extract_payload"),
@@ -464,7 +588,9 @@ def get_auth_functions() -> Dict[str, Any]:
         "config_get_string": _get_function("gopher_auth_config_get_string"),
         "config_get_int": _get_function("gopher_auth_config_get_int"),
         "config_get_bool": _get_function("gopher_auth_config_get_bool"),
-        "config_get_exchange_idps": _get_function("gopher_auth_config_get_exchange_idps"),
+        "config_get_exchange_idps": _get_function(
+            "gopher_auth_config_get_exchange_idps"
+        ),
         # OAuthClient
         "oauth_client_create": _get_function("gopher_auth_oauth_client_create"),
         "oauth_client_destroy": _get_function("gopher_auth_oauth_client_destroy"),
@@ -472,22 +598,44 @@ def get_auth_functions() -> Dict[str, Any]:
         "oauth_refresh_token": _get_function("gopher_auth_oauth_refresh_token"),
         "oauth_token_exchange": _get_function("gopher_auth_oauth_token_exchange"),
         "oauth_register_client": _get_function("gopher_auth_oauth_register_client"),
-        "token_response_get_access_token": _get_function("gopher_auth_token_response_get_access_token"),
-        "token_response_get_refresh_token": _get_function("gopher_auth_token_response_get_refresh_token"),
-        "token_response_get_expires_in": _get_function("gopher_auth_token_response_get_expires_in"),
-        "token_response_get_error": _get_function("gopher_auth_token_response_get_error"),
-        "token_response_is_success": _get_function("gopher_auth_token_response_is_success"),
+        "token_response_get_access_token": _get_function(
+            "gopher_auth_token_response_get_access_token"
+        ),
+        "token_response_get_refresh_token": _get_function(
+            "gopher_auth_token_response_get_refresh_token"
+        ),
+        "token_response_get_expires_in": _get_function(
+            "gopher_auth_token_response_get_expires_in"
+        ),
+        "token_response_get_error": _get_function(
+            "gopher_auth_token_response_get_error"
+        ),
+        "token_response_is_success": _get_function(
+            "gopher_auth_token_response_is_success"
+        ),
         "token_response_destroy": _get_function("gopher_auth_token_response_destroy"),
-        "registration_response_get_client_id": _get_function("gopher_auth_registration_response_get_client_id"),
-        "registration_response_get_client_secret": _get_function("gopher_auth_registration_response_get_client_secret"),
-        "registration_response_is_success": _get_function("gopher_auth_registration_response_is_success"),
-        "registration_response_destroy": _get_function("gopher_auth_registration_response_destroy"),
+        "registration_response_get_client_id": _get_function(
+            "gopher_auth_registration_response_get_client_id"
+        ),
+        "registration_response_get_client_secret": _get_function(
+            "gopher_auth_registration_response_get_client_secret"
+        ),
+        "registration_response_is_success": _get_function(
+            "gopher_auth_registration_response_is_success"
+        ),
+        "registration_response_destroy": _get_function(
+            "gopher_auth_registration_response_destroy"
+        ),
         # SessionManager
         "session_manager_create": _get_function("gopher_auth_session_manager_create"),
         "session_manager_destroy": _get_function("gopher_auth_session_manager_destroy"),
         "session_store_token": _get_function("gopher_auth_session_store_token"),
-        "session_get_access_token": _get_function("gopher_auth_session_get_access_token"),
-        "session_get_refresh_token": _get_function("gopher_auth_session_get_refresh_token"),
+        "session_get_access_token": _get_function(
+            "gopher_auth_session_get_access_token"
+        ),
+        "session_get_refresh_token": _get_function(
+            "gopher_auth_session_get_refresh_token"
+        ),
         "session_has_valid_token": _get_function("gopher_auth_session_has_valid_token"),
         "session_cleanup": _get_function("gopher_auth_session_cleanup"),
         "session_generate_id": _get_function("gopher_auth_session_generate_id"),
@@ -501,17 +649,29 @@ def get_auth_functions() -> Dict[str, Any]:
         "url_encode": _get_function("gopher_auth_url_encode"),
         "url_decode": _get_function("gopher_auth_url_decode"),
         # Metadata Builders
-        "metadata_build_protected_resource": _get_function("gopher_auth_metadata_build_protected_resource"),
-        "metadata_build_oauth_server": _get_function("gopher_auth_metadata_build_oauth_server"),
-        "metadata_build_oidc_discovery": _get_function("gopher_auth_metadata_build_oidc_discovery"),
+        "metadata_build_protected_resource": _get_function(
+            "gopher_auth_metadata_build_protected_resource"
+        ),
+        "metadata_build_oauth_server": _get_function(
+            "gopher_auth_metadata_build_oauth_server"
+        ),
+        "metadata_build_oidc_discovery": _get_function(
+            "gopher_auth_metadata_build_oidc_discovery"
+        ),
         # HTTP Parsing
-        "http_extract_bearer_token": _get_function("gopher_auth_http_extract_bearer_token"),
+        "http_extract_bearer_token": _get_function(
+            "gopher_auth_http_extract_bearer_token"
+        ),
         "http_extract_method": _get_function("gopher_auth_http_extract_method"),
         "http_extract_path": _get_function("gopher_auth_http_extract_path"),
         # Utility
         "free_string": _get_function("gopher_auth_free_string"),
-        "generate_www_authenticate": _get_function("gopher_auth_generate_www_authenticate"),
-        "generate_www_authenticate_v2": _get_function("gopher_auth_generate_www_authenticate_v2"),
+        "generate_www_authenticate": _get_function(
+            "gopher_auth_generate_www_authenticate"
+        ),
+        "generate_www_authenticate_v2": _get_function(
+            "gopher_auth_generate_www_authenticate_v2"
+        ),
     }
 
 
@@ -580,59 +740,82 @@ def gopher_auth_build_protected_resource_metadata(
 ) -> dict:
     """Build RFC 9728 Protected Resource Metadata."""
     import json
+
     funcs = get_auth_functions()
     fn = funcs.get("metadata_build_protected_resource")
     if not fn:
         return {}
     out = c_char_p()
-    fn(resource_url.encode("utf-8"), auth_server_url.encode("utf-8"),
-       scopes.encode("utf-8") if scopes else None, byref(out))
+    fn(
+        resource_url.encode("utf-8"),
+        auth_server_url.encode("utf-8"),
+        scopes.encode("utf-8") if scopes else None,
+        byref(out),
+    )
     if out.value:
         return json.loads(out.value.decode("utf-8"))
     return {}
 
 
 def gopher_auth_build_oauth_server_metadata(
-    issuer: str, auth_endpoint: str, token_endpoint: str,
-    registration_endpoint: Optional[str] = None, jwks_uri: Optional[str] = None,
-    scopes: Optional[str] = None
+    issuer: str,
+    auth_endpoint: str,
+    token_endpoint: str,
+    registration_endpoint: Optional[str] = None,
+    jwks_uri: Optional[str] = None,
+    scopes: Optional[str] = None,
 ) -> dict:
     """Build RFC 8414 Authorization Server Metadata."""
     import json
+
     funcs = get_auth_functions()
     fn = funcs.get("metadata_build_oauth_server")
     if not fn:
         return {}
     out = c_char_p()
-    fn(issuer.encode("utf-8"), auth_endpoint.encode("utf-8"), token_endpoint.encode("utf-8"),
-       registration_endpoint.encode("utf-8") if registration_endpoint else None,
-       jwks_uri.encode("utf-8") if jwks_uri else None,
-       scopes.encode("utf-8") if scopes else None, byref(out))
+    fn(
+        issuer.encode("utf-8"),
+        auth_endpoint.encode("utf-8"),
+        token_endpoint.encode("utf-8"),
+        registration_endpoint.encode("utf-8") if registration_endpoint else None,
+        jwks_uri.encode("utf-8") if jwks_uri else None,
+        scopes.encode("utf-8") if scopes else None,
+        byref(out),
+    )
     if out.value:
         return json.loads(out.value.decode("utf-8"))
     return {}
 
 
 def gopher_auth_build_oidc_discovery_metadata(
-    issuer: str, auth_endpoint: str, token_endpoint: str,
-    jwks_uri: Optional[str] = None, registration_endpoint: Optional[str] = None,
-    scopes: Optional[str] = None, userinfo_endpoint: Optional[str] = None,
-    end_session_endpoint: Optional[str] = None
+    issuer: str,
+    auth_endpoint: str,
+    token_endpoint: str,
+    jwks_uri: Optional[str] = None,
+    registration_endpoint: Optional[str] = None,
+    scopes: Optional[str] = None,
+    userinfo_endpoint: Optional[str] = None,
+    end_session_endpoint: Optional[str] = None,
 ) -> dict:
     """Build OpenID Connect Discovery Metadata."""
     import json
+
     funcs = get_auth_functions()
     fn = funcs.get("metadata_build_oidc_discovery")
     if not fn:
         return {}
     out = c_char_p()
-    fn(issuer.encode("utf-8"), auth_endpoint.encode("utf-8"), token_endpoint.encode("utf-8"),
-       jwks_uri.encode("utf-8") if jwks_uri else None,
-       registration_endpoint.encode("utf-8") if registration_endpoint else None,
-       scopes.encode("utf-8") if scopes else None,
-       userinfo_endpoint.encode("utf-8") if userinfo_endpoint else None,
-       end_session_endpoint.encode("utf-8") if end_session_endpoint else None,
-       byref(out))
+    fn(
+        issuer.encode("utf-8"),
+        auth_endpoint.encode("utf-8"),
+        token_endpoint.encode("utf-8"),
+        jwks_uri.encode("utf-8") if jwks_uri else None,
+        registration_endpoint.encode("utf-8") if registration_endpoint else None,
+        scopes.encode("utf-8") if scopes else None,
+        userinfo_endpoint.encode("utf-8") if userinfo_endpoint else None,
+        end_session_endpoint.encode("utf-8") if end_session_endpoint else None,
+        byref(out),
+    )
     if out.value:
         return json.loads(out.value.decode("utf-8"))
     return {}

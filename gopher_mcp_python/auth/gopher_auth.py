@@ -16,7 +16,9 @@ from gopher_mcp_python.ffi.auth.auth_client import (
 from gopher_mcp_python.ffi.auth.config_loader import GopherAuthConfig
 from gopher_mcp_python.ffi.auth.oauth_client import GopherOAuthClient, TokenResponse
 from gopher_mcp_python.ffi.auth.session_manager import GopherSessionManager
-from gopher_mcp_python.ffi.auth.loader import gopher_auth_build_protected_resource_metadata
+from gopher_mcp_python.ffi.auth.loader import (
+    gopher_auth_build_protected_resource_metadata,
+)
 from gopher_mcp_python.ffi.auth.types import TokenPayload, GopherAuthContext
 
 from gopher_mcp_python.auth.errors import (
@@ -25,7 +27,11 @@ from gopher_mcp_python.auth.errors import (
     InsufficientScopesError,
     TokenExchangeError,
 )
-from gopher_mcp_python.auth.scope_helpers import has_scope, has_all_scopes, has_any_scope
+from gopher_mcp_python.auth.scope_helpers import (
+    has_scope,
+    has_all_scopes,
+    has_any_scope,
+)
 
 
 class GopherAuth:
@@ -154,31 +160,40 @@ class GopherAuth:
 
     def has_scope(self, payload: TokenPayload, scope: str) -> bool:
         ctx = GopherAuthContext(
-            user_id=payload.subject, scopes=payload.scopes,
-            audience=payload.audience or "", token_expiry=payload.expiration or 0,
+            user_id=payload.subject,
+            scopes=payload.scopes,
+            audience=payload.audience or "",
+            token_expiry=payload.expiration or 0,
             authenticated=True,
         )
         return has_scope(ctx, scope)
 
     def has_all_scopes(self, payload: TokenPayload, scopes: List[str]) -> bool:
         ctx = GopherAuthContext(
-            user_id=payload.subject, scopes=payload.scopes,
-            audience=payload.audience or "", token_expiry=payload.expiration or 0,
+            user_id=payload.subject,
+            scopes=payload.scopes,
+            audience=payload.audience or "",
+            token_expiry=payload.expiration or 0,
             authenticated=True,
         )
         return has_all_scopes(ctx, scopes)
 
     def has_any_scope(self, payload: TokenPayload, scopes: List[str]) -> bool:
         ctx = GopherAuthContext(
-            user_id=payload.subject, scopes=payload.scopes,
-            audience=payload.audience or "", token_expiry=payload.expiration or 0,
+            user_id=payload.subject,
+            scopes=payload.scopes,
+            audience=payload.audience or "",
+            token_expiry=payload.expiration or 0,
             authenticated=True,
         )
         return has_any_scope(ctx, scopes)
 
     def exchange_token(
-        self, subject_token: str, requested_issuer: str,
-        audience: Optional[str] = None, scope: Optional[str] = None,
+        self,
+        subject_token: str,
+        requested_issuer: str,
+        audience: Optional[str] = None,
+        scope: Optional[str] = None,
     ) -> TokenResponse:
         """Exchange a token (RFC 8693). Raises on failure."""
         self._ensure_initialized()
@@ -202,13 +217,18 @@ class GopherAuth:
         )
 
     def get_www_authenticate_header(
-        self, error: str = "", error_description: str = "",
+        self,
+        error: str = "",
+        error_description: str = "",
     ) -> str:
         server_url = self._config.get_string("server_url") if self._config else ""
         resource_metadata = f"{server_url}/.well-known/oauth-protected-resource"
-        return gopher_generate_www_authenticate_header_v2(
-            server_url, resource_metadata, "", error, error_description
-        ) or "Bearer"
+        return (
+            gopher_generate_www_authenticate_header_v2(
+                server_url, resource_metadata, "", error, error_description
+            )
+            or "Bearer"
+        )
 
     def get_token_endpoint(self) -> str:
         return self._config.get_string("token_endpoint") if self._config else ""
@@ -230,4 +250,6 @@ class GopherAuth:
 
     def _ensure_initialized(self) -> None:
         if not self._initialized:
-            raise ConfigurationError("GopherAuth not initialized. Call initialize() first.")
+            raise ConfigurationError(
+                "GopherAuth not initialized. Call initialize() first."
+            )

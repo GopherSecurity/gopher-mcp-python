@@ -46,24 +46,29 @@ class TestGopherOrchLibrary:
         assert lib is not None
 
         # Valid server configuration JSON
-        server_config = json.dumps({
-            "succeeded": True,
-            "code": 200000000,
-            "message": "success",
-            "data": {
-                "servers": [
-                    {
-                        "version": "2025-01-09",
-                        "serverId": "1",
-                        "name": "test-server",
-                        "transport": "http_sse",
-                        "config": {"url": "http://127.0.0.1:9999/mcp", "headers": {}},
-                        "connectTimeout": 5000,
-                        "requestTimeout": 30000,
-                    },
-                ],
-            },
-        })
+        server_config = json.dumps(
+            {
+                "succeeded": True,
+                "code": 200000000,
+                "message": "success",
+                "data": {
+                    "servers": [
+                        {
+                            "version": "2025-01-09",
+                            "serverId": "1",
+                            "name": "test-server",
+                            "transport": "http_sse",
+                            "config": {
+                                "url": "http://127.0.0.1:9999/mcp",
+                                "headers": {},
+                            },
+                            "connectTimeout": 5000,
+                            "requestTimeout": 30000,
+                        },
+                    ],
+                },
+            }
+        )
 
         # Call native function to create agent
         handle = lib.agent_create_by_json(

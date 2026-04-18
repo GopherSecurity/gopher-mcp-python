@@ -25,7 +25,12 @@ Example:
 from gopher_mcp_python.agent import GopherAgent
 from gopher_mcp_python.config import GopherAgentConfig, GopherAgentConfigBuilder
 from gopher_mcp_python.result import AgentResult, AgentResultStatus, AgentResultBuilder
-from gopher_mcp_python.errors import AgentError, ApiKeyError, ConnectionError, TimeoutError
+from gopher_mcp_python.errors import (
+    AgentError,
+    ApiKeyError,
+    ConnectionError,
+    TimeoutError,
+)
 from gopher_mcp_python.server_config import ServerConfig
 from gopher_mcp_python.ffi import GopherOrchLibrary
 

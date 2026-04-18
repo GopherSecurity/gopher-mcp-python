@@ -59,12 +59,7 @@ class TestGopherValidationOptionsFluentApi:
     def test_method_chaining(self):
         """Test multiple methods can be chained."""
         options = GopherValidationOptions()
-        result = (
-            options
-            .set_scopes(["read"])
-            .set_audience("my-api")
-            .set_clock_skew(30)
-        )
+        result = options.set_scopes(["read"]).set_audience("my-api").set_clock_skew(30)
         assert result is options
         options.destroy()
 

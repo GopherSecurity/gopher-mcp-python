@@ -8,7 +8,11 @@ and secure session ID generation.
 from ctypes import POINTER, byref, c_bool, c_char_p, c_void_p
 from typing import Optional
 
-from gopher_mcp_python.ffi.auth.loader import get_auth_functions, is_auth_available, load_library
+from gopher_mcp_python.ffi.auth.loader import (
+    get_auth_functions,
+    is_auth_available,
+    load_library,
+)
 from gopher_mcp_python.ffi.auth.types import GopherAuthError
 
 
@@ -28,14 +32,20 @@ class GopherSessionManager:
             raise RuntimeError(f"Failed to create session manager: error {result}")
         self._destroyed = False
 
-    def store_token(self, session_id: str, access_token: str,
-                    refresh_token: str, expires_in: int) -> None:
+    def store_token(
+        self, session_id: str, access_token: str, refresh_token: str, expires_in: int
+    ) -> None:
         self._ensure_not_destroyed()
         funcs = get_auth_functions()
         fn = funcs.get("session_store_token")
         if fn:
-            fn(self._handle, session_id.encode("utf-8"), access_token.encode("utf-8"),
-               refresh_token.encode("utf-8"), expires_in)
+            fn(
+                self._handle,
+                session_id.encode("utf-8"),
+                access_token.encode("utf-8"),
+                refresh_token.encode("utf-8"),
+                expires_in,
+            )
 
     def get_access_token(self, session_id: str) -> Optional[str]:
         self._ensure_not_destroyed()

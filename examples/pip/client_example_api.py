@@ -30,7 +30,9 @@ def main():
     try:
         # Create agent with API key - fetches server config from Gopher API
         print("Creating agent with API key...")
-        print(f'  Calling create_with_api_key("{provider}", "{model}", "{api_key[:10]}...")')
+        print(
+            f'  Calling create_with_api_key("{provider}", "{model}", "{api_key[:10]}...")'
+        )
         agent = GopherAgent.create_with_api_key(provider, model, api_key)
         print("GopherAgent created successfully!")
         print(f"  Agent handle: {'valid' if agent else 'null'}")
@@ -57,6 +59,7 @@ def main():
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

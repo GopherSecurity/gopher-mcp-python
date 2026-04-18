@@ -11,7 +11,11 @@ from gopher_mcp_python.auth.errors import (
     ConfigurationError,
     TokenExchangeError,
 )
-from gopher_mcp_python.auth.scope_helpers import has_scope, has_all_scopes, has_any_scope
+from gopher_mcp_python.auth.scope_helpers import (
+    has_scope,
+    has_all_scopes,
+    has_any_scope,
+)
 
 __all__ = [
     "GopherAuth",

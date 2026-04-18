@@ -96,7 +96,9 @@ class GopherOrchLibrary:
                     return
                 except OSError as e:
                     if self._debug:
-                        print(f"Failed to load from {search_path}: {e}", file=sys.stderr)
+                        print(
+                            f"Failed to load from {search_path}: {e}", file=sys.stderr
+                        )
 
         # Try loading by name (system paths)
         try:
@@ -243,13 +245,15 @@ class GopherOrchLibrary:
         module_dir = Path(__file__).parent.parent.parent
 
         # Development paths (native/lib in various locations)
-        paths.extend([
-            # Project root native/lib
-            os.path.join(os.getcwd(), "native", "lib"),
-            # Relative to module location
-            os.path.join(module_dir, "native", "lib"),
-            os.path.join(module_dir.parent, "native", "lib"),
-        ])
+        paths.extend(
+            [
+                # Project root native/lib
+                os.path.join(os.getcwd(), "native", "lib"),
+                # Relative to module location
+                os.path.join(module_dir, "native", "lib"),
+                os.path.join(module_dir.parent, "native", "lib"),
+            ]
+        )
 
         # 3. System paths as last resort
         if sys.platform == "darwin":
