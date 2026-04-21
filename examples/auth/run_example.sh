@@ -64,10 +64,11 @@ fi
 source "${VENV_DIR}/bin/activate"
 
 # Install dependencies if needed
-if ! python -c "import mcp" 2>/dev/null; then
+if ! python -c "import mcp" 2>/dev/null || ! python -c "import gopher_mcp_python" 2>/dev/null; then
     echo -e "${YELLOW}Installing dependencies...${NC}"
     pip install --quiet "mcp>=1.0.0"
-    pip install --quiet -e "${SCRIPT_DIR}/../.."
+    pip install --quiet "gopher-mcp-python"
+    pip install --quiet "starlette>=0.27.0" "uvicorn>=0.24.0" "httpx>=0.25.0"
 fi
 
 echo -e "${GREEN}Starting Auth MCP Server (Streamable HTTP)...${NC}"
