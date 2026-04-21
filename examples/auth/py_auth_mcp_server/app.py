@@ -178,8 +178,7 @@ def create_app(
         if request.method == "OPTIONS":
             return Response(status_code=204, headers=_cors())
         token_url = (
-            oauth_token_url
-            or f"{auth_server_url}/protocol/openid-connect/token"
+            oauth_token_url or f"{auth_server_url}/protocol/openid-connect/token"
         )
         try:
             body = await request.body()
@@ -206,7 +205,12 @@ def create_app(
             return Response(
                 content=resp.content,
                 status_code=resp.status_code,
-                headers={**_cors(), "Content-Type": resp.headers.get("content-type", "application/json")},
+                headers={
+                    **_cors(),
+                    "Content-Type": resp.headers.get(
+                        "content-type", "application/json"
+                    ),
+                },
             )
         except Exception as e:
             print(f"❌ Token proxy error: {e}")
