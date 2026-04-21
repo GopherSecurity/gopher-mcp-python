@@ -45,10 +45,10 @@ def parse_version(gopher_mcp_python_version: str) -> tuple[str, str]:
         e.g., ("v0.1.0-20260225-132506", "0.1.0.dev20260225132506")
     """
     # Remove 'v' prefix if present
-    version = gopher_mcp_python_version.lstrip('v')
+    version = gopher_mcp_python_version.lstrip("v")
 
     # Parse version parts: 0.1.0-20260225-132506
-    match = re.match(r'^(\d+\.\d+\.\d+)-(\d{8})-(\d{6})$', version)
+    match = re.match(r"^(\d+\.\d+\.\d+)-(\d{8})-(\d{6})$", version)
     if match:
         base_version = match.group(1)
         date = match.group(2)
@@ -57,10 +57,14 @@ def parse_version(gopher_mcp_python_version: str) -> tuple[str, str]:
         python_version = f"{base_version}.dev{date}{time}"
     else:
         # Fallback: just use the version as-is
-        python_version = version.replace('-', '.')
+        python_version = version.replace("-", ".")
 
     # Always include 'v' prefix for the tag
-    gopher_mcp_python_tag = f"v{version}" if not gopher_mcp_python_version.startswith('v') else gopher_mcp_python_version
+    gopher_mcp_python_tag = (
+        f"v{version}"
+        if not gopher_mcp_python_version.startswith("v")
+        else gopher_mcp_python_version
+    )
 
     return gopher_mcp_python_tag, python_version
 
@@ -69,10 +73,7 @@ def update_pyproject_toml(file_path: Path, version: str) -> None:
     """Update version in pyproject.toml."""
     content = file_path.read_text()
     updated = re.sub(
-        r'version\s*=\s*"[^"]*"',
-        f'version = "{version}"',
-        content,
-        count=1
+        r'version\s*=\s*"[^"]*"', f'version = "{version}"', content, count=1
     )
     file_path.write_text(updated)
     print(f"✓ Updated {file_path}")
@@ -86,15 +87,15 @@ def update_init_py(file_path: Path, version: str) -> None:
 
     content = file_path.read_text()
     updated = re.sub(
-        r'__version__\s*=\s*"[^"]*"',
-        f'__version__ = "{version}"',
-        content
+        r'__version__\s*=\s*"[^"]*"', f'__version__ = "{version}"', content
     )
     file_path.write_text(updated)
     print(f"✓ Updated {file_path}")
 
 
-def update_workflow(file_path: Path, gopher_mcp_python_tag: str, python_version: str) -> None:
+def update_workflow(
+    file_path: Path, gopher_mcp_python_tag: str, python_version: str
+) -> None:
     """Update versions in workflow file."""
     if not file_path.exists():
         print(f"⚠ Skipping {file_path} (not found)")
@@ -104,16 +105,14 @@ def update_workflow(file_path: Path, gopher_mcp_python_tag: str, python_version:
 
     # Update GOPHER_MCP_PYTHON_VERSION
     content = re.sub(
-        r'GOPHER_MCP_PYTHON_VERSION:\s*[^\n]+',
-        f'GOPHER_MCP_PYTHON_VERSION: {gopher_mcp_python_tag}',
-        content
+        r"GOPHER_MCP_PYTHON_VERSION:\s*[^\n]+",
+        f"GOPHER_MCP_PYTHON_VERSION: {gopher_mcp_python_tag}",
+        content,
     )
 
     # Update PACKAGE_VERSION
     content = re.sub(
-        r'PACKAGE_VERSION:\s*[^\n]+',
-        f'PACKAGE_VERSION: {python_version}',
-        content
+        r"PACKAGE_VERSION:\s*[^\n]+", f"PACKAGE_VERSION: {python_version}", content
     )
 
     file_path.write_text(content)
@@ -174,7 +173,9 @@ def main() -> None:
     print()
     print("Next steps:")
     print("  1. Review changes: git diff")
-    print(f"  2. Commit: git add -A && git commit -m 'Bump version to {python_version}'")
+    print(
+        f"  2. Commit: git add -A && git commit -m 'Bump version to {python_version}'"
+    )
     print("  3. Push to trigger release: git push origin py_release")
 
 
