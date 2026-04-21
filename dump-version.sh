@@ -187,6 +187,14 @@ sed -i.bak -E "s/^version[[:space:]]*=[[:space:]]*\"[^\"]*\"/version = \"$TARGET
 rm -f "${PYPROJECT_TOML}.bak"
 echo -e "  ${GREEN}Updated $PYPROJECT_TOML${NC}"
 
+# Update GOPHER_ORCH_VERSION in CI workflow
+WORKFLOW_FILE=".github/workflows/publish-packages.yml"
+if [ -f "$WORKFLOW_FILE" ]; then
+    sed -i.bak -E "s/GOPHER_ORCH_VERSION: 'v[^']*'/GOPHER_ORCH_VERSION: 'v$GOPHER_ORCH_VERSION'/" "$WORKFLOW_FILE"
+    rm -f "${WORKFLOW_FILE}.bak"
+    echo -e "  ${GREEN}Updated $WORKFLOW_FILE (GOPHER_ORCH_VERSION: v$GOPHER_ORCH_VERSION)${NC}"
+fi
+
 # Update gopher_mcp_python/__init__.py
 if [ -f "$INIT_PY" ]; then
     sed -i.bak -E "s/__version__[[:space:]]*=[[:space:]]*\"[^\"]*\"/__version__ = \"$TARGET_VERSION\"/" "$INIT_PY"
@@ -277,7 +285,7 @@ git diff --stat
 echo ""
 echo -e "${CYAN}Committing...${NC}"
 
-git add "$PYPROJECT_TOML" "$INIT_PY" "$CHANGELOG_FILE" "$PACKAGES_DIR"
+git add "$PYPROJECT_TOML" "$INIT_PY" "$CHANGELOG_FILE" "$PACKAGES_DIR" "$WORKFLOW_FILE"
 git commit -m "Release version $TARGET_VERSION
 
 Prepare release v$TARGET_VERSION:
