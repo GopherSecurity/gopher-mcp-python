@@ -63,12 +63,43 @@ fi
 # Activate virtual environment
 source "${VENV_DIR}/bin/activate"
 
+# Detect platform for native package
+NATIVE_PKG=""
+UNAME_S=$(uname -s)
+UNAME_M=$(uname -m)
+if [ "$UNAME_S" = "Darwin" ]; then
+    if [ "$UNAME_M" = "arm64" ]; then
+        NATIVE_PKG="gopher-mcp-python-native-darwin-arm64"
+    else
+        NATIVE_PKG="gopher-mcp-python-native-darwin-x64"
+    fi
+elif [ "$UNAME_S" = "Linux" ]; then
+    if [ "$UNAME_M" = "aarch64" ]; then
+        NATIVE_PKG="gopher-mcp-python-native-linux-arm64"
+    else
+        NATIVE_PKG="gopher-mcp-python-native-linux-x64"
+    fi
+fi
+
 # Install dependencies if needed
 if ! python -c "import mcp" 2>/dev/null || ! python -c "import gopher_mcp_python" 2>/dev/null; then
     echo -e "${YELLOW}Installing dependencies...${NC}"
     pip install --quiet "mcp>=1.0.0"
-    pip install --quiet "gopher-mcp-python"
     pip install --quiet "starlette>=0.27.0" "uvicorn>=0.24.0" "httpx>=0.25.0"
+
+    # Try local build first (has auth config C API), fall back to PyPI
+    LOCAL_SDK="${SCRIPT_DIR}/../.."
+    if [ -f "${LOCAL_SDK}/pyproject.toml" ] && [ -d "${LOCAL_SDK}/native/lib" ]; then
+        echo -e "${YELLOW}Installing from local build...${NC}"
+        pip install --quiet -e "${LOCAL_SDK}"
+    else
+        echo -e "${YELLOW}Installing from PyPI...${NC}"
+        pip install --quiet "gopher-mcp-python"
+        if [ -n "$NATIVE_PKG" ]; then
+            echo -e "${YELLOW}Installing native package: ${NATIVE_PKG}${NC}"
+            pip install --quiet "$NATIVE_PKG"
+        fi
+    fi
 fi
 
 echo -e "${GREEN}Starting Auth MCP Server (Streamable HTTP)...${NC}"
