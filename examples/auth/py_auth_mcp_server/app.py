@@ -169,6 +169,53 @@ def create_app(
             url += f"&code_challenge_method={q['code_challenge_method']}"
         return RedirectResponse(url, status_code=302)
 
+    async def oauth_token(request: Request) -> Response:
+        """Proxy token requests to IdP token endpoint.
+
+        Required for MCP clients (claude.ai) that use the discovered
+        token_endpoint URL and need client credentials injected.
+        """
+        if request.method == "OPTIONS":
+            return Response(status_code=204, headers=_cors())
+        token_url = (
+            oauth_token_url
+            or f"{auth_server_url}/protocol/openid-connect/token"
+        )
+        try:
+            body = await request.body()
+            from urllib.parse import parse_qs, urlencode
+
+            params = parse_qs(body.decode("utf-8"), keep_blank_values=True)
+            flat: dict[str, str] = {k: v[0] for k, v in params.items()}
+            # Inject client credentials if not provided
+            if "client_id" not in flat and client_id:
+                flat["client_id"] = client_id
+            if "client_secret" not in flat and client_secret:
+                flat["client_secret"] = client_secret
+
+            print(f"🔑 Token proxy → {token_url}")
+            import httpx
+
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    token_url,
+                    content=urlencode(flat),
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    timeout=30,
+                )
+            return Response(
+                content=resp.content,
+                status_code=resp.status_code,
+                headers={**_cors(), "Content-Type": resp.headers.get("content-type", "application/json")},
+            )
+        except Exception as e:
+            print(f"❌ Token proxy error: {e}")
+            return JSONResponse(
+                {"error": "token_proxy_error", "error_description": str(e)},
+                status_code=502,
+                headers=_cors(),
+            )
+
     async def oauth_register(request: Request) -> Response:
         if request.method == "OPTIONS":
             return Response(status_code=204, headers=_cors())
@@ -199,8 +246,31 @@ def create_app(
 
     # ── Auth Middleware for /mcp ────────────────────────────────────
 
+    class RequestLoggingMiddleware:
+        """Log all incoming requests for debugging."""
+
+        def __init__(self, app: ASGIApp) -> None:
+            self.app = app
+
+        async def __call__(
+            self, scope: ASGIScope, receive: Receive, send: Send
+        ) -> None:
+            if scope["type"] == "http":
+                path = scope.get("path", "")
+                method = scope.get("method", "")
+                headers = dict(scope.get("headers", []))
+                session = headers.get(b"mcp-session-id", b"none").decode(
+                    "utf-8", errors="ignore"
+                )
+                has_auth = b"authorization" in headers
+                print(
+                    f"🌐 {method} {path} "
+                    f"[session: {session}] [auth: {'yes' if has_auth else 'no'}]"
+                )
+            await self.app(scope, receive, send)
+
     class McpAuthMiddleware:
-        """Returns 401 with WWW-Authenticate on /mcp when no Bearer token."""
+        """Validates Bearer token on /mcp. Returns 401 to trigger OAuth flow."""
 
         def __init__(self, app: ASGIApp) -> None:
             self.app = app
@@ -225,6 +295,11 @@ def create_app(
                 await self.app(scope, receive, send)
                 return
 
+            # Skip auth if disabled
+            if auth.is_disabled:
+                await self.app(scope, receive, send)
+                return
+
             # Check for Bearer token
             headers = dict(scope.get("headers", []))
             auth_header = headers.get(b"authorization", b"").decode(
@@ -232,7 +307,6 @@ def create_app(
             )
 
             if not auth_header.startswith("Bearer "):
-                # Return 401 to trigger OAuth flow
                 www_auth = auth.get_www_authenticate_header(
                     error="invalid_request",
                     error_description="Missing bearer token",
@@ -242,6 +316,23 @@ def create_app(
                         "error": "invalid_request",
                         "error_description": "Missing bearer token",
                     },
+                    status_code=401,
+                    headers={"WWW-Authenticate": www_auth, **_cors()},
+                )
+                await response(scope, receive, send)
+                return
+
+            # Validate token
+            token = auth_header[7:].strip()
+            try:
+                auth.validate_token(token)
+            except Exception as e:
+                www_auth = auth.get_www_authenticate_header(
+                    error="invalid_token",
+                    error_description=str(e),
+                )
+                response = JSONResponse(
+                    {"error": "invalid_token", "error_description": str(e)},
                     status_code=401,
                     headers={"WWW-Authenticate": www_auth, **_cors()},
                 )
@@ -274,6 +365,7 @@ def create_app(
             methods=["GET", "OPTIONS"],
         ),
         Route("/oauth/authorize", oauth_authorize, methods=["GET", "OPTIONS"]),
+        Route("/oauth/token", oauth_token, methods=["POST", "OPTIONS"]),
         Route("/oauth/register", oauth_register, methods=["POST", "OPTIONS"]),
         Route("/health", health, methods=["GET"]),
         Mount("/", app=mcp_app),
@@ -290,6 +382,7 @@ def create_app(
                 allow_headers=["*"],
                 expose_headers=["Mcp-Session-Id"],
             ),
+            Middleware(RequestLoggingMiddleware),
             Middleware(McpAuthMiddleware),
         ],
     )

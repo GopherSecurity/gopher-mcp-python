@@ -22,9 +22,11 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "flask>=3.0.0",
-    "flask-cors>=4.0.0",
     "gopher-mcp-python",
+    "starlette>=0.27.0",
+    "uvicorn>=0.24.0",
+    "httpx>=0.25.0",
+    "mcp>=1.0.0",
 ]
 
 [project.optional-dependencies]
