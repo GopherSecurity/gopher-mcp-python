@@ -261,11 +261,14 @@ jobs:
 
           # Build Information
           cat > RELEASE_NOTES.md << EOF
+          **PyPI:** https://pypi.org/project/gopher-mcp-python
+
           ## Build Information
           - **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           - **Commit:** ${{ github.sha }}
           - **Version:** ${VERSION}
           - **PyPI package:** \`gopher-mcp-python==${VERSION}\`
+          - **Install:** \`pip install gopher-mcp-python==${VERSION}\`
 
           EOF
 
