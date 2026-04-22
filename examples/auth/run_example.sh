@@ -83,22 +83,13 @@ fi
 
 # Install dependencies if needed
 if ! python -c "import mcp" 2>/dev/null || ! python -c "import gopher_mcp_python" 2>/dev/null; then
-    echo -e "${YELLOW}Installing dependencies...${NC}"
+    echo -e "${YELLOW}Installing dependencies from PyPI...${NC}"
     pip install --quiet "mcp>=1.0.0"
     pip install --quiet "starlette>=0.27.0" "uvicorn>=0.24.0" "httpx>=0.25.0"
-
-    # Try local build first (has auth config C API), fall back to PyPI
-    LOCAL_SDK="${SCRIPT_DIR}/../.."
-    if [ -f "${LOCAL_SDK}/pyproject.toml" ] && [ -d "${LOCAL_SDK}/native/lib" ]; then
-        echo -e "${YELLOW}Installing from local build...${NC}"
-        pip install --quiet -e "${LOCAL_SDK}"
-    else
-        echo -e "${YELLOW}Installing from PyPI...${NC}"
-        pip install --quiet "gopher-mcp-python"
-        if [ -n "$NATIVE_PKG" ]; then
-            echo -e "${YELLOW}Installing native package: ${NATIVE_PKG}${NC}"
-            pip install --quiet "$NATIVE_PKG"
-        fi
+    pip install --quiet "gopher-mcp-python"
+    if [ -n "$NATIVE_PKG" ]; then
+        echo -e "${YELLOW}Installing native package: ${NATIVE_PKG}${NC}"
+        pip install --quiet "$NATIVE_PKG"
     fi
 fi
 
