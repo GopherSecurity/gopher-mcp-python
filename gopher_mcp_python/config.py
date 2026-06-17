@@ -9,9 +9,19 @@ from typing import Optional
 
 class GopherAgentConfig:
     """
-    Immutable configuration for GopherAgent.
+    Immutable configuration for GopherAgent created via GopherAgent.create().
 
     Use the builder() method to create configurations.
+
+    The builder accepts only the api_key / server_config XOR that maps to
+    the original gopher_orch_agent_create_by_api_key and
+    gopher_orch_agent_create_by_json C entry points. The five newer routing
+    factories (GopherAgent.create_with_server_id, create_with_server_name,
+    create_with_gateway_id, create_with_gateway_name, create_with_url) take
+    additional inputs (server / gateway identifier, or URL) that do not fit
+    that XOR shape and deliberately bypass this builder; they are exposed
+    as static methods on GopherAgent and dispatch into GopherOrchLibrary
+    directly via GopherAgent._create_from_ffi.
 
     Example:
         >>> config = (GopherAgentConfig.builder()
