@@ -32,7 +32,7 @@ from gopher_mcp_python.errors import (
     TimeoutError,
 )
 from gopher_mcp_python.server_config import ServerConfig
-from gopher_mcp_python.ffi import GopherOrchLibrary
+from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
 # Auth module re-exports
 from gopher_mcp_python.ffi.auth import (
@@ -68,6 +68,7 @@ __all__ = [
     "TimeoutError",
     # FFI
     "GopherOrchLibrary",
+    "GopherOrchHandle",
     # Auth
     "GopherAuthError",
     "ValidationResult",
