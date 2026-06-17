@@ -134,6 +134,54 @@ class GopherOrchLibrary:
         ]
         self._lib.gopher_orch_agent_create_by_api_key.restype = c_void_p
 
+        # Routing factories: scope the agent to a single MCP server or gateway
+        # selected by id / name, or to a known MCP URL. These C symbols landed
+        # in gopher-orch 0.1.23 -- wrapped in try / except so the SDK still
+        # loads against an older libgopher-orch, with the higher-level
+        # factories raising AgentError at call time if the symbol is missing.
+        try:
+            self._lib.gopher_orch_agent_create_by_server_id.argtypes = [
+                c_char_p,
+                c_char_p,
+                c_char_p,
+                c_char_p,
+            ]
+            self._lib.gopher_orch_agent_create_by_server_id.restype = c_void_p
+
+            self._lib.gopher_orch_agent_create_by_server_name.argtypes = [
+                c_char_p,
+                c_char_p,
+                c_char_p,
+                c_char_p,
+            ]
+            self._lib.gopher_orch_agent_create_by_server_name.restype = c_void_p
+
+            self._lib.gopher_orch_agent_create_by_gateway_id.argtypes = [
+                c_char_p,
+                c_char_p,
+                c_char_p,
+                c_char_p,
+            ]
+            self._lib.gopher_orch_agent_create_by_gateway_id.restype = c_void_p
+
+            self._lib.gopher_orch_agent_create_by_gateway_name.argtypes = [
+                c_char_p,
+                c_char_p,
+                c_char_p,
+                c_char_p,
+            ]
+            self._lib.gopher_orch_agent_create_by_gateway_name.restype = c_void_p
+
+            self._lib.gopher_orch_agent_create_by_url.argtypes = [
+                c_char_p,
+                c_char_p,
+                c_char_p,
+            ]
+            self._lib.gopher_orch_agent_create_by_url.restype = c_void_p
+        except AttributeError:
+            # Older libgopher-orch builds (< 0.1.23) lack these symbols.
+            pass
+
         self._lib.gopher_orch_agent_run.argtypes = [c_void_p, c_char_p, c_int64]
         self._lib.gopher_orch_agent_run.restype = c_char_p
 
@@ -285,6 +333,106 @@ class GopherOrchLibrary:
             provider.encode("utf-8"),
             model.encode("utf-8"),
             api_key.encode("utf-8"),
+        )
+
+    def agent_create_by_server_id(
+        self, provider: str, model: str, api_key: str, server_id: str
+    ) -> Optional[GopherOrchHandle]:
+        """Create an agent scoped to a single MCP server by id.
+
+        The native side fetches server config from the Gopher API using the
+        Bearer api key, appending "?serverId={server_id}" so the response
+        carries only the matching MCP server entry.
+        """
+        if not self._available or self._lib is None:
+            return None
+        fn = getattr(self._lib, "gopher_orch_agent_create_by_server_id", None)
+        if fn is None:
+            return None
+        return fn(
+            provider.encode("utf-8"),
+            model.encode("utf-8"),
+            api_key.encode("utf-8"),
+            server_id.encode("utf-8"),
+        )
+
+    def agent_create_by_server_name(
+        self, provider: str, model: str, api_key: str, server_name: str
+    ) -> Optional[GopherOrchHandle]:
+        """Create an agent scoped to a single MCP server by name.
+
+        Mirrors agent_create_by_server_id but routes via "?serverName=".
+        """
+        if not self._available or self._lib is None:
+            return None
+        fn = getattr(self._lib, "gopher_orch_agent_create_by_server_name", None)
+        if fn is None:
+            return None
+        return fn(
+            provider.encode("utf-8"),
+            model.encode("utf-8"),
+            api_key.encode("utf-8"),
+            server_name.encode("utf-8"),
+        )
+
+    def agent_create_by_gateway_id(
+        self, provider: str, model: str, api_key: str, gateway_id: str
+    ) -> Optional[GopherOrchHandle]:
+        """Create an agent scoped to a single MCP gateway by id.
+
+        The native side appends "?gatewayId={gateway_id}" to the Gopher API
+        fetch so the response carries the backing MCP servers for that
+        gateway.
+        """
+        if not self._available or self._lib is None:
+            return None
+        fn = getattr(self._lib, "gopher_orch_agent_create_by_gateway_id", None)
+        if fn is None:
+            return None
+        return fn(
+            provider.encode("utf-8"),
+            model.encode("utf-8"),
+            api_key.encode("utf-8"),
+            gateway_id.encode("utf-8"),
+        )
+
+    def agent_create_by_gateway_name(
+        self, provider: str, model: str, api_key: str, gateway_name: str
+    ) -> Optional[GopherOrchHandle]:
+        """Create an agent scoped to a single MCP gateway by name.
+
+        Mirrors agent_create_by_gateway_id but routes via "?gatewayName=".
+        """
+        if not self._available or self._lib is None:
+            return None
+        fn = getattr(self._lib, "gopher_orch_agent_create_by_gateway_name", None)
+        if fn is None:
+            return None
+        return fn(
+            provider.encode("utf-8"),
+            model.encode("utf-8"),
+            api_key.encode("utf-8"),
+            gateway_name.encode("utf-8"),
+        )
+
+    def agent_create_by_url(
+        self, provider: str, model: str, url: str
+    ) -> Optional[GopherOrchHandle]:
+        """Create an agent for a single MCP server reachable at a URL.
+
+        Skips the remote config fetch: the native side synthesises an
+        http_sse server entry around the URL. Useful for local development
+        or one-off endpoints where the operator already knows the URL.
+        """
+        if not self._available or self._lib is None:
+            return None
+        fn = getattr(self._lib, "gopher_orch_agent_create_by_url", None)
+        if fn is None:
+            return None
+        return fn(
+            provider.encode("utf-8"),
+            model.encode("utf-8"),
+            url.encode("utf-8"),
         )
 
     def agent_run(
