@@ -8,8 +8,9 @@ itself ports gopher-orch/examples/sdk/api/create_by_api_key.cc.
 Uses a Gopher API key to fetch the caller's full MCP server inventory
 via GET /v1/mcp-servers; the agent gets every server the api key owns
 with no extra routing. Smallest of the seven create_by_* examples and
-a good first sanity check that the toolchain (pip install -e ., the
-right native lib, env vars) is wired correctly.
+a good first sanity check that the toolchain (pip install
+gopher-mcp-python, the matching platform native package, env vars)
+is wired correctly.
 
 Provider defaults to AnthropicProvider; the model is taken from
 LLM_MODEL. Override either via env or by editing the constants in
