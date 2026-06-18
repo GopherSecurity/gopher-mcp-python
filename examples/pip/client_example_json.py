@@ -12,7 +12,6 @@ import os
 
 from gopher_mcp_python import GopherAgent
 
-
 # Server configuration for local MCP servers
 SERVER_CONFIG = json.dumps(
     {

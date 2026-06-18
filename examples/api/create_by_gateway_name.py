@@ -50,9 +50,7 @@ def env_or(name: str, fallback: str) -> str:
 def main() -> None:
     print("=== GopherAgent.create_with_gateway_name example ===")
     print(f"Usage: python3 {sys.argv[0]} [query1] [query2] ...")
-    print(
-        "Env:   GOPHER_API_KEY GOPHER_MCP_GATEWAY_NAME LLM_PROVIDER LLM_MODEL DEBUG"
-    )
+    print("Env:   GOPHER_API_KEY GOPHER_MCP_GATEWAY_NAME LLM_PROVIDER LLM_MODEL DEBUG")
     print("")
 
     queries = sys.argv[1:] if len(sys.argv) > 1 else ["What time is it in Tokyo?"]
@@ -63,9 +61,7 @@ def main() -> None:
     gateway_name = env_or("GOPHER_MCP_GATEWAY_NAME", GATEWAY_NAME_PLACEHOLDER)
 
     print(f"Provider:         {provider}")
-    model_label = (
-        f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
-    )
+    model_label = f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
     print(f"Model:            {model_label}")
     api_key_label = (
         f"{api_key}  (set GOPHER_API_KEY)"
@@ -94,9 +90,7 @@ def main() -> None:
         sys.exit(1)
 
     print("\nCreating agent via GopherAgent.create_with_gateway_name...")
-    agent = GopherAgent.create_with_gateway_name(
-        provider, model, api_key, gateway_name
-    )
+    agent = GopherAgent.create_with_gateway_name(provider, model, api_key, gateway_name)
     print("Agent created successfully!")
 
     try:

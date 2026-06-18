@@ -8,7 +8,6 @@ from gopher_mcp_python.ffi.auth.validation_options import (
     gopher_create_validation_options,
 )
 
-
 # Skip all tests if auth functions not available
 pytestmark = pytest.mark.skipif(
     not is_auth_available(),

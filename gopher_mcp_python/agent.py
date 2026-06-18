@@ -34,7 +34,6 @@ from gopher_mcp_python.result import AgentResult, AgentResultStatus
 from gopher_mcp_python.errors import AgentError, TimeoutError
 from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
-
 _initialized = False
 _cleanup_handler_registered = False
 

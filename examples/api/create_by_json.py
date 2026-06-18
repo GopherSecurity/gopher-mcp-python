@@ -77,9 +77,7 @@ def main() -> None:
     model = env_or("LLM_MODEL", MODEL_PLACEHOLDER)
 
     print(f"Provider: {provider}")
-    model_label = (
-        f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
-    )
+    model_label = f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
     print(f"Model:    {model_label}")
     print(f"Queries:  {len(queries)}")
 
