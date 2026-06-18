@@ -56,9 +56,7 @@ def main() -> None:
     api_key = env_or("GOPHER_API_KEY", API_KEY_PLACEHOLDER)
 
     print(f"Provider: {provider}")
-    model_label = (
-        f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
-    )
+    model_label = f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
     print(f"Model:    {model_label}")
     api_key_label = (
         f"{api_key}  (set GOPHER_API_KEY)"

@@ -48,9 +48,7 @@ def env_or(name: str, fallback: str) -> str:
 def main() -> None:
     print("=== GopherAgent.create_with_server_id example ===")
     print(f"Usage: python3 {sys.argv[0]} [query1] [query2] ...")
-    print(
-        "Env:   GOPHER_API_KEY GOPHER_MCP_SERVER_ID LLM_PROVIDER LLM_MODEL DEBUG"
-    )
+    print("Env:   GOPHER_API_KEY GOPHER_MCP_SERVER_ID LLM_PROVIDER LLM_MODEL DEBUG")
     print("")
 
     queries = sys.argv[1:] if len(sys.argv) > 1 else ["What time is it in Tokyo?"]
@@ -61,9 +59,7 @@ def main() -> None:
     server_id = env_or("GOPHER_MCP_SERVER_ID", SERVER_ID_PLACEHOLDER)
 
     print(f"Provider:      {provider}")
-    model_label = (
-        f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
-    )
+    model_label = f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
     print(f"Model:         {model_label}")
     api_key_label = (
         f"{api_key}  (set GOPHER_API_KEY)"

@@ -57,13 +57,9 @@ def main() -> None:
     url = env_or("GOPHER_MCP_URL", URL_PLACEHOLDER)
 
     print(f"Provider: {provider}")
-    model_label = (
-        f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
-    )
+    model_label = f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
     print(f"Model:    {model_label}")
-    url_label = (
-        f"{url}  (set GOPHER_MCP_URL)" if url == URL_PLACEHOLDER else url
-    )
+    url_label = f"{url}  (set GOPHER_MCP_URL)" if url == URL_PLACEHOLDER else url
     print(f"MCP URL:  {url_label}")
     print(f"Queries:  {len(queries)}")
 

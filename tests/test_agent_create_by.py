@@ -42,9 +42,7 @@ class TestRoutingFactoryContracts:
 
     def test_create_with_server_name_rejects_empty_api_key(self) -> None:
         with pytest.raises(AgentError):
-            GopherAgent.create_with_server_name(
-                PROVIDER, MODEL, "", "my-server"
-            )
+            GopherAgent.create_with_server_name(PROVIDER, MODEL, "", "my-server")
 
     def test_create_with_gateway_id_rejects_empty_api_key(self) -> None:
         with pytest.raises(AgentError):
@@ -52,9 +50,7 @@ class TestRoutingFactoryContracts:
 
     def test_create_with_gateway_name_rejects_empty_api_key(self) -> None:
         with pytest.raises(AgentError):
-            GopherAgent.create_with_gateway_name(
-                PROVIDER, MODEL, "", "my-gateway"
-            )
+            GopherAgent.create_with_gateway_name(PROVIDER, MODEL, "", "my-gateway")
 
     # ----------------------------------------------------------------
     # create_with_url rejects empty url before any FFI work happens.
