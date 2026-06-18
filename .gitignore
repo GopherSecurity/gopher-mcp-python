@@ -7,6 +7,7 @@ dist/
 # Native library directories
 native/
 test-project-api/
+examples/api/test-project-*/
 
 # Python cache
 __pycache__/
