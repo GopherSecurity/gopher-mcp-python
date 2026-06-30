@@ -5,9 +5,11 @@ ctypes interface to the gopher-mcp-python native library.
 import ctypes
 import os
 import sys
-from ctypes import c_char_p, c_void_p, c_int32, c_int64, POINTER, Structure
+from ctypes import c_char_p, c_void_p, c_int32, c_int64, c_size_t, POINTER, Structure
 from pathlib import Path
 from typing import Optional, Any
+
+from gopher_mcp_python.config import GopherAgentRuntimeOptions, normalize_runtime_options
 
 # Type alias for opaque handle
 GopherOrchHandle = c_void_p
@@ -32,6 +34,76 @@ class GopherOrchErrorInfo(Structure):
         ("file", c_char_p),
         ("line", c_int32),
     ]
+
+
+class GopherOrchHeader(Structure):
+    """
+    Header pair structure matching C:
+    typedef struct {
+        const char* name;
+        const char* value;
+    } gopher_orch_header_t;
+    """
+
+    _fields_ = [
+        ("name", c_char_p),
+        ("value", c_char_p),
+    ]
+
+
+class GopherOrchAgentOptions(Structure):
+    """
+    Agent runtime options structure matching C:
+    typedef struct {
+        const char* access_token;
+        const gopher_orch_header_t* headers;
+        gopher_orch_size_t header_count;
+    } gopher_orch_agent_options_t;
+    """
+
+    _fields_ = [
+        ("access_token", c_char_p),
+        ("headers", POINTER(GopherOrchHeader)),
+        ("header_count", c_size_t),
+    ]
+
+
+class _AgentOptionsStorage:
+    """Owns ctypes memory for a gopher_orch_agent_options_t call."""
+
+    def __init__(self, options: GopherAgentRuntimeOptions) -> None:
+        self._bytes = []
+
+        access_token = options.access_token
+        if access_token is not None:
+            access_token_bytes = access_token.encode("utf-8")
+            self._bytes.append(access_token_bytes)
+        else:
+            access_token_bytes = None
+
+        header_items = list(options.headers.items())
+        self.header_count = len(header_items)
+        if header_items:
+            self.header_array = (GopherOrchHeader * len(header_items))()
+            for i, (name, value) in enumerate(header_items):
+                name_bytes = name.encode("utf-8")
+                value_bytes = value.encode("utf-8")
+                self._bytes.extend([name_bytes, value_bytes])
+                self.header_array[i] = GopherOrchHeader(name_bytes, value_bytes)
+            headers_ptr = self.header_array
+        else:
+            self.header_array = None
+            headers_ptr = None
+
+        self.options = GopherOrchAgentOptions(
+            access_token_bytes,
+            headers_ptr,
+            self.header_count,
+        )
+
+    @property
+    def pointer(self):
+        return ctypes.byref(self.options)
 
 
 class GopherOrchLibrary:
@@ -128,6 +200,10 @@ class GopherOrchLibrary:
             c_char_p,
         ]
         self._lib.gopher_orch_agent_create_by_json.restype = c_void_p
+        self._bind_optional_agent_options_symbol(
+            "gopher_orch_agent_create_by_json_with_options",
+            [c_char_p, c_char_p, c_char_p, POINTER(GopherOrchAgentOptions)],
+        )
 
         self._lib.gopher_orch_agent_create_by_api_key.argtypes = [
             c_char_p,
@@ -135,6 +211,10 @@ class GopherOrchLibrary:
             c_char_p,
         ]
         self._lib.gopher_orch_agent_create_by_api_key.restype = c_void_p
+        self._bind_optional_agent_options_symbol(
+            "gopher_orch_agent_create_by_api_key_with_options",
+            [c_char_p, c_char_p, c_char_p, POINTER(GopherOrchAgentOptions)],
+        )
 
         # Routing factories: scope the agent to a single MCP server or gateway
         # selected by id / name, or to a known MCP URL. These C symbols landed
@@ -145,36 +225,67 @@ class GopherOrchLibrary:
             (
                 "gopher_orch_agent_create_by_server_id",
                 [c_char_p, c_char_p, c_char_p, c_char_p],
-                c_void_p,
+                "gopher_orch_agent_create_by_server_id_with_options",
+                [
+                    c_char_p,
+                    c_char_p,
+                    c_char_p,
+                    c_char_p,
+                    POINTER(GopherOrchAgentOptions),
+                ],
             ),
             (
                 "gopher_orch_agent_create_by_server_name",
                 [c_char_p, c_char_p, c_char_p, c_char_p],
-                c_void_p,
+                "gopher_orch_agent_create_by_server_name_with_options",
+                [
+                    c_char_p,
+                    c_char_p,
+                    c_char_p,
+                    c_char_p,
+                    POINTER(GopherOrchAgentOptions),
+                ],
             ),
             (
                 "gopher_orch_agent_create_by_gateway_id",
                 [c_char_p, c_char_p, c_char_p, c_char_p],
-                c_void_p,
+                "gopher_orch_agent_create_by_gateway_id_with_options",
+                [
+                    c_char_p,
+                    c_char_p,
+                    c_char_p,
+                    c_char_p,
+                    POINTER(GopherOrchAgentOptions),
+                ],
             ),
             (
                 "gopher_orch_agent_create_by_gateway_name",
                 [c_char_p, c_char_p, c_char_p, c_char_p],
-                c_void_p,
+                "gopher_orch_agent_create_by_gateway_name_with_options",
+                [
+                    c_char_p,
+                    c_char_p,
+                    c_char_p,
+                    c_char_p,
+                    POINTER(GopherOrchAgentOptions),
+                ],
             ),
             (
                 "gopher_orch_agent_create_by_url",
                 [c_char_p, c_char_p, c_char_p],
-                c_void_p,
+                "gopher_orch_agent_create_by_url_with_options",
+                [c_char_p, c_char_p, c_char_p, POINTER(GopherOrchAgentOptions)],
             ),
         ]
-        for name, argtypes, restype in routing_factories:
+        for name, argtypes, options_name, options_argtypes in routing_factories:
             try:
                 fn = getattr(self._lib, name)
             except AttributeError:
-                continue
-            fn.argtypes = argtypes
-            fn.restype = restype
+                pass
+            else:
+                fn.argtypes = argtypes
+                fn.restype = c_void_p
+            self._bind_optional_agent_options_symbol(options_name, options_argtypes)
 
         self._lib.gopher_orch_agent_run.argtypes = [c_void_p, c_char_p, c_int64]
         self._lib.gopher_orch_agent_run.restype = c_char_p
@@ -208,6 +319,16 @@ class GopherOrchLibrary:
             self._lib.gopher_orch_set_log_level(3)
         except AttributeError:
             # Function not available in this version of the library
+            pass
+
+    def _bind_optional_agent_options_symbol(self, name: str, argtypes: list) -> None:
+        if self._lib is None:
+            return
+        try:
+            fn = getattr(self._lib, name)
+            fn.argtypes = argtypes
+            fn.restype = c_void_p
+        except AttributeError:
             pass
 
     def _get_library_name(self) -> str:
@@ -307,11 +428,28 @@ class GopherOrchLibrary:
 
     # Agent functions
     def agent_create_by_json(
-        self, provider: str, model: str, server_json: str
+        self,
+        provider: str,
+        model: str,
+        server_json: str,
+        runtime_options: Optional[object] = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent using JSON server configuration."""
         if not self._available or self._lib is None:
             return None
+        options = self._build_agent_options(runtime_options)
+        if options is not None:
+            fn = getattr(
+                self._lib, "gopher_orch_agent_create_by_json_with_options", None
+            )
+            if fn is None:
+                raise RuntimeError(self._missing_options_symbol_message())
+            return fn(
+                provider.encode("utf-8"),
+                model.encode("utf-8"),
+                server_json.encode("utf-8"),
+                options.pointer,
+            )
         return self._lib.gopher_orch_agent_create_by_json(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -319,11 +457,28 @@ class GopherOrchLibrary:
         )
 
     def agent_create_by_api_key(
-        self, provider: str, model: str, api_key: str
+        self,
+        provider: str,
+        model: str,
+        api_key: str,
+        runtime_options: Optional[object] = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent using API key."""
         if not self._available or self._lib is None:
             return None
+        options = self._build_agent_options(runtime_options)
+        if options is not None:
+            fn = getattr(
+                self._lib, "gopher_orch_agent_create_by_api_key_with_options", None
+            )
+            if fn is None:
+                raise RuntimeError(self._missing_options_symbol_message())
+            return fn(
+                provider.encode("utf-8"),
+                model.encode("utf-8"),
+                api_key.encode("utf-8"),
+                options.pointer,
+            )
         return self._lib.gopher_orch_agent_create_by_api_key(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -331,7 +486,12 @@ class GopherOrchLibrary:
         )
 
     def agent_create_by_server_id(
-        self, provider: str, model: str, api_key: str, server_id: str
+        self,
+        provider: str,
+        model: str,
+        api_key: str,
+        server_id: str,
+        runtime_options: Optional[object] = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent scoped to a single MCP server by id.
 
@@ -341,6 +501,20 @@ class GopherOrchLibrary:
         """
         if not self._available or self._lib is None:
             return None
+        options = self._build_agent_options(runtime_options)
+        if options is not None:
+            fn = getattr(
+                self._lib, "gopher_orch_agent_create_by_server_id_with_options", None
+            )
+            if fn is None:
+                raise RuntimeError(self._missing_options_symbol_message())
+            return fn(
+                provider.encode("utf-8"),
+                model.encode("utf-8"),
+                api_key.encode("utf-8"),
+                server_id.encode("utf-8"),
+                options.pointer,
+            )
         fn = getattr(self._lib, "gopher_orch_agent_create_by_server_id", None)
         if fn is None:
             raise RuntimeError(_missing_routing_factory_message())
@@ -352,7 +526,12 @@ class GopherOrchLibrary:
         )
 
     def agent_create_by_server_name(
-        self, provider: str, model: str, api_key: str, server_name: str
+        self,
+        provider: str,
+        model: str,
+        api_key: str,
+        server_name: str,
+        runtime_options: Optional[object] = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent scoped to a single MCP server by name.
 
@@ -360,6 +539,20 @@ class GopherOrchLibrary:
         """
         if not self._available or self._lib is None:
             return None
+        options = self._build_agent_options(runtime_options)
+        if options is not None:
+            fn = getattr(
+                self._lib, "gopher_orch_agent_create_by_server_name_with_options", None
+            )
+            if fn is None:
+                raise RuntimeError(self._missing_options_symbol_message())
+            return fn(
+                provider.encode("utf-8"),
+                model.encode("utf-8"),
+                api_key.encode("utf-8"),
+                server_name.encode("utf-8"),
+                options.pointer,
+            )
         fn = getattr(self._lib, "gopher_orch_agent_create_by_server_name", None)
         if fn is None:
             raise RuntimeError(_missing_routing_factory_message())
@@ -371,7 +564,12 @@ class GopherOrchLibrary:
         )
 
     def agent_create_by_gateway_id(
-        self, provider: str, model: str, api_key: str, gateway_id: str
+        self,
+        provider: str,
+        model: str,
+        api_key: str,
+        gateway_id: str,
+        runtime_options: Optional[object] = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent scoped to a single MCP gateway by id.
 
@@ -381,6 +579,20 @@ class GopherOrchLibrary:
         """
         if not self._available or self._lib is None:
             return None
+        options = self._build_agent_options(runtime_options)
+        if options is not None:
+            fn = getattr(
+                self._lib, "gopher_orch_agent_create_by_gateway_id_with_options", None
+            )
+            if fn is None:
+                raise RuntimeError(self._missing_options_symbol_message())
+            return fn(
+                provider.encode("utf-8"),
+                model.encode("utf-8"),
+                api_key.encode("utf-8"),
+                gateway_id.encode("utf-8"),
+                options.pointer,
+            )
         fn = getattr(self._lib, "gopher_orch_agent_create_by_gateway_id", None)
         if fn is None:
             raise RuntimeError(_missing_routing_factory_message())
@@ -392,7 +604,12 @@ class GopherOrchLibrary:
         )
 
     def agent_create_by_gateway_name(
-        self, provider: str, model: str, api_key: str, gateway_name: str
+        self,
+        provider: str,
+        model: str,
+        api_key: str,
+        gateway_name: str,
+        runtime_options: Optional[object] = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent scoped to a single MCP gateway by name.
 
@@ -400,6 +617,22 @@ class GopherOrchLibrary:
         """
         if not self._available or self._lib is None:
             return None
+        options = self._build_agent_options(runtime_options)
+        if options is not None:
+            fn = getattr(
+                self._lib,
+                "gopher_orch_agent_create_by_gateway_name_with_options",
+                None,
+            )
+            if fn is None:
+                raise RuntimeError(self._missing_options_symbol_message())
+            return fn(
+                provider.encode("utf-8"),
+                model.encode("utf-8"),
+                api_key.encode("utf-8"),
+                gateway_name.encode("utf-8"),
+                options.pointer,
+            )
         fn = getattr(self._lib, "gopher_orch_agent_create_by_gateway_name", None)
         if fn is None:
             raise RuntimeError(_missing_routing_factory_message())
@@ -411,7 +644,11 @@ class GopherOrchLibrary:
         )
 
     def agent_create_by_url(
-        self, provider: str, model: str, url: str
+        self,
+        provider: str,
+        model: str,
+        url: str,
+        runtime_options: Optional[object] = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent for a single MCP server reachable at a URL.
 
@@ -421,6 +658,17 @@ class GopherOrchLibrary:
         """
         if not self._available or self._lib is None:
             return None
+        options = self._build_agent_options(runtime_options)
+        if options is not None:
+            fn = getattr(self._lib, "gopher_orch_agent_create_by_url_with_options", None)
+            if fn is None:
+                raise RuntimeError(self._missing_options_symbol_message())
+            return fn(
+                provider.encode("utf-8"),
+                model.encode("utf-8"),
+                url.encode("utf-8"),
+                options.pointer,
+            )
         fn = getattr(self._lib, "gopher_orch_agent_create_by_url", None)
         if fn is None:
             raise RuntimeError(_missing_routing_factory_message())
@@ -428,6 +676,21 @@ class GopherOrchLibrary:
             provider.encode("utf-8"),
             model.encode("utf-8"),
             url.encode("utf-8"),
+        )
+
+    def _build_agent_options(
+        self, runtime_options: Optional[object]
+    ) -> Optional[_AgentOptionsStorage]:
+        options = normalize_runtime_options(runtime_options)
+        if options is None:
+            return None
+        return _AgentOptionsStorage(options)
+
+    def _missing_options_symbol_message(self) -> str:
+        return (
+            "The loaded gopher-orch native library does not expose agent runtime "
+            "options. Rebuild or update gopher-orch before passing access_token "
+            "or headers."
         )
 
     def agent_run(
