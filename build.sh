@@ -12,6 +12,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NATIVE_DIR="${SCRIPT_DIR}/third_party/gopher-orch"
 BUILD_DIR="${NATIVE_DIR}/build"
+SOURCE_STAMP_FILE="${SCRIPT_DIR}/native/.gopher-orch-source"
 
 # Handle --clean flag (cleans CMake cache but preserves _deps)
 if [ "$1" = "--clean" ]; then
@@ -47,10 +48,12 @@ fi
 
 # Configure SSH URL rewrite for GopherSecurity repos
 # Clear any existing rewrites first to avoid conflicts
+git config --local --unset-all url."git@github.com:GopherSecurity/".insteadOf 2>/dev/null || true
 git config --local --unset-all url."git@${SSH_HOST}:GopherSecurity/".insteadOf 2>/dev/null || true
 # Set up URL rewrites - both https and default git@github.com should map to custom SSH host
 git config --local --add url."git@${SSH_HOST}:GopherSecurity/".insteadOf "https://github.com/GopherSecurity/"
 git config --local --add url."git@${SSH_HOST}:GopherSecurity/".insteadOf "git@github.com:GopherSecurity/"
+git submodule sync -- third_party/gopher-orch
 git config --local submodule.third_party/gopher-orch.url "git@${SSH_HOST}:GopherSecurity/gopher-orch.git"
 
 # Check if submodule directory exists but is empty/broken (missing CMakeLists.txt)
@@ -62,30 +65,37 @@ if [ -d "${NATIVE_DIR}" ] && [ ! -f "${NATIVE_DIR}/CMakeLists.txt" ]; then
     rm -rf .git/modules/third_party/gopher-orch 2>/dev/null || true
 fi
 
-# Update main submodule
-# First try with recorded commit, if that fails (commit doesn't exist), use --remote to get latest
-if ! git submodule update --init third_party/gopher-orch 2>/dev/null; then
-    echo -e "${YELLOW}  Recorded commit not found, fetching latest from remote...${NC}"
-    if ! git submodule update --init --remote third_party/gopher-orch 2>/dev/null; then
-        echo -e "${RED}Error: Failed to clone gopher-orch submodule${NC}"
+# Update main submodule to the latest commit on the branch configured in
+# .gitmodules (currently br_release), not just the parent-recorded SHA.
+if ! git submodule update --init --remote --checkout third_party/gopher-orch; then
+    echo -e "${RED}Error: Failed to update gopher-orch submodule to latest remote branch${NC}"
+    echo -e "${YELLOW}If you have multiple GitHub accounts, use:${NC}"
+    echo -e "  GITHUB_SSH_HOST=your-ssh-alias ./build.sh"
+    exit 1
+fi
+
+# Update nested submodule (gopher-mcp inside gopher-orch)
+if [ -d "${NATIVE_DIR}" ]; then
+    cd "${NATIVE_DIR}"
+    git config --local --unset-all url."git@github.com:GopherSecurity/".insteadOf 2>/dev/null || true
+    git config --local --unset-all url."git@${SSH_HOST}:GopherSecurity/".insteadOf 2>/dev/null || true
+    git config --local url."git@${SSH_HOST}:GopherSecurity/".insteadOf "https://github.com/GopherSecurity/"
+    git submodule sync -- third_party/gopher-mcp
+    git config --local submodule.third_party/gopher-mcp.url "git@${SSH_HOST}:GopherSecurity/gopher-mcp.git"
+    # Keep gopher-mcp on the latest commit from its configured release branch.
+    if ! git submodule update --init --remote --checkout third_party/gopher-mcp; then
+        echo -e "${RED}Error: Failed to update gopher-mcp submodule to latest remote branch${NC}"
         echo -e "${YELLOW}If you have multiple GitHub accounts, use:${NC}"
         echo -e "  GITHUB_SSH_HOST=your-ssh-alias ./build.sh"
         exit 1
     fi
-fi
-
-# Update nested submodule (gopher-mcp inside gopher-orch)
-# Note: gopher-orch/.gitmodules has 'update = none' so we must explicitly update
-if [ -d "${NATIVE_DIR}" ]; then
-    cd "${NATIVE_DIR}"
-    git config --local url."git@${SSH_HOST}:GopherSecurity/".insteadOf "https://github.com/GopherSecurity/"
-    # Override 'update = none' by using --checkout
-    git submodule update --init --checkout third_party/gopher-mcp 2>/dev/null || true
     # Also update gopher-mcp's nested submodules recursively
     if [ -d "third_party/gopher-mcp" ]; then
         cd third_party/gopher-mcp
+        git config --local --unset-all url."git@github.com:GopherSecurity/".insteadOf 2>/dev/null || true
+        git config --local --unset-all url."git@${SSH_HOST}:GopherSecurity/".insteadOf 2>/dev/null || true
         git config --local url."git@${SSH_HOST}:GopherSecurity/".insteadOf "https://github.com/GopherSecurity/"
-        git submodule update --init --recursive 2>/dev/null || true
+        git submodule update --init --recursive
     fi
     cd "${SCRIPT_DIR}"
 fi
@@ -101,18 +111,29 @@ if [ ! -d "${NATIVE_DIR}" ]; then
 fi
 
 # Step 3: Build gopher-orch native library
-# Skip build if native lib already has the required auth symbols
+# Skip build only when the installed native lib matches the current submodule
+# revisions and has the required auth symbols.
 SKIP_NATIVE_BUILD=false
 EXISTING_LIB="${SCRIPT_DIR}/native/lib/libgopher-orch.dylib"
 if [ ! -f "${EXISTING_LIB}" ]; then
     EXISTING_LIB="${SCRIPT_DIR}/native/lib/libgopher-orch.so"
 fi
 
+SOURCE_STAMP="gopher-orch=$(git -C "${NATIVE_DIR}" rev-parse HEAD)"
+if [ -d "${NATIVE_DIR}/third_party/gopher-mcp" ]; then
+    SOURCE_STAMP="${SOURCE_STAMP}
+gopher-mcp=$(git -C "${NATIVE_DIR}/third_party/gopher-mcp" rev-parse HEAD)"
+fi
+
 if [ -f "${EXISTING_LIB}" ]; then
-    if nm -gU "${EXISTING_LIB}" 2>/dev/null | grep -q "gopher_auth_config_create"; then
-        echo -e "${GREEN}✓ Native library already has auth symbols — skipping rebuild${NC}"
-        echo -e "  (To force rebuild, delete native/lib/ first)"
-        SKIP_NATIVE_BUILD=true
+    if [ -f "${SOURCE_STAMP_FILE}" ] && [ "$(cat "${SOURCE_STAMP_FILE}")" = "${SOURCE_STAMP}" ]; then
+        if nm -gU "${EXISTING_LIB}" 2>/dev/null | grep -q "gopher_auth_config_create"; then
+            echo -e "${GREEN}✓ Native library already matches latest submodule revisions — skipping rebuild${NC}"
+            echo -e "  (To force rebuild, delete native/lib/ first)"
+            SKIP_NATIVE_BUILD=true
+        fi
+    else
+        echo -e "${YELLOW}  Native source revision changed; rebuilding libgopher-orch${NC}"
     fi
 fi
 
@@ -167,6 +188,7 @@ cp -P "${BUILD_DIR}"/_deps/fmt-build/libfmt*.a "${NATIVE_LIB}/" 2>/dev/null || t
 cd "${SCRIPT_DIR}"
 
 echo -e "${GREEN}✓ Native library built successfully${NC}"
+printf "%s\n" "${SOURCE_STAMP}" > "${SOURCE_STAMP_FILE}"
 echo ""
 
 fi  # end SKIP_NATIVE_BUILD
@@ -238,11 +260,14 @@ echo -e "${YELLOW}Step 5: Running tests...${NC}"
 export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH}"
 
 # Use the freshly built native library (not a stale pip-installed version)
-export GOPHER_ORCH_LIBRARY_PATH="${NATIVE_LIB_DIR}/libgopher-orch.dylib"
-if [ ! -f "${GOPHER_ORCH_LIBRARY_PATH}" ]; then
+export GOPHER_MCP_PYTHON_LIBRARY_PATH="${NATIVE_LIB_DIR}/libgopher-orch.dylib"
+if [ ! -f "${GOPHER_MCP_PYTHON_LIBRARY_PATH}" ]; then
     # Try .so for Linux
-    export GOPHER_ORCH_LIBRARY_PATH="${NATIVE_LIB_DIR}/libgopher-orch.so"
+    export GOPHER_MCP_PYTHON_LIBRARY_PATH="${NATIVE_LIB_DIR}/libgopher-orch.so"
 fi
+export GOPHER_ORCH_LIBRARY_PATH="${GOPHER_MCP_PYTHON_LIBRARY_PATH}"
+export DYLD_LIBRARY_PATH="${NATIVE_LIB_DIR}:${DYLD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="${NATIVE_LIB_DIR}:${LD_LIBRARY_PATH}"
 
 # Try to run pytest, handling different installation scenarios
 if python3 -c "import pytest" 2>/dev/null; then
