@@ -122,11 +122,17 @@ class GopherAgent:
         try:
             if config.has_api_key():
                 handle = lib.agent_create_by_api_key(
-                    config.provider, config.model, config.api_key
+                    config.provider,
+                    config.model,
+                    config.api_key,
+                    config.runtime_options,
                 )
             else:
                 handle = lib.agent_create_by_json(
-                    config.provider, config.model, config.server_config
+                    config.provider,
+                    config.model,
+                    config.server_config,
+                    config.runtime_options,
                 )
         except Exception as e:
             raise AgentError(f"Failed to create agent: {e}")
@@ -139,7 +145,12 @@ class GopherAgent:
         return GopherAgent(handle)
 
     @staticmethod
-    def create_with_api_key(provider: str, model: str, api_key: str) -> "GopherAgent":
+    def create_with_api_key(
+        provider: str,
+        model: str,
+        api_key: str,
+        runtime_options: Optional[object] = None,
+    ) -> "GopherAgent":
         """
         Create a new GopherAgent with API key.
 
@@ -147,21 +158,27 @@ class GopherAgent:
             provider: Provider name (e.g., "AnthropicProvider")
             model: Model name (e.g., "claude-3-haiku-20240307")
             api_key: API key for fetching remote server config
+            runtime_options: Dynamic MCP runtime headers/access token
 
         Returns:
             GopherAgent instance
         """
-        return GopherAgent.create(
+        builder = (
             GopherAgentConfig.builder()
             .provider(provider)
             .model(model)
             .api_key(api_key)
-            .build()
         )
+        if runtime_options is not None:
+            builder.runtime_options(runtime_options)
+        return GopherAgent.create(builder.build())
 
     @staticmethod
     def create_with_server_config(
-        provider: str, model: str, server_config: str
+        provider: str,
+        model: str,
+        server_config: str,
+        runtime_options: Optional[object] = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent with JSON server config.
@@ -170,21 +187,28 @@ class GopherAgent:
             provider: Provider name (e.g., "AnthropicProvider")
             model: Model name (e.g., "claude-3-haiku-20240307")
             server_config: JSON server configuration
+            runtime_options: Dynamic MCP runtime headers/access token
 
         Returns:
             GopherAgent instance
         """
-        return GopherAgent.create(
+        builder = (
             GopherAgentConfig.builder()
             .provider(provider)
             .model(model)
             .server_config(server_config)
-            .build()
         )
+        if runtime_options is not None:
+            builder.runtime_options(runtime_options)
+        return GopherAgent.create(builder.build())
 
     @staticmethod
     def create_with_server_id(
-        provider: str, model: str, api_key: str, server_id: str
+        provider: str,
+        model: str,
+        api_key: str,
+        server_id: str,
+        runtime_options: Optional[object] = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent scoped to a single MCP server by id.
@@ -198,19 +222,24 @@ class GopherAgent:
             model: Model identifier accepted by the chosen provider
             api_key: Gopher API key
             server_id: MCP server id to scope the agent to
+            runtime_options: Dynamic MCP runtime headers/access token
 
         Returns:
             GopherAgent instance
         """
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_server_id(
-                provider, model, api_key, server_id
+                provider, model, api_key, server_id, runtime_options
             )
         )
 
     @staticmethod
     def create_with_server_name(
-        provider: str, model: str, api_key: str, server_name: str
+        provider: str,
+        model: str,
+        api_key: str,
+        server_name: str,
+        runtime_options: Optional[object] = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent scoped to a single MCP server by name.
@@ -224,19 +253,24 @@ class GopherAgent:
             model: Model identifier accepted by the chosen provider
             api_key: Gopher API key
             server_name: MCP server name to scope the agent to
+            runtime_options: Dynamic MCP runtime headers/access token
 
         Returns:
             GopherAgent instance
         """
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_server_name(
-                provider, model, api_key, server_name
+                provider, model, api_key, server_name, runtime_options
             )
         )
 
     @staticmethod
     def create_with_gateway_id(
-        provider: str, model: str, api_key: str, gateway_id: str
+        provider: str,
+        model: str,
+        api_key: str,
+        gateway_id: str,
+        runtime_options: Optional[object] = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent scoped to a single MCP gateway by id.
@@ -250,19 +284,24 @@ class GopherAgent:
             model: Model identifier accepted by the chosen provider
             api_key: Gopher API key
             gateway_id: MCP gateway id to scope the agent to
+            runtime_options: Dynamic MCP runtime headers/access token
 
         Returns:
             GopherAgent instance
         """
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_gateway_id(
-                provider, model, api_key, gateway_id
+                provider, model, api_key, gateway_id, runtime_options
             )
         )
 
     @staticmethod
     def create_with_gateway_name(
-        provider: str, model: str, api_key: str, gateway_name: str
+        provider: str,
+        model: str,
+        api_key: str,
+        gateway_name: str,
+        runtime_options: Optional[object] = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent scoped to a single MCP gateway by name.
@@ -276,18 +315,24 @@ class GopherAgent:
             model: Model identifier accepted by the chosen provider
             api_key: Gopher API key
             gateway_name: MCP gateway name to scope the agent to
+            runtime_options: Dynamic MCP runtime headers/access token
 
         Returns:
             GopherAgent instance
         """
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_gateway_name(
-                provider, model, api_key, gateway_name
+                provider, model, api_key, gateway_name, runtime_options
             )
         )
 
     @staticmethod
-    def create_with_url(provider: str, model: str, url: str) -> "GopherAgent":
+    def create_with_url(
+        provider: str,
+        model: str,
+        url: str,
+        runtime_options: Optional[object] = None,
+    ) -> "GopherAgent":
         """
         Create a new GopherAgent for a single MCP server reachable at a URL.
 
@@ -300,12 +345,13 @@ class GopherAgent:
             provider: Provider name (e.g., "AnthropicProvider")
             model: Model identifier accepted by the chosen provider
             url: Full URL of the MCP server (e.g., "http://127.0.0.1:8080/mcp")
+            runtime_options: Dynamic MCP runtime headers/access token
 
         Returns:
             GopherAgent instance
         """
         return GopherAgent._create_from_ffi(
-            lambda lib: lib.agent_create_by_url(provider, model, url)
+            lambda lib: lib.agent_create_by_url(provider, model, url, runtime_options)
         )
 
     @staticmethod
