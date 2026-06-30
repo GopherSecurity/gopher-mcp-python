@@ -1,7 +1,7 @@
 """Tests for GopherAgentConfig."""
 
 import pytest
-from gopher_mcp_python.config import GopherAgentConfig
+from gopher_mcp_python.config import GopherAgentConfig, GopherAgentRuntimeOptions
 
 
 class TestGopherAgentConfig:
@@ -77,3 +77,97 @@ class TestGopherAgentConfig:
                 .server_config('{"servers": []}')
                 .build()
             )
+
+    def test_should_normalize_empty_runtime_options_to_none(self):
+        """Test empty runtime options are omitted."""
+        config = (
+            GopherAgentConfig.builder()
+            .provider("AnthropicProvider")
+            .model("claude-3-haiku-20240307")
+            .api_key("test-key")
+            .runtime_options({})
+            .build()
+        )
+
+        assert config.runtime_options is None
+
+    def test_should_create_runtime_options_with_access_token(self):
+        """Test access_token maps to Authorization bearer header."""
+        config = (
+            GopherAgentConfig.builder()
+            .provider("AnthropicProvider")
+            .model("claude-3-haiku-20240307")
+            .api_key("test-key")
+            .access_token("abc123")
+            .build()
+        )
+
+        assert config.runtime_options is not None
+        assert config.runtime_options.access_token == "abc123"
+        assert config.runtime_options.headers == {"Authorization": "Bearer abc123"}
+
+    def test_should_create_runtime_options_with_headers(self):
+        """Test dynamic headers are copied into runtime options."""
+        headers = {"X-Test": "one"}
+        config = (
+            GopherAgentConfig.builder()
+            .provider("AnthropicProvider")
+            .model("claude-3-haiku-20240307")
+            .api_key("test-key")
+            .headers(headers)
+            .build()
+        )
+        headers["X-Test"] = "mutated"
+
+        assert config.runtime_options is not None
+        assert config.runtime_options.access_token is None
+        assert config.runtime_options.headers == {"X-Test": "one"}
+
+    def test_should_merge_access_token_and_headers(self):
+        """Test access_token and headers can be combined."""
+        config = (
+            GopherAgentConfig.builder()
+            .provider("AnthropicProvider")
+            .model("claude-3-haiku-20240307")
+            .api_key("test-key")
+            .runtime_options(
+                {"access_token": "abc123", "headers": {"X-Test": "one"}}
+            )
+            .build()
+        )
+
+        assert config.runtime_options is not None
+        assert config.runtime_options.headers == {
+            "Authorization": "Bearer abc123",
+            "X-Test": "one",
+        }
+
+    def test_should_prefer_explicit_authorization_header(self):
+        """Test explicit Authorization header overrides access_token."""
+        options = GopherAgentRuntimeOptions(
+            access_token="abc123",
+            headers={"Authorization": "Bearer override", "X-Test": "one"},
+        )
+        config = (
+            GopherAgentConfig.builder()
+            .provider("AnthropicProvider")
+            .model("claude-3-haiku-20240307")
+            .api_key("test-key")
+            .runtime_options(options)
+            .build()
+        )
+
+        assert config.runtime_options is not None
+        assert config.runtime_options.access_token == "abc123"
+        assert config.runtime_options.headers["Authorization"] == "Bearer override"
+        assert config.runtime_options.headers["X-Test"] == "one"
+
+    def test_should_reject_invalid_runtime_header_values(self):
+        """Test runtime headers must be strings."""
+        with pytest.raises(ValueError, match="headers must be a string mapping"):
+            GopherAgentRuntimeOptions(headers={"X-Test": 1})
+
+    def test_should_reject_invalid_runtime_access_token(self):
+        """Test access_token must be a string."""
+        with pytest.raises(ValueError, match="access_token must be a string"):
+            GopherAgentRuntimeOptions(access_token=123)

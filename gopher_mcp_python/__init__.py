@@ -23,7 +23,11 @@ Example:
 """
 
 from gopher_mcp_python.agent import GopherAgent
-from gopher_mcp_python.config import GopherAgentConfig, GopherAgentConfigBuilder
+from gopher_mcp_python.config import (
+    GopherAgentConfig,
+    GopherAgentConfigBuilder,
+    GopherAgentRuntimeOptions,
+)
 from gopher_mcp_python.result import AgentResult, AgentResultStatus, AgentResultBuilder
 from gopher_mcp_python.errors import (
     AgentError,
@@ -57,6 +61,7 @@ __all__ = [
     "GopherAgent",
     "GopherAgentConfig",
     "GopherAgentConfigBuilder",
+    "GopherAgentRuntimeOptions",
     "AgentResult",
     "AgentResultStatus",
     "AgentResultBuilder",
