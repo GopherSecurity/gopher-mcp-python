@@ -71,7 +71,9 @@ class GopherOrchLibrary:
         search_paths = self._get_search_paths()
 
         # Try custom path from environment variable
-        env_path = os.environ.get("GOPHER_MCP_PYTHON_LIBRARY_PATH")
+        env_path = os.environ.get("GOPHER_MCP_PYTHON_LIBRARY_PATH") or os.environ.get(
+            "GOPHER_ORCH_LIBRARY_PATH"
+        )
         if env_path and os.path.exists(env_path):
             try:
                 self._lib = ctypes.CDLL(env_path)
@@ -81,7 +83,7 @@ class GopherOrchLibrary:
             except OSError as e:
                 if self._debug:
                     print(
-                        f"Failed to load from GOPHER_MCP_PYTHON_LIBRARY_PATH: {e}",
+                        f"Failed to load from environment library path: {e}",
                         file=sys.stderr,
                     )
 
@@ -276,15 +278,11 @@ class GopherOrchLibrary:
     def _get_search_paths(self) -> list:
         paths = []
 
-        # 1. Try platform-specific package first (pip distribution)
-        platform_path = self._get_platform_package_path()
-        if platform_path:
-            paths.append(platform_path)
-
-        # 2. Get the directory containing this module for development fallbacks
+        # 1. Get the directory containing this module for development fallbacks
         module_dir = Path(__file__).parent.parent.parent
 
-        # Development paths (native/lib in various locations)
+        # Development paths (native/lib in various locations). Prefer these so
+        # examples and tests use the library produced by ./build.sh.
         paths.extend(
             [
                 # Project root native/lib
@@ -294,6 +292,11 @@ class GopherOrchLibrary:
                 os.path.join(module_dir.parent, "native", "lib"),
             ]
         )
+
+        # 2. Try platform-specific package (pip distribution)
+        platform_path = self._get_platform_package_path()
+        if platform_path:
+            paths.append(platform_path)
 
         # 3. System paths as last resort
         if sys.platform == "darwin":

@@ -117,15 +117,11 @@ def _get_search_paths() -> List[str]:
     """
     paths: List[str] = []
 
-    # Platform-specific optional dependency package
-    platform_package_path = _get_platform_package_path()
-    if platform_package_path:
-        paths.append(platform_package_path)
-
     # Get the directory containing this module
     module_dir = Path(__file__).parent.parent.parent.parent
 
-    # Development paths
+    # Development paths. Prefer these so local runs use the library produced by
+    # ./build.sh before any installed platform package.
     paths.extend(
         [
             str(Path.cwd() / "native" / "lib"),
@@ -134,6 +130,11 @@ def _get_search_paths() -> List[str]:
             str(module_dir.parent / "native" / "lib"),
         ]
     )
+
+    # Platform-specific optional dependency package
+    platform_package_path = _get_platform_package_path()
+    if platform_package_path:
+        paths.append(platform_package_path)
 
     # System paths
     system = platform.system().lower()
@@ -149,9 +150,9 @@ def load_library() -> bool:
     Load the gopher-orch native library.
 
     Searches for the library in the following order:
-    1. Path specified by GOPHER_ORCH_LIBRARY_PATH environment variable
-    2. Platform-specific pip package
-    3. Development paths (native/lib, lib)
+    1. Path specified by GOPHER_MCP_PYTHON_LIBRARY_PATH environment variable
+    2. Development paths (native/lib, lib)
+    3. Platform-specific pip package
     4. System paths (/usr/local/lib, /usr/lib, etc.)
 
     Returns:
@@ -167,8 +168,10 @@ def load_library() -> bool:
     search_paths = _get_search_paths()
 
     # Try environment variable path first
-    env_path = os.environ.get("GOPHER_ORCH_LIBRARY_PATH") or os.environ.get(
-        "GOPHER_AUTH_LIBRARY_PATH"
+    env_path = (
+        os.environ.get("GOPHER_MCP_PYTHON_LIBRARY_PATH")
+        or os.environ.get("GOPHER_ORCH_LIBRARY_PATH")
+        or os.environ.get("GOPHER_AUTH_LIBRARY_PATH")
     )
     if env_path and os.path.exists(env_path):
         try:

@@ -17,6 +17,7 @@ from gopher_mcp_python.ffi.auth.loader import (
     GopherAuthOptionsPtr,
     GopherAuthValidationResult,
 )
+import gopher_mcp_python.ffi.auth.loader as auth_loader
 
 
 class TestGetLibraryName:
@@ -69,6 +70,18 @@ class TestGetSearchPaths:
         paths = _get_search_paths()
         native_lib_found = any("native" in p and "lib" in p for p in paths)
         assert native_lib_found
+
+    def test_prefers_local_native_lib_before_platform_package(self, monkeypatch):
+        """Test local native/lib is searched before installed native packages."""
+        monkeypatch.setattr(
+            auth_loader,
+            "_get_platform_package_path",
+            lambda: "/tmp/gopher-platform-native/lib",
+        )
+        paths = _get_search_paths()
+        local_path = str(auth_loader.Path.cwd() / "native" / "lib")
+        platform_path = "/tmp/gopher-platform-native/lib"
+        assert paths.index(local_path) < paths.index(platform_path)
 
     @patch("platform.system")
     def test_darwin_includes_homebrew(self, mock_system):
