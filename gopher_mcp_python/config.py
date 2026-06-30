@@ -4,7 +4,86 @@ Configuration classes for the Gopher Security MCP SDK.
 Provides a builder pattern for creating agent configurations with validation.
 """
 
-from typing import Optional
+from typing import Dict, Mapping, Optional
+
+
+class GopherAgentRuntimeOptions:
+    """
+    Runtime options applied when the native agent connects to MCP servers.
+
+    access_token is a convenience for Authorization: Bearer <token>. If an
+    explicit Authorization header is supplied in headers, that header wins.
+    """
+
+    def __init__(
+        self,
+        access_token: Optional[str] = None,
+        headers: Optional[Mapping[str, str]] = None,
+    ) -> None:
+        self._access_token = access_token
+        self._headers = _normalize_headers(access_token, headers)
+
+    @property
+    def access_token(self) -> Optional[str]:
+        """Get the MCP runtime bearer token."""
+        return self._access_token
+
+    @property
+    def headers(self) -> Dict[str, str]:
+        """Get dynamic MCP runtime headers."""
+        return dict(self._headers)
+
+
+def normalize_runtime_options(
+    options: Optional[object] = None,
+) -> Optional[GopherAgentRuntimeOptions]:
+    """
+    Normalize runtime options into a GopherAgentRuntimeOptions instance.
+
+    Accepts None, GopherAgentRuntimeOptions, or a dict-like object with
+    access_token and/or headers keys. Empty options normalize to None.
+    """
+    if options is None:
+        return None
+
+    if isinstance(options, GopherAgentRuntimeOptions):
+        if options.access_token is None and len(options.headers) == 0:
+            return None
+        return options
+
+    if isinstance(options, Mapping):
+        access_token = options.get("access_token")
+        headers = options.get("headers")
+        if access_token is None and (headers is None or len(headers) == 0):
+            return None
+        return GopherAgentRuntimeOptions(access_token=access_token, headers=headers)
+
+    raise ValueError(
+        "runtime_options must be a GopherAgentRuntimeOptions instance or mapping"
+    )
+
+
+def _normalize_headers(
+    access_token: Optional[str],
+    headers: Optional[Mapping[str, str]],
+) -> Dict[str, str]:
+    normalized: Dict[str, str] = {}
+
+    if headers is not None:
+        if not isinstance(headers, Mapping):
+            raise ValueError("runtime option headers must be a string mapping")
+        for name, value in headers.items():
+            if not isinstance(name, str) or not isinstance(value, str):
+                raise ValueError("runtime option headers must be a string mapping")
+            normalized[name] = value
+
+    if access_token is not None:
+        if not isinstance(access_token, str):
+            raise ValueError("runtime option access_token must be a string")
+        if "Authorization" not in normalized:
+            normalized["Authorization"] = f"Bearer {access_token}"
+
+    return normalized
 
 
 class GopherAgentConfig:
@@ -37,6 +116,7 @@ class GopherAgentConfig:
         model: str,
         api_key: Optional[str] = None,
         server_config: Optional[str] = None,
+        runtime_options: Optional[object] = None,
     ) -> None:
         """
         Initialize a GopherAgentConfig.
@@ -46,11 +126,13 @@ class GopherAgentConfig:
             model: The model name (e.g., "claude-3-haiku-20240307")
             api_key: API key for fetching remote server config
             server_config: JSON server configuration string
+            runtime_options: Dynamic MCP runtime headers/access token
         """
         self._provider = provider
         self._model = model
         self._api_key = api_key
         self._server_config = server_config
+        self._runtime_options = normalize_runtime_options(runtime_options)
 
     @property
     def provider(self) -> str:
@@ -71,6 +153,11 @@ class GopherAgentConfig:
     def server_config(self) -> Optional[str]:
         """Get the server configuration JSON."""
         return self._server_config
+
+    @property
+    def runtime_options(self) -> Optional[GopherAgentRuntimeOptions]:
+        """Get dynamic MCP runtime options."""
+        return self._runtime_options
 
     def has_api_key(self) -> bool:
         """Check if configuration uses API key."""
@@ -98,6 +185,7 @@ class GopherAgentConfigBuilder:
         self._model: Optional[str] = None
         self._api_key: Optional[str] = None
         self._server_config: Optional[str] = None
+        self._runtime_options: Optional[GopherAgentRuntimeOptions] = None
 
     def provider(self, provider: str) -> "GopherAgentConfigBuilder":
         """
@@ -155,6 +243,57 @@ class GopherAgentConfigBuilder:
         self._server_config = server_config
         return self
 
+    def runtime_options(self, options: object) -> "GopherAgentConfigBuilder":
+        """
+        Set dynamic MCP runtime options.
+
+        Args:
+            options: GopherAgentRuntimeOptions or mapping with access_token/headers
+
+        Returns:
+            self for chaining
+        """
+        self._runtime_options = normalize_runtime_options(options)
+        return self
+
+    def access_token(self, access_token: str) -> "GopherAgentConfigBuilder":
+        """
+        Set the MCP runtime bearer token.
+
+        Args:
+            access_token: Token sent as Authorization: Bearer <token>
+
+        Returns:
+            self for chaining
+        """
+        current_headers = (
+            self._runtime_options.headers if self._runtime_options is not None else None
+        )
+        self._runtime_options = normalize_runtime_options(
+            {"access_token": access_token, "headers": current_headers}
+        )
+        return self
+
+    def headers(self, headers: Mapping[str, str]) -> "GopherAgentConfigBuilder":
+        """
+        Set dynamic MCP runtime headers.
+
+        Args:
+            headers: Header name/value mapping
+
+        Returns:
+            self for chaining
+        """
+        current_token = (
+            self._runtime_options.access_token
+            if self._runtime_options is not None
+            else None
+        )
+        self._runtime_options = normalize_runtime_options(
+            {"access_token": current_token, "headers": headers}
+        )
+        return self
+
     def build(self) -> GopherAgentConfig:
         """
         Build the configuration.
@@ -179,4 +318,5 @@ class GopherAgentConfigBuilder:
             model=self._model,
             api_key=self._api_key,
             server_config=self._server_config,
+            runtime_options=self._runtime_options,
         )
