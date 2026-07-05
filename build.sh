@@ -6,18 +6,126 @@ set -e  # Exit on error
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Get the script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NATIVE_DIR="${SCRIPT_DIR}/third_party/gopher-orch"
 BUILD_DIR="${NATIVE_DIR}/build"
-SOURCE_STAMP_FILE="${SCRIPT_DIR}/native/.gopher-orch-source"
+NATIVE_ROOT="${SCRIPT_DIR}/native"
+ACTIVE_NATIVE_DIR="${NATIVE_ROOT}/current"
+REQUESTED_TARGET=""
+RESOLVED_TARGET=""
+TARGET_NATIVE_DIR=""
+SOURCE_STAMP_FILE=""
+RUN_BUILD_AFTER_CLEAN=0
 
-# Handle --clean flag (cleans CMake cache but preserves _deps)
-if [ "$1" = "--clean" ]; then
+usage() {
+    cat <<EOF
+Usage: ./build.sh [target] [--clean] [--build]
+
+Targets:
+  macos        Build the local macOS native library (default on macOS)
+  linux        Build the local Linux native library (default on Linux)
+  linux-x64    Same as linux
+
+Options:
+  --clean      Remove generated build artifacts
+  --build      Continue building after --clean
+EOF
+}
+
+parse_args() {
+    for arg in "$@"; do
+        case "$arg" in
+            --clean)
+                CLEAN_REQUESTED=1
+                ;;
+            --build)
+                RUN_BUILD_AFTER_CLEAN=1
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            macos|darwin|darwin-arm64|darwin-x64|linux|linux-x64)
+                if [ -n "${REQUESTED_TARGET}" ]; then
+                    echo -e "${RED}Error: multiple build targets provided.${NC}"
+                    usage
+                    exit 1
+                fi
+                REQUESTED_TARGET="$arg"
+                ;;
+            *)
+                echo -e "${RED}Error: unknown argument: $arg${NC}"
+                usage
+                exit 1
+                ;;
+        esac
+    done
+}
+
+detect_host_target() {
+    local os arch
+    os="$(uname -s)"
+    arch="$(uname -m)"
+
+    if [ -z "${REQUESTED_TARGET}" ]; then
+        case "$os" in
+            Darwin) REQUESTED_TARGET="macos" ;;
+            Linux) REQUESTED_TARGET="linux" ;;
+            *)
+                echo -e "${RED}Error: unsupported host OS: $os${NC}"
+                usage
+                exit 1
+                ;;
+        esac
+    fi
+
+    case "${REQUESTED_TARGET}" in
+        macos|darwin)
+            if [ "$os" != "Darwin" ]; then
+                echo -e "${RED}Error: macOS target must be built on macOS.${NC}"
+                exit 1
+            fi
+            case "$arch" in
+                arm64) RESOLVED_TARGET="darwin-arm64" ;;
+                x86_64|amd64) RESOLVED_TARGET="darwin-x64" ;;
+                *)
+                    echo -e "${RED}Error: unsupported macOS architecture: $arch${NC}"
+                    exit 1
+                    ;;
+            esac
+            ;;
+        darwin-arm64|darwin-x64)
+            if [ "$os" != "Darwin" ]; then
+                echo -e "${RED}Error: ${REQUESTED_TARGET} must be built on macOS.${NC}"
+                exit 1
+            fi
+            RESOLVED_TARGET="${REQUESTED_TARGET}"
+            ;;
+        linux|linux-x64)
+            if [ "$os" != "Linux" ]; then
+                echo -e "${RED}Error: Linux target must be built on Linux for the Python SDK.${NC}"
+                exit 1
+            fi
+            RESOLVED_TARGET="linux-x64"
+            ;;
+        *)
+            echo -e "${RED}Error: unsupported build target: ${REQUESTED_TARGET}${NC}"
+            usage
+            exit 1
+            ;;
+    esac
+
+    TARGET_NATIVE_DIR="${NATIVE_ROOT}/${RESOLVED_TARGET}"
+    SOURCE_STAMP_FILE="${TARGET_NATIVE_DIR}/.gopher-orch-source"
+}
+
+clean_artifacts() {
     echo -e "${YELLOW}Cleaning build artifacts (preserving _deps)...${NC}"
-    rm -rf "${SCRIPT_DIR}/native"
+    rm -rf "${NATIVE_ROOT}"
     rm -rf "${SCRIPT_DIR}/dist"
     rm -rf "${SCRIPT_DIR}/build"
     rm -rf "${SCRIPT_DIR}/*.egg-info"
@@ -26,7 +134,15 @@ if [ "$1" = "--clean" ]; then
     rm -rf "${BUILD_DIR}/lib"
     rm -rf "${BUILD_DIR}/bin"
     echo -e "${GREEN}✓ Clean complete${NC}"
-    if [ "$2" != "--build" ]; then
+}
+
+CLEAN_REQUESTED=0
+parse_args "$@"
+detect_host_target
+
+if [ "${CLEAN_REQUESTED}" = 1 ]; then
+    clean_artifacts
+    if [ "${RUN_BUILD_AFTER_CLEAN}" != 1 ]; then
         exit 0
     fi
 fi
@@ -34,6 +150,8 @@ fi
 echo -e "${GREEN}======================================${NC}"
 echo -e "${GREEN}Building gopher-orch Python SDK${NC}"
 echo -e "${GREEN}======================================${NC}"
+echo -e "${CYAN}Requested target: ${REQUESTED_TARGET}${NC}"
+echo -e "${CYAN}Resolved target:  ${RESOLVED_TARGET}${NC}"
 echo ""
 
 # Step 1: Update submodules recursively
@@ -56,6 +174,29 @@ git config --local --add url."git@${SSH_HOST}:GopherSecurity/".insteadOf "git@gi
 git submodule sync -- third_party/gopher-orch
 git config --local submodule.third_party/gopher-orch.url "git@${SSH_HOST}:GopherSecurity/gopher-orch.git"
 
+# Preserve an existing local debug checkout. This mirrors the JS SDK behavior:
+# if the submodule is dirty or intentionally moved away from the parent SHA,
+# do not overwrite it with git submodule update.
+if [ -f "${NATIVE_DIR}/CMakeLists.txt" ] && git -C "${NATIVE_DIR}" rev-parse --git-dir >/dev/null 2>&1; then
+    RECORDED_COMMIT="$(git ls-tree HEAD third_party/gopher-orch | awk '{print $3}')"
+    CURRENT_COMMIT="$(git -C "${NATIVE_DIR}" rev-parse HEAD 2>/dev/null || true)"
+    SUBMODULE_STATUS="$(git -C "${NATIVE_DIR}" status --short 2>/dev/null || true)"
+
+    if [ -n "${SUBMODULE_STATUS}" ] || { [ -n "${RECORDED_COMMIT}" ] && [ "${CURRENT_COMMIT}" != "${RECORDED_COMMIT}" ]; }; then
+        echo -e "${YELLOW}  Using existing local gopher-orch checkout:${NC}"
+        echo -e "${YELLOW}    recorded: ${RECORDED_COMMIT:-<unknown>}${NC}"
+        echo -e "${YELLOW}    current:  ${CURRENT_COMMIT:-<unknown>}${NC}"
+        if [ -n "${SUBMODULE_STATUS}" ]; then
+            echo -e "${YELLOW}    local changes present; not running git submodule update for gopher-orch.${NC}"
+        fi
+        SKIP_GOPHER_ORCH_UPDATE=1
+    else
+        SKIP_GOPHER_ORCH_UPDATE=0
+    fi
+else
+    SKIP_GOPHER_ORCH_UPDATE=0
+fi
+
 # Check if submodule directory exists but is empty/broken (missing CMakeLists.txt)
 if [ -d "${NATIVE_DIR}" ] && [ ! -f "${NATIVE_DIR}/CMakeLists.txt" ]; then
     echo -e "${YELLOW}  Submodule directory exists but appears incomplete, reinitializing...${NC}"
@@ -74,11 +215,13 @@ if [ "${GOPHER_ORCH_TRACK_REMOTE:-}" = "1" ]; then
     SUBMODULE_UPDATE_ARGS+=(--remote)
 fi
 
-if ! git submodule update "${SUBMODULE_UPDATE_ARGS[@]}" third_party/gopher-orch; then
-    echo -e "${RED}Error: Failed to update gopher-orch submodule${NC}"
-    echo -e "${YELLOW}If you have multiple GitHub accounts, use:${NC}"
-    echo -e "  GITHUB_SSH_HOST=your-ssh-alias ./build.sh"
-    exit 1
+if [ "${SKIP_GOPHER_ORCH_UPDATE}" != 1 ]; then
+    if ! git submodule update "${SUBMODULE_UPDATE_ARGS[@]}" third_party/gopher-orch; then
+        echo -e "${RED}Error: Failed to update gopher-orch submodule${NC}"
+        echo -e "${YELLOW}If you have multiple GitHub accounts, use:${NC}"
+        echo -e "  GITHUB_SSH_HOST=your-ssh-alias ./build.sh"
+        exit 1
+    fi
 fi
 
 # Update nested submodule (gopher-mcp inside gopher-orch)
@@ -89,13 +232,23 @@ if [ -d "${NATIVE_DIR}" ]; then
     git config --local url."git@${SSH_HOST}:GopherSecurity/".insteadOf "https://github.com/GopherSecurity/"
     git submodule sync -- third_party/gopher-mcp
     git config --local submodule.third_party/gopher-mcp.url "git@${SSH_HOST}:GopherSecurity/gopher-mcp.git"
-    # Keep the nested submodule pinned unless GOPHER_ORCH_TRACK_REMOTE=1 was
-    # requested above.
-    if ! git submodule update "${SUBMODULE_UPDATE_ARGS[@]}" third_party/gopher-mcp; then
-        echo -e "${RED}Error: Failed to update gopher-mcp submodule${NC}"
-        echo -e "${YELLOW}If you have multiple GitHub accounts, use:${NC}"
-        echo -e "  GITHUB_SSH_HOST=your-ssh-alias ./build.sh"
-        exit 1
+
+    if [ -f "third_party/gopher-mcp/CMakeLists.txt" ] && git -C "third_party/gopher-mcp" rev-parse --git-dir >/dev/null 2>&1; then
+        NESTED_STATUS="$(git -C "third_party/gopher-mcp" status --short 2>/dev/null || true)"
+    else
+        NESTED_STATUS=""
+    fi
+    if [ -n "${NESTED_STATUS}" ]; then
+        echo -e "${YELLOW}    local changes present; not running git submodule update for gopher-mcp.${NC}"
+    else
+        # Keep the nested submodule pinned unless GOPHER_ORCH_TRACK_REMOTE=1
+        # was requested above.
+        if ! git submodule update "${SUBMODULE_UPDATE_ARGS[@]}" third_party/gopher-mcp; then
+            echo -e "${RED}Error: Failed to update gopher-mcp submodule${NC}"
+            echo -e "${YELLOW}If you have multiple GitHub accounts, use:${NC}"
+            echo -e "  GITHUB_SSH_HOST=your-ssh-alias ./build.sh"
+            exit 1
+        fi
     fi
     # Also update gopher-mcp's nested submodules recursively
     if [ -d "third_party/gopher-mcp" ]; then
@@ -103,7 +256,7 @@ if [ -d "${NATIVE_DIR}" ]; then
         git config --local --unset-all url."git@github.com:GopherSecurity/".insteadOf 2>/dev/null || true
         git config --local --unset-all url."git@${SSH_HOST}:GopherSecurity/".insteadOf 2>/dev/null || true
         git config --local url."git@${SSH_HOST}:GopherSecurity/".insteadOf "https://github.com/GopherSecurity/"
-        git submodule update --init --recursive
+        git submodule update --init --recursive 2>/dev/null || true
     fi
     cd "${SCRIPT_DIR}"
 fi
@@ -122,7 +275,13 @@ fi
 # Skip build only when the installed native lib matches the current submodule
 # revisions and has the required auth symbols.
 SKIP_NATIVE_BUILD=false
-EXISTING_LIB="${SCRIPT_DIR}/native/lib/libgopher-orch.dylib"
+EXISTING_LIB="${TARGET_NATIVE_DIR}/lib/libgopher-orch.dylib"
+if [ ! -f "${EXISTING_LIB}" ]; then
+    EXISTING_LIB="${TARGET_NATIVE_DIR}/lib/libgopher-orch.so"
+fi
+if [ ! -f "${EXISTING_LIB}" ]; then
+    EXISTING_LIB="${SCRIPT_DIR}/native/lib/libgopher-orch.dylib"
+fi
 if [ ! -f "${EXISTING_LIB}" ]; then
     EXISTING_LIB="${SCRIPT_DIR}/native/lib/libgopher-orch.so"
 fi
@@ -135,9 +294,9 @@ fi
 
 if [ -f "${EXISTING_LIB}" ]; then
     if [ -f "${SOURCE_STAMP_FILE}" ] && [ "$(cat "${SOURCE_STAMP_FILE}")" = "${SOURCE_STAMP}" ]; then
-        if nm -gU "${EXISTING_LIB}" 2>/dev/null | grep -q "gopher_auth_config_create"; then
+        if (nm -gU "${EXISTING_LIB}" 2>/dev/null || nm -g "${EXISTING_LIB}" 2>/dev/null) | grep -q "gopher_auth_config_create"; then
             echo -e "${GREEN}✓ Native library already matches latest submodule revisions — skipping rebuild${NC}"
-            echo -e "  (To force rebuild, delete native/lib/ first)"
+            echo -e "  (To force rebuild, delete ${TARGET_NATIVE_DIR}/lib/ first)"
             SKIP_NATIVE_BUILD=true
         fi
     else
@@ -161,7 +320,7 @@ cd "${BUILD_DIR}"
 echo -e "${YELLOW}  Configuring CMake...${NC}"
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX="${SCRIPT_DIR}/native" \
+    -DCMAKE_INSTALL_PREFIX="${TARGET_NATIVE_DIR}" \
     -DBUILD_SHARED_LIBS=ON \
     -DBUILD_BUNDLED_SHARED=OFF \
     -DBUILD_TESTS=OFF \
@@ -177,7 +336,7 @@ cmake --install .
 
 # Copy dependency libraries (since BUILD_BUNDLED_SHARED=OFF)
 echo -e "${YELLOW}  Copying dependency libraries...${NC}"
-NATIVE_LIB="${SCRIPT_DIR}/native/lib"
+NATIVE_LIB="${TARGET_NATIVE_DIR}/lib"
 mkdir -p "${NATIVE_LIB}"
 
 # Copy gopher-mcp libraries
@@ -204,8 +363,19 @@ fi  # end SKIP_NATIVE_BUILD
 # Step 4: Verify build artifacts
 echo -e "${YELLOW}Step 3: Verifying native build artifacts...${NC}"
 
-NATIVE_LIB_DIR="${SCRIPT_DIR}/native/lib"
-NATIVE_INCLUDE_DIR="${SCRIPT_DIR}/native/include"
+NATIVE_LIB_DIR="${TARGET_NATIVE_DIR}/lib"
+NATIVE_INCLUDE_DIR="${TARGET_NATIVE_DIR}/include"
+
+if [ -d "${TARGET_NATIVE_DIR}" ]; then
+    rm -rf "${ACTIVE_NATIVE_DIR}"
+    ln -s "${RESOLVED_TARGET}" "${ACTIVE_NATIVE_DIR}"
+
+    mkdir -p "${NATIVE_ROOT}/lib"
+    mkdir -p "${NATIVE_ROOT}/include"
+    cp -P "${TARGET_NATIVE_DIR}"/lib/* "${NATIVE_ROOT}/lib/" 2>/dev/null || true
+    cp -R "${TARGET_NATIVE_DIR}"/include/* "${NATIVE_ROOT}/include/" 2>/dev/null || true
+    printf "%s\n" "${SOURCE_STAMP}" > "${NATIVE_ROOT}/.gopher-orch-source"
+fi
 
 if [ -d "${NATIVE_LIB_DIR}" ]; then
     echo -e "${GREEN}✓ Libraries installed to: ${NATIVE_LIB_DIR}${NC}"
