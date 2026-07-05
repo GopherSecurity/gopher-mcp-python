@@ -21,6 +21,20 @@ def test_prefers_platform_package_before_local_native_lib(monkeypatch):
     )
 
 
+def test_includes_platform_and_current_native_paths():
+    """Local search paths include JS-compatible native output directories."""
+    lib = object.__new__(GopherOrchLibrary)
+    platform_dir = lib._get_platform_native_dir_name()
+
+    paths = lib._get_search_paths()
+
+    assert os.path.join(os.getcwd(), "native", platform_dir, "lib") in paths
+    assert os.path.join(os.getcwd(), "native", "current", "lib") in paths
+    assert paths.index(
+        os.path.join(os.getcwd(), "native", platform_dir, "lib")
+    ) < paths.index(os.path.join(os.getcwd(), "native", "lib"))
+
+
 def test_resolves_environment_library_file(tmp_path):
     """Environment override can point directly at the native library file."""
     lib = object.__new__(GopherOrchLibrary)
