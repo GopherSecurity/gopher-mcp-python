@@ -749,7 +749,11 @@ class GopherOrchLibrary:
         """Get the last error message."""
         error_info = self.last_error()
         if error_info and error_info.message:
-            return error_info.message.decode("utf-8")
+            message = error_info.message.decode("utf-8")
+            if error_info.details:
+                details = error_info.details.decode("utf-8")
+                return f"{message}: {details}"
+            return message
         return None
 
     def clear_error(self) -> None:

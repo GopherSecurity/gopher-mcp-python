@@ -146,7 +146,7 @@ class GopherAgent:
         if handle is None:
             error = lib.get_last_error_message()
             lib.clear_error()
-            raise AgentError(error or "Failed to create agent")
+            raise AgentError(error or _build_create_error_message())
 
         return GopherAgent(handle)
 
@@ -395,7 +395,7 @@ class GopherAgent:
         if handle is None:
             error = lib.get_last_error_message()
             lib.clear_error()
-            raise AgentError(error or "Failed to create agent")
+            raise AgentError(error or _build_create_error_message())
 
         return GopherAgent(handle)
 
@@ -481,3 +481,20 @@ def _setup_cleanup_handler() -> None:
 
     _cleanup_handler_registered = True
     atexit.register(GopherAgent.shutdown)
+
+
+def _build_create_error_message() -> str:
+    """
+    Build the AgentError message for a null native create*() result.
+
+    Native should usually populate gopher_orch_last_error, but a few
+    defensive paths can still return null without details. Keep that
+    fallback actionable instead of raising only "Failed to create agent".
+    """
+    return (
+        "Failed to create agent: native library returned null without a "
+        "specific error. Most often this means every configured MCP server "
+        "failed to connect or returned no tools (TLS / network / bad URL), "
+        "or the LLM provider could not be initialized. Set GOPHER_DEBUG=1 to "
+        "see native-side logs."
+    )
