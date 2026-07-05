@@ -124,6 +124,7 @@ class GopherOrchLibrary:
     _debug: bool = False
 
     def __init__(self) -> None:
+        self._load_errors = []
         self._load_library()
 
     @classmethod
@@ -143,28 +144,48 @@ class GopherOrchLibrary:
         instance = cls.get_instance()
         return instance is not None and instance._available
 
+    @classmethod
+    def get_load_error_message(cls) -> str:
+        """Return native library load diagnostics from the last load attempt."""
+        instance = cls._instance
+        if instance is None or not instance._load_errors:
+            return "Native library not loaded."
+        return "\n".join(instance._load_errors)
+
     def _load_library(self) -> None:
         self._debug = os.environ.get("DEBUG") is not None
+        self._load_errors = []
 
         library_name = self._get_library_name()
         search_paths = self._get_search_paths()
 
-        # Try custom path from environment variable
+        # Try custom path from environment variable. It may be either the
+        # library file itself or a directory containing the platform library.
         env_path = os.environ.get("GOPHER_MCP_PYTHON_LIBRARY_PATH") or os.environ.get(
             "GOPHER_ORCH_LIBRARY_PATH"
         )
-        if env_path and os.path.exists(env_path):
+        env_lib_file = (
+            self._resolve_library_path(env_path, library_name) if env_path else None
+        )
+        if env_lib_file:
             try:
-                self._lib = ctypes.CDLL(env_path)
+                self._lib = ctypes.CDLL(env_lib_file)
                 self._setup_functions()
                 self._available = True
                 return
             except OSError as e:
+                self._record_load_error(
+                    f"Failed to load environment library path {env_lib_file}: {e}"
+                )
                 if self._debug:
                     print(
                         f"Failed to load from environment library path: {e}",
                         file=sys.stderr,
                     )
+        elif env_path:
+            self._record_load_error(
+                f"Environment library path does not contain {library_name}: {env_path}"
+            )
 
         # Try search paths
         for search_path in search_paths:
@@ -176,6 +197,7 @@ class GopherOrchLibrary:
                     self._available = True
                     return
                 except OSError as e:
+                    self._record_load_error(f"Failed to load {lib_file}: {e}")
                     if self._debug:
                         print(
                             f"Failed to load from {search_path}: {e}", file=sys.stderr
@@ -188,6 +210,9 @@ class GopherOrchLibrary:
             self._available = True
             return
         except OSError as e:
+            self._record_load_error(
+                f"Failed to load {library_name} from system library paths: {e}"
+            )
             if self._debug:
                 print(f"Failed to load gopher-mcp-python library: {e}", file=sys.stderr)
                 print("Searched paths:", file=sys.stderr)
@@ -195,6 +220,31 @@ class GopherOrchLibrary:
                     print(f"  - {p}", file=sys.stderr)
 
         self._available = False
+
+    def _resolve_library_path(self, candidate: str, library_name: str) -> Optional[str]:
+        """Resolve a library file or a directory containing the library."""
+        if not os.path.exists(candidate):
+            return None
+
+        if os.path.isfile(candidate):
+            return candidate
+
+        if not os.path.isdir(candidate):
+            return None
+
+        direct = os.path.join(candidate, library_name)
+        if os.path.exists(direct):
+            return direct
+
+        matches = sorted(
+            name
+            for name in os.listdir(candidate)
+            if name == library_name or name.startswith(f"{library_name}.")
+        )
+        return os.path.join(candidate, matches[0]) if matches else None
+
+    def _record_load_error(self, message: str) -> None:
+        self._load_errors.append(message)
 
     def _setup_functions(self) -> None:
         if self._lib is None:

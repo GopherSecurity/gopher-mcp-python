@@ -81,7 +81,10 @@ class GopherAgent:
 
         lib = GopherOrchLibrary.get_instance()
         if lib is None:
-            raise AgentError("Failed to load gopher-mcp-python native library")
+            load_error = GopherOrchLibrary.get_load_error_message()
+            raise AgentError(
+                f"Failed to load gopher-mcp-python native library.\n{load_error}"
+            )
 
         _initialized = True
         _setup_cleanup_handler()
@@ -120,7 +123,8 @@ class GopherAgent:
 
         lib = GopherOrchLibrary.get_instance()
         if lib is None:
-            raise AgentError("Native library not available")
+            load_error = GopherOrchLibrary.get_load_error_message()
+            raise AgentError(f"Native library not available.\n{load_error}")
 
         handle: Optional[GopherOrchHandle] = None
         try:
@@ -383,7 +387,8 @@ class GopherAgent:
 
         lib = GopherOrchLibrary.get_instance()
         if lib is None:
-            raise AgentError("Native library not available")
+            load_error = GopherOrchLibrary.get_load_error_message()
+            raise AgentError(f"Native library not available.\n{load_error}")
 
         try:
             handle = create_handle(lib)
@@ -417,7 +422,8 @@ class GopherAgent:
 
         lib = GopherOrchLibrary.get_instance()
         if lib is None:
-            raise AgentError("Native library not available")
+            load_error = GopherOrchLibrary.get_load_error_message()
+            raise AgentError(f"Native library not available.\n{load_error}")
 
         try:
             response = lib.agent_run(self._handle, query, timeout_ms)
