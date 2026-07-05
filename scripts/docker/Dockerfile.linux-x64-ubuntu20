@@ -1,0 +1,25 @@
+# Dockerfile for Ubuntu 20.04-compatible Linux x86_64 gopher-orch builds.
+# Ubuntu 20.04 ships GLIBC 2.31, so artifacts built here can run on Ubuntu 20.
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    g++ \
+    libssl-dev \
+    libevent-dev \
+    libcurl4-openssl-dev \
+    libnghttp2-dev \
+    pkg-config \
+    git \
+    patchelf \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+COPY scripts/docker/build-linux-x64-ubuntu20.sh /usr/local/bin/build-linux-x64-ubuntu20.sh
+RUN chmod +x /usr/local/bin/build-linux-x64-ubuntu20.sh
+
+CMD ["/usr/local/bin/build-linux-x64-ubuntu20.sh"]
