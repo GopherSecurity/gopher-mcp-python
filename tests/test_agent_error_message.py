@@ -24,6 +24,21 @@ class NullCreateLibrary:
         self.cleared = True
 
 
+class NullRunLibrary:
+    def __init__(self, message=None):
+        self.message = message
+        self.cleared = False
+
+    def agent_run(self, handle, query, timeout_ms):
+        return None
+
+    def get_last_error_message(self):
+        return self.message
+
+    def clear_error(self):
+        self.cleared = True
+
+
 def test_create_failure_uses_actionable_fallback(monkeypatch) -> None:
     fake = NullCreateLibrary()
     monkeypatch.setattr(agent_module, "_initialized", True)
@@ -75,3 +90,35 @@ def test_last_error_message_includes_native_details(monkeypatch) -> None:
         "Failed to create agent from JSON configuration: "
         "No configured MCP servers connected: server-1: Init timeout after 5s"
     )
+
+
+def test_run_null_response_raises_agent_error(monkeypatch) -> None:
+    fake = NullRunLibrary()
+    monkeypatch.setattr(
+        agent_module.GopherOrchLibrary,
+        "get_instance",
+        staticmethod(lambda: fake),
+    )
+    agent = GopherAgent(1234)
+
+    with pytest.raises(AgentError) as exc_info:
+        agent.run("what tools we have?", 1000)
+
+    assert str(exc_info.value) == 'No response for query: "what tools we have?"'
+    assert fake.cleared is True
+
+
+def test_run_null_response_uses_native_error(monkeypatch) -> None:
+    fake = NullRunLibrary("Tool call timed out")
+    monkeypatch.setattr(
+        agent_module.GopherOrchLibrary,
+        "get_instance",
+        staticmethod(lambda: fake),
+    )
+    agent = GopherAgent(1234)
+
+    with pytest.raises(AgentError) as exc_info:
+        agent.run("what tools we have?", 1000)
+
+    assert str(exc_info.value) == "Tool call timed out"
+    assert fake.cleared is True

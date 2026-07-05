@@ -422,8 +422,12 @@ class GopherAgent:
         try:
             response = lib.agent_run(self._handle, query, timeout_ms)
             if response is None:
-                return f'No response for query: "{query}"'
+                error = lib.get_last_error_message()
+                lib.clear_error()
+                raise AgentError(error or f'No response for query: "{query}"')
             return response
+        except AgentError:
+            raise
         except Exception as e:
             raise AgentError(f"Query execution failed: {e}")
 
