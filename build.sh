@@ -15,6 +15,7 @@ NATIVE_DIR="${SCRIPT_DIR}/third_party/gopher-orch"
 BUILD_DIR="${NATIVE_DIR}/build"
 NATIVE_ROOT="${SCRIPT_DIR}/native"
 ACTIVE_NATIVE_DIR="${NATIVE_ROOT}/current"
+LINUX_X64_DOCKERFILE="${SCRIPT_DIR}/scripts/docker/Dockerfile.linux-x64-ubuntu20"
 REQUESTED_TARGET=""
 RESOLVED_TARGET=""
 TARGET_NATIVE_DIR=""
@@ -27,7 +28,7 @@ Usage: ./build.sh [target] [--clean] [--build]
 
 Targets:
   macos        Build the local macOS native library (default on macOS)
-  linux        Build the local Linux native library (default on Linux)
+  linux        Build Linux x64 native library locally on Linux or with Docker on macOS
   linux-x64    Same as linux
 
 Options:
@@ -106,8 +107,8 @@ detect_host_target() {
             RESOLVED_TARGET="${REQUESTED_TARGET}"
             ;;
         linux|linux-x64)
-            if [ "$os" != "Linux" ]; then
-                echo -e "${RED}Error: Linux target must be built on Linux for the Python SDK.${NC}"
+            if [ "$os" != "Linux" ] && [ "$os" != "Darwin" ]; then
+                echo -e "${RED}Error: Linux target must be built on Linux or macOS with Docker.${NC}"
                 exit 1
             fi
             RESOLVED_TARGET="linux-x64"
@@ -271,6 +272,82 @@ if [ ! -d "${NATIVE_DIR}" ]; then
     exit 1
 fi
 
+build_linux_x64_docker() {
+    echo -e "${YELLOW}Step 2: Building Ubuntu 20-compatible gopher-orch native library for linux-x64 with Docker...${NC}"
+
+    if ! command -v docker >/dev/null 2>&1; then
+        echo -e "${RED}Error: Docker is required for ./build.sh linux on macOS.${NC}"
+        echo "Please install Docker Desktop from https://www.docker.com/products/docker-desktop/"
+        exit 1
+    fi
+
+    if [ ! -f "${LINUX_X64_DOCKERFILE}" ]; then
+        echo -e "${RED}Error: Linux Dockerfile not found: ${LINUX_X64_DOCKERFILE}${NC}"
+        exit 1
+    fi
+
+    local output_dir="${NATIVE_DIR}/build-output/linux-x64"
+    local build_cache_dir="${NATIVE_DIR}/build-cache/linux-x64"
+    rm -rf "${output_dir}"
+    mkdir -p "${output_dir}" "${build_cache_dir}"
+
+    echo -e "${YELLOW}  Building Docker image from Ubuntu 20.04...${NC}"
+    docker build \
+        --platform linux/amd64 \
+        -t gopher-orch-python:linux-x64-ubuntu20 \
+        -f "${LINUX_X64_DOCKERFILE}" \
+        "${SCRIPT_DIR}"
+
+    echo -e "${YELLOW}  Building and extracting Linux x64 artifacts...${NC}"
+    echo -e "${YELLOW}    Reusing CMake cache: ${build_cache_dir}${NC}"
+    docker run --rm \
+        --platform linux/amd64 \
+        -v "${NATIVE_DIR}:/source:ro" \
+        -v "${build_cache_dir}:/build/cmake-build" \
+        -v "${output_dir}:/host-output" \
+        gopher-orch-python:linux-x64-ubuntu20
+
+    if [ ! -f "${output_dir}/libgopher-orch.so" ] && [ -z "$(find "${output_dir}" -maxdepth 1 -name 'libgopher-orch.so*' -type f 2>/dev/null | head -n 1)" ]; then
+        echo -e "${RED}Error: Linux Docker build did not produce libgopher-orch.so${NC}"
+        exit 1
+    fi
+
+    rm -rf "${TARGET_NATIVE_DIR}.tmp"
+    mkdir -p "${TARGET_NATIVE_DIR}.tmp/lib" "${TARGET_NATIVE_DIR}.tmp/bin"
+    cp -P "${output_dir}"/*.so* "${TARGET_NATIVE_DIR}.tmp/lib/" 2>/dev/null || true
+    cp -P "${output_dir}"/*.a "${TARGET_NATIVE_DIR}.tmp/lib/" 2>/dev/null || true
+    if [ -d "${output_dir}/include" ]; then
+        cp -R "${output_dir}/include" "${TARGET_NATIVE_DIR}.tmp/include"
+    fi
+    if [ -f "${output_dir}/verify_orch" ]; then
+        cp "${output_dir}/verify_orch" "${TARGET_NATIVE_DIR}.tmp/bin/"
+        chmod +x "${TARGET_NATIVE_DIR}.tmp/bin/verify_orch"
+    fi
+
+    rm -rf "${TARGET_NATIVE_DIR}"
+    mv "${TARGET_NATIVE_DIR}.tmp" "${TARGET_NATIVE_DIR}"
+
+    echo -e "${GREEN}✓ Native library built successfully for linux-x64${NC}"
+    printf "%s\n" "${SOURCE_STAMP}" > "${SOURCE_STAMP_FILE}"
+    echo ""
+}
+
+verify_linux_x64_docker_output() {
+    if [ "${RESOLVED_TARGET}" != "linux-x64" ] || [ "$(uname -s)" != "Darwin" ]; then
+        return
+    fi
+
+    if [ -x "${TARGET_NATIVE_DIR}/bin/verify_orch" ]; then
+        echo -e "${YELLOW}  Verifying Linux artifact inside Ubuntu 20.04...${NC}"
+        docker run --rm \
+            --platform linux/amd64 \
+            -v "${TARGET_NATIVE_DIR}:/work" \
+            -w /work/lib \
+            ubuntu:20.04 \
+            sh -c 'LD_LIBRARY_PATH=/work/lib /work/bin/verify_orch'
+    fi
+}
+
 # Step 3: Build gopher-orch native library
 # Skip build only when the installed native lib matches the current submodule
 # revisions and has the required auth symbols.
@@ -294,7 +371,11 @@ fi
 
 if [ -f "${EXISTING_LIB}" ]; then
     if [ -f "${SOURCE_STAMP_FILE}" ] && [ "$(cat "${SOURCE_STAMP_FILE}")" = "${SOURCE_STAMP}" ]; then
-        if (nm -gU "${EXISTING_LIB}" 2>/dev/null || nm -g "${EXISTING_LIB}" 2>/dev/null) | grep -q "gopher_auth_config_create"; then
+        if [ "${RESOLVED_TARGET}" = "linux-x64" ] && [ "$(uname -s)" = "Darwin" ]; then
+            echo -e "${GREEN}✓ Linux native library already matches latest submodule revisions — skipping rebuild${NC}"
+            echo -e "  (To force rebuild, delete ${TARGET_NATIVE_DIR}/lib/ first)"
+            SKIP_NATIVE_BUILD=true
+        elif (nm -gU "${EXISTING_LIB}" 2>/dev/null || nm -g "${EXISTING_LIB}" 2>/dev/null) | grep -q "gopher_auth_config_create"; then
             echo -e "${GREEN}✓ Native library already matches latest submodule revisions — skipping rebuild${NC}"
             echo -e "  (To force rebuild, delete ${TARGET_NATIVE_DIR}/lib/ first)"
             SKIP_NATIVE_BUILD=true
@@ -305,6 +386,9 @@ if [ -f "${EXISTING_LIB}" ]; then
 fi
 
 if [ "${SKIP_NATIVE_BUILD}" = false ]; then
+if [ "${RESOLVED_TARGET}" = "linux-x64" ] && [ "$(uname -s)" = "Darwin" ]; then
+    build_linux_x64_docker
+else
 echo -e "${YELLOW}Step 2: Building gopher-orch native library...${NC}"
 cd "${NATIVE_DIR}"
 
@@ -358,6 +442,7 @@ echo -e "${GREEN}✓ Native library built successfully${NC}"
 printf "%s\n" "${SOURCE_STAMP}" > "${SOURCE_STAMP_FILE}"
 echo ""
 
+fi
 fi  # end SKIP_NATIVE_BUILD
 
 # Step 4: Verify build artifacts
@@ -386,6 +471,8 @@ else
     echo -e "${YELLOW}⚠ Library directory not found: ${NATIVE_LIB_DIR}${NC}"
 fi
 
+verify_linux_x64_docker_output
+
 if [ -d "${NATIVE_INCLUDE_DIR}" ]; then
     echo -e "${GREEN}✓ Headers installed to: ${NATIVE_INCLUDE_DIR}${NC}"
 else
@@ -397,6 +484,10 @@ echo ""
 # Step 5: Set up Python environment
 echo -e "${YELLOW}Step 4: Setting up Python environment...${NC}"
 cd "${SCRIPT_DIR}"
+
+if [ "${RESOLVED_TARGET}" = "linux-x64" ] && [ "$(uname -s)" = "Darwin" ]; then
+    echo -e "${YELLOW}Skipping Python environment setup for Linux native output on macOS.${NC}"
+else
 
 # Check for Python
 if ! command -v python3 &> /dev/null; then
@@ -431,8 +522,14 @@ fi
 echo -e "${GREEN}✓ Python environment set up successfully${NC}"
 echo ""
 
+fi
+
 # Step 6: Run tests
 echo -e "${YELLOW}Step 5: Running tests...${NC}"
+
+if [ "${RESOLVED_TARGET}" = "linux-x64" ] && [ "$(uname -s)" = "Darwin" ]; then
+    echo -e "${YELLOW}Skipping host Python tests for Linux native output on macOS.${NC}"
+else
 
 # Use PYTHONPATH to ensure gopher_orch module can be found even without editable install
 export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH}"
@@ -455,6 +552,8 @@ elif [ -f "$HOME/Library/Python/3.9/bin/pytest" ]; then
     "$HOME/Library/Python/3.9/bin/pytest" tests/ -v && echo -e "${GREEN}✓ Tests passed${NC}" || echo -e "${YELLOW}⚠ Some tests failed${NC}"
 else
     echo -e "${YELLOW}⚠ pytest not found. Install with: pip3 install --user pytest${NC}"
+fi
+
 fi
 
 echo ""

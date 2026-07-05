@@ -68,13 +68,21 @@ run_api_example() {
     python3 -m venv venv
 
     local activate_script=""
+    local venv_python=""
     if [ -x "venv/bin/python" ] && [ -f "venv/bin/activate" ]; then
         activate_script="venv/bin/activate"
+        venv_python="venv/bin/python"
     elif [ -x "venv/Scripts/python.exe" ] && [ -f "venv/Scripts/activate" ]; then
         activate_script="venv/Scripts/activate"
+        venv_python="venv/Scripts/python.exe"
     fi
     if [ -z "$activate_script" ]; then
         echo -e "${RED}Error: virtualenv creation did not produce a usable Python.${NC}"
+        echo -e "${YELLOW}Install python3-venv and python3-pip, then rerun this script.${NC}"
+        exit 1
+    fi
+    if ! "$venv_python" -m pip --version >/dev/null 2>&1; then
+        echo -e "${RED}Error: pip is not available in this virtual environment.${NC}"
         echo -e "${YELLOW}Install python3-venv and python3-pip, then rerun this script.${NC}"
         exit 1
     fi
