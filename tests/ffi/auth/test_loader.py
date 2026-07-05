@@ -97,6 +97,19 @@ class TestGetSearchPaths:
             str(auth_loader.Path.cwd() / "native" / "lib")
         )
 
+    def test_includes_platform_and_current_native_paths(self):
+        """Test includes JS-compatible local native output directories."""
+        paths = _get_search_paths()
+        platform_dir = _get_platform_native_dir_name()
+        platform_path = str(auth_loader.Path.cwd() / "native" / platform_dir / "lib")
+        current_path = str(auth_loader.Path.cwd() / "native" / "current" / "lib")
+
+        assert platform_path in paths
+        assert current_path in paths
+        assert paths.index(platform_path) < paths.index(
+            str(auth_loader.Path.cwd() / "native" / "lib")
+        )
+
     @patch("platform.system")
     def test_darwin_includes_homebrew(self, mock_system):
         """Test macOS includes homebrew paths."""
