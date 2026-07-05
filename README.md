@@ -15,7 +15,15 @@ Python SDK for gopher-mcp-python, providing AI agent orchestration with native C
 ## Requirements
 
 - Python 3.8 or higher
+- `venv` and `pip` for PyPI installation, examples, and development workflows
 - Native gopher-mcp-python library (built from source)
+
+On Debian/Ubuntu, install the Python venv and pip packages before using the
+PyPI install path, running examples, or setting up development dependencies:
+
+```bash
+sudo apt-get install python3 python3-venv python3-pip
+```
 
 ## Installation
 
@@ -34,7 +42,7 @@ cd gopher-mcp-python
 
 3. Install the Python package:
 ```bash
-pip install -e .
+python3 -m pip install -e .
 ```
 
 ## Quick Start
