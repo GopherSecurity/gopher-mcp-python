@@ -108,6 +108,28 @@ def _get_platform_package_path() -> Optional[str]:
     return None
 
 
+def _get_platform_native_dir_name() -> str:
+    """Return the native build output directory name for this platform."""
+    system = platform.system().lower()
+    arch = platform.machine().lower()
+
+    arch_map = {
+        "x86_64": "x64",
+        "amd64": "x64",
+        "arm64": "arm64",
+        "aarch64": "arm64",
+    }
+    normalized_arch = arch_map.get(arch, arch)
+
+    platform_map = {
+        "darwin": "darwin",
+        "linux": "linux",
+        "windows": "win32",
+    }
+    platform_name = platform_map.get(system, system)
+    return f"{platform_name}-{normalized_arch}"
+
+
 def _get_search_paths() -> List[str]:
     """
     Get search paths for the native library.
@@ -124,14 +146,21 @@ def _get_search_paths() -> List[str]:
 
     # Get the directory containing this module
     module_dir = Path(__file__).parent.parent.parent.parent
+    platform_native_dir = _get_platform_native_dir_name()
 
     # Development paths. Explicitly set GOPHER_MCP_PYTHON_LIBRARY_PATH to
     # force a local build from ./build.sh.
     paths.extend(
         [
+            str(Path.cwd() / "native" / platform_native_dir / "lib"),
+            str(Path.cwd() / "native" / "current" / "lib"),
             str(Path.cwd() / "native" / "lib"),
             str(Path.cwd() / "lib"),
+            str(module_dir / "native" / platform_native_dir / "lib"),
+            str(module_dir / "native" / "current" / "lib"),
             str(module_dir / "native" / "lib"),
+            str(module_dir.parent / "native" / platform_native_dir / "lib"),
+            str(module_dir.parent / "native" / "current" / "lib"),
             str(module_dir.parent / "native" / "lib"),
         ]
     )

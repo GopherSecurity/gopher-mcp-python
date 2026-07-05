@@ -453,6 +453,26 @@ class GopherOrchLibrary:
 
         return None
 
+    def _get_platform_native_dir_name(self) -> str:
+        """Return the native build output directory name for this platform."""
+        import platform as plat
+
+        arch_map = {
+            "arm64": "arm64",
+            "aarch64": "arm64",
+            "x86_64": "x64",
+            "amd64": "x64",
+            "x64": "x64",
+        }
+        arch = arch_map.get(plat.machine().lower(), plat.machine().lower())
+        platform_map = {
+            "darwin": "darwin",
+            "linux": "linux",
+            "win32": "win32",
+        }
+        platform_name = platform_map.get(sys.platform, sys.platform)
+        return f"{platform_name}-{arch}"
+
     def _get_search_paths(self) -> list:
         paths = []
 
@@ -463,15 +483,20 @@ class GopherOrchLibrary:
 
         # 2. Get the directory containing this module for development fallbacks
         module_dir = Path(__file__).parent.parent.parent
+        platform_native_dir = self._get_platform_native_dir_name()
 
         # Development paths (native/lib in various locations). Explicitly set
         # GOPHER_MCP_PYTHON_LIBRARY_PATH to force a local build.
         paths.extend(
             [
-                # Project root native/lib
+                os.path.join(os.getcwd(), "native", platform_native_dir, "lib"),
+                os.path.join(os.getcwd(), "native", "current", "lib"),
                 os.path.join(os.getcwd(), "native", "lib"),
-                # Relative to module location
+                os.path.join(module_dir, "native", platform_native_dir, "lib"),
+                os.path.join(module_dir, "native", "current", "lib"),
                 os.path.join(module_dir, "native", "lib"),
+                os.path.join(module_dir.parent, "native", platform_native_dir, "lib"),
+                os.path.join(module_dir.parent, "native", "current", "lib"),
                 os.path.join(module_dir.parent, "native", "lib"),
             ]
         )
