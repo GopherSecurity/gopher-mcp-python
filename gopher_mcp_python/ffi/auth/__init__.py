@@ -26,6 +26,17 @@ from gopher_mcp_python.ffi.auth.loader import (
     get_library,
     is_auth_available,
     get_auth_functions,
+    gopher_auth_validate_idp,
+    gopher_auth_validate_all_scopes,
+    gopher_auth_validate_any_scopes,
+    gopher_auth_url_encode,
+    gopher_auth_url_decode,
+    gopher_auth_build_protected_resource_metadata,
+    gopher_auth_build_oauth_server_metadata,
+    gopher_auth_build_oidc_discovery_metadata,
+    gopher_auth_extract_bearer_token,
+    gopher_auth_extract_method,
+    gopher_auth_extract_path,
 )
 
 from gopher_mcp_python.ffi.auth.validation_options import (
@@ -41,6 +52,15 @@ from gopher_mcp_python.ffi.auth.oauth_client import (
     GopherOAuthClient,
     TokenResponse,
     RegistrationResponse,
+)
+
+from gopher_mcp_python.ffi.auth.session_manager import (
+    GopherSessionManager,
+)
+
+from gopher_mcp_python.ffi.auth.auto_refresh import (
+    AutoRefreshResult,
+    gopher_auth_auto_refresh,
 )
 
 from gopher_mcp_python.ffi.auth.auth_client import (
@@ -78,6 +98,17 @@ __all__ = [
     "get_library",
     "is_auth_available",
     "get_auth_functions",
+    "gopher_auth_validate_idp",
+    "gopher_auth_validate_all_scopes",
+    "gopher_auth_validate_any_scopes",
+    "gopher_auth_url_encode",
+    "gopher_auth_url_decode",
+    "gopher_auth_build_protected_resource_metadata",
+    "gopher_auth_build_oauth_server_metadata",
+    "gopher_auth_build_oidc_discovery_metadata",
+    "gopher_auth_extract_bearer_token",
+    "gopher_auth_extract_method",
+    "gopher_auth_extract_path",
     # Validation options
     "GopherValidationOptions",
     "gopher_create_validation_options",
@@ -91,4 +122,11 @@ __all__ = [
     "gopher_is_auth_library_initialized",
     "gopher_generate_www_authenticate_header",
     "gopher_generate_www_authenticate_header_v2",
+    # OAuth/session helpers
+    "GopherOAuthClient",
+    "TokenResponse",
+    "RegistrationResponse",
+    "GopherSessionManager",
+    "AutoRefreshResult",
+    "gopher_auth_auto_refresh",
 ]
