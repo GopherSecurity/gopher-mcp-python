@@ -73,11 +73,7 @@ jobs:
         run: |
           source native-preflight/bin/activate
           native_lib_dir="$(
-            python - <<'PY'
-import importlib
-module = importlib.import_module("${{ matrix.native_module }}")
-print(module.get_lib_path())
-PY
+            python -c 'import importlib; module = importlib.import_module("${{ matrix.native_module }}"); print(module.get_lib_path())'
           )"
           cd "$native_lib_dir"
 
@@ -122,16 +118,7 @@ PY
         shell: bash
         run: |
           source native-preflight/bin/activate
-          python - <<'PY'
-import importlib
-from pathlib import Path
-
-module = importlib.import_module("${{ matrix.native_module }}")
-lib_file = Path(module.get_library_file())
-print(lib_file)
-if not lib_file.is_file():
-    raise SystemExit(f"missing native library: {lib_file}")
-PY
+          python -c 'import importlib; from pathlib import Path; module = importlib.import_module("${{ matrix.native_module }}"); lib_file = Path(module.get_library_file()); print(lib_file); raise SystemExit(0 if lib_file.is_file() else f"missing native library: {lib_file}")'
 
       - name: Verify native loading
         shell: bash
