@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Verify that the installed Python SDK can load the native gopher-orch library."""
 
-import json
 import sys
 
-from gopher_mcp_python import AgentError, GopherAgent
 from gopher_mcp_python.ffi.library import GopherOrchLibrary
 
 
@@ -14,46 +12,32 @@ def fail(message: str) -> None:
 
 
 def main() -> None:
-    if not GopherOrchLibrary.is_available():
+    library = GopherOrchLibrary.get_instance()
+    if library is None:
         fail(GopherOrchLibrary.get_load_error_message())
 
     print("[verify-native] native library loaded")
 
-    server_config = {
-        "succeeded": True,
-        "data": {
-            "servers": [
-                {
-                    "version": "2026-01-11",
-                    "serverId": "verify-native",
-                    "name": "verify-native",
-                    "transport": "http_sse",
-                    "config": {
-                        "url": "http://127.0.0.1:1/mcp",
-                        "headers": {},
-                    },
-                    "connectTimeout": 1000,
-                    "requestTimeout": 1000,
-                }
-            ]
-        },
-    }
+    required_symbols = (
+        "gopher_orch_agent_create_by_json",
+        "gopher_orch_agent_create_by_api_key",
+        "gopher_orch_agent_run",
+        "gopher_orch_agent_release",
+        "gopher_orch_api_fetch_servers",
+        "gopher_orch_last_error",
+        "gopher_orch_clear_error",
+        "gopher_orch_free",
+    )
+    native_library = getattr(library, "_lib", None)
+    missing = [
+        symbol
+        for symbol in required_symbols
+        if native_library is None or not hasattr(native_library, symbol)
+    ]
+    if missing:
+        fail(f"native library missing required symbols: {', '.join(missing)}")
 
-    try:
-        agent = GopherAgent.create_with_server_config(
-            "AnthropicProvider",
-            "verify-model",
-            json.dumps(server_config),
-        )
-    except AgentError as exc:
-        message = str(exc)
-        if "Failed to load" in message or "Native library not available" in message:
-            fail(message)
-        print(f"[verify-native] native create path reached expected failure: {message}")
-        return
-
-    agent.dispose()
-    print("[verify-native] native create path completed")
+    print("[verify-native] required symbols present")
 
 
 if __name__ == "__main__":
