@@ -1,0 +1,157 @@
+name: Verify SDK Examples
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [iml_verify_auto]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'offline, live, or auto'
+        required: true
+        default: 'auto'
+      pypi_version:
+        description: 'PyPI version to verify'
+        required: true
+        default: 'latest'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-examples:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    env:
+      VERIFY_EXAMPLES_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'live' }}
+      VERIFY_PYPI_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.pypi_version || 'latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin-arm64
+            os: macos-15
+            native_module: gopher_mcp_python_native_darwin_arm64
+          - platform: linux-x64
+            os: ubuntu-22.04
+            native_module: gopher_mcp_python_native_linux_x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Remove Homebrew on macOS
+        if: runner.os == 'macOS' && runner.environment == 'github-hosted'
+        shell: bash
+        run: |
+          echo "=== Removing Homebrew to simulate clean machine ==="
+          sudo rm -rf /opt/homebrew /usr/local/Homebrew /usr/local/Cellar
+          sudo rm -f /usr/local/bin/brew /opt/homebrew/bin/brew
+          echo "Homebrew removed"
+
+      - name: Install SDK package for native preflight
+        shell: bash
+        run: |
+          python -m venv native-preflight
+          source native-preflight/bin/activate
+          python -m pip install --upgrade pip
+          if [ "$VERIFY_PYPI_VERSION" = "latest" ]; then
+            python -m pip install gopher-mcp-python gopher-mcp-python-native-${{ matrix.platform }}
+          else
+            python -m pip install "gopher-mcp-python==${VERIFY_PYPI_VERSION}" "gopher-mcp-python-native-${{ matrix.platform }}==${VERIFY_PYPI_VERSION}"
+          fi
+
+      - name: Verify macOS native package
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          source native-preflight/bin/activate
+          native_lib_dir="$(
+            python - <<'PY'
+import importlib
+module = importlib.import_module("${{ matrix.native_module }}")
+print(module.get_lib_path())
+PY
+          )"
+          cd "$native_lib_dir"
+
+          echo "=== Code Signatures ==="
+          failed=0
+          for f in *.dylib; do
+            if codesign -v "$f" 2>&1; then
+              echo "OK $f"
+            else
+              echo "FAILED $f: $(codesign -v "$f" 2>&1)"
+              failed=1
+            fi
+          done
+          [ "$failed" -eq 0 ] || exit 1
+
+          echo "=== Homebrew Path Check ==="
+          for f in *.dylib; do
+            [ -L "$f" ] && continue
+            if otool -L "$f" | grep -qE '/usr/local/|/opt/homebrew/'; then
+              echo "FAILED $f has Homebrew paths:"
+              otool -L "$f" | grep -E '/usr/local/|/opt/homebrew/'
+              exit 1
+            fi
+          done
+
+          echo "=== Bundled @loader_path Dependencies ==="
+          missing=0
+          for f in *.dylib; do
+            [ -L "$f" ] && continue
+            while read -r dep rest; do
+              name="${dep#@loader_path/}"
+              if [ ! -f "$name" ]; then
+                echo "MISSING $name needed by $f"
+                missing=1
+              fi
+            done < <(otool -L "$f" | grep "@loader_path/" || true)
+          done
+          [ "$missing" -eq 0 ] || exit 1
+
+      - name: Verify Linux native package
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          source native-preflight/bin/activate
+          python - <<'PY'
+import importlib
+from pathlib import Path
+
+module = importlib.import_module("${{ matrix.native_module }}")
+lib_file = Path(module.get_library_file())
+print(lib_file)
+if not lib_file.is_file():
+    raise SystemExit(f"missing native library: {lib_file}")
+PY
+
+      - name: Verify native loading
+        shell: bash
+        run: |
+          source native-preflight/bin/activate
+          python scripts/verify-example-native-probe.py
+
+      - name: Verify examples
+        shell: bash
+        env:
+          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER || 'AnthropicProvider' }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOPHER_API_KEY: ${{ secrets.GOPHER_API_KEY }}
+          GOPHER_MCP_URL: ${{ secrets.GOPHER_MCP_URL }}
+          GOPHER_SDK_TEST: true
+        run: |
+          VERIFY_LIVE_PROMPT="List my draft mails" \
+          VERIFY_EXPECTED_ANSWER="draft" \
+            scripts/verify-examples.sh --mode "$VERIFY_EXAMPLES_MODE" --only create_by_api_key
+          VERIFY_LIVE_PROMPT="List my draft mails" \
+          VERIFY_EXPECTED_ANSWER="draft" \
+            scripts/verify-examples.sh --mode "$VERIFY_EXAMPLES_MODE" --only create_by_url
