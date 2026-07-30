@@ -18,12 +18,30 @@ from gopher_mcp_python.ffi import GopherOrchLibrary
 PROVIDER = "AnthropicProvider"
 MODEL = "test-model"
 BAD_PROVIDER = "NotARealProvider"
-URL = "http://127.0.0.1:8080/mcp"
+URL = "http://127.0.0.1:1/mcp"
+
+ROUTING_FACTORY_SYMBOLS = [
+    "gopher_orch_agent_create_by_server_id",
+    "gopher_orch_agent_create_by_server_name",
+    "gopher_orch_agent_create_by_gateway_id",
+    "gopher_orch_agent_create_by_gateway_name",
+    "gopher_orch_agent_create_by_url",
+]
+
+
+def has_routing_factory_symbols() -> bool:
+    lib = GopherOrchLibrary.get_instance()
+    if lib is None or lib._lib is None:
+        return False
+    return all(hasattr(lib._lib, symbol) for symbol in ROUTING_FACTORY_SYMBOLS)
 
 
 pytestmark = pytest.mark.skipif(
-    not GopherOrchLibrary.is_available(),
-    reason="Native library not available -- run ./build.sh first",
+    not has_routing_factory_symbols(),
+    reason=(
+        "Native routing factory symbols not available -- use libgopher-orch "
+        "0.1.23 or newer"
+    ),
 )
 
 
@@ -53,8 +71,8 @@ class TestRoutingFactoryContracts:
             GopherAgent.create_with_gateway_name(PROVIDER, MODEL, "", "my-gateway")
 
     # ----------------------------------------------------------------
-    # create_with_url rejects empty url before any FFI work happens.
-    # Mirrors the CreateByUrlRejectsEmptyUrl case in the C++ suite.
+    # Mirrors the native CreateByUrlRejectsEmptyUrl case. The Python wrapper
+    # delegates validation to libgopher-orch and surfaces it as AgentError.
     # ----------------------------------------------------------------
 
     def test_create_with_url_rejects_empty_url(self) -> None:
@@ -64,8 +82,8 @@ class TestRoutingFactoryContracts:
     # ----------------------------------------------------------------
     # Unknown provider. create_with_url synthesises a local http_sse
     # config and reaches create_by_json on the native side, which
-    # rejects an unknown provider name. The factory must surface that
-    # as AgentError.
+    # rejects an unknown provider name. Use an unlikely local port so the test
+    # does not accidentally talk to a developer service on 8080.
     # ----------------------------------------------------------------
 
     def test_create_with_url_rejects_unknown_provider(self) -> None:
