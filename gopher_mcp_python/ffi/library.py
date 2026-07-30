@@ -88,6 +88,8 @@ class _AgentOptionsStorage:
             for i, (name, value) in enumerate(header_items):
                 name_bytes = name.encode("utf-8")
                 value_bytes = value.encode("utf-8")
+                # Keep c_char_p backing bytes alive; assigning the struct into
+                # the array slot copies pointers, not Python-owned buffers.
                 self._bytes.extend([name_bytes, value_bytes])
                 self.header_array[i] = GopherOrchHeader(name_bytes, value_bytes)
             headers_ptr = self.header_array
@@ -684,6 +686,8 @@ class GopherOrchLibrary:
         options = normalize_runtime_options(runtime_options)
         if options is None:
             return None
+        # Native BuildAgentOptions deep-copies this struct into C++ strings/maps
+        # during creation, so this storage only needs call-duration lifetime.
         return _AgentOptionsStorage(options)
 
     def _missing_options_symbol_message(self) -> str:
