@@ -165,8 +165,10 @@ fi
 # Fetch tags so PREV_TAG resolution is accurate even on shallow clones
 git fetch --tags --quiet 2>/dev/null || true
 
-# Previous Python tag (anything matching v*, sorted by semver)
-PREV_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1)
+# Previous Python tag reachable from HEAD. Using git describe keeps the range
+# anchored to this branch instead of picking the highest version tag anywhere in
+# the repository.
+PREV_TAG=$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null || true)
 if [ -n "$PREV_TAG" ]; then
     echo -e "  Previous Python tag:    ${CYAN}$PREV_TAG${NC}"
     PY_RANGE="$PREV_TAG..HEAD"
@@ -206,6 +208,9 @@ if [ -n "$PY_COMMITS" ]; then
     PY_COMMIT_COUNT=$(printf '%s\n' "$PY_COMMITS" | wc -l | tr -d ' ')
 fi
 echo -e "  Python commits in range:${GREEN} $PY_COMMIT_COUNT${NC}"
+if [ -n "$PREV_TAG" ] && [ "$PY_COMMIT_COUNT" -eq 0 ]; then
+    echo -e "  ${YELLOW}Warning: no Python SDK commits found in $PY_RANGE; SDK changes section will be omitted.${NC}"
+fi
 
 # Extract the "What's Changed" block from the gopher-orch release notes,
 # stripping the Build Information preamble and the trailing Full Changelog link.
