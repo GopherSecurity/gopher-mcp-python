@@ -4,7 +4,11 @@ Configuration classes for the Gopher Security MCP SDK.
 Provides a builder pattern for creating agent configurations with validation.
 """
 
-from typing import Dict, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional, Union
+
+RuntimeOptionsInput = Optional[
+    Union["GopherAgentRuntimeOptions", Mapping[str, Any]]
+]
 
 
 class GopherAgentRuntimeOptions:
@@ -36,7 +40,7 @@ class GopherAgentRuntimeOptions:
 
 
 def normalize_runtime_options(
-    options: Optional[object] = None,
+    options: RuntimeOptionsInput = None,
 ) -> Optional[GopherAgentRuntimeOptions]:
     """
     Normalize runtime options into a GopherAgentRuntimeOptions instance.
@@ -123,7 +127,7 @@ class GopherAgentConfig:
         model: str,
         api_key: Optional[str] = None,
         server_config: Optional[str] = None,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> None:
         """
         Initialize a GopherAgentConfig.
@@ -250,7 +254,9 @@ class GopherAgentConfigBuilder:
         self._server_config = server_config
         return self
 
-    def runtime_options(self, options: object) -> "GopherAgentConfigBuilder":
+    def runtime_options(
+        self, options: RuntimeOptionsInput
+    ) -> "GopherAgentConfigBuilder":
         """
         Set dynamic MCP runtime options.
 

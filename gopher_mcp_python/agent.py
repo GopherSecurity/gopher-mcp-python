@@ -29,7 +29,11 @@ Example with context manager:
 import atexit
 from typing import Callable, Optional
 
-from gopher_mcp_python.config import GopherAgentConfig
+from gopher_mcp_python.config import (
+    GopherAgentConfig,
+    RuntimeOptionsInput,
+    normalize_runtime_options,
+)
 from gopher_mcp_python.result import AgentResult, AgentResultStatus
 from gopher_mcp_python.errors import AgentError, TimeoutError
 from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
@@ -149,7 +153,7 @@ class GopherAgent:
         provider: str,
         model: str,
         api_key: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent with API key.
@@ -178,7 +182,7 @@ class GopherAgent:
         provider: str,
         model: str,
         server_config: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent with JSON server config.
@@ -208,7 +212,7 @@ class GopherAgent:
         model: str,
         api_key: str,
         server_id: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent scoped to a single MCP server by id.
@@ -227,9 +231,10 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
+        normalized_runtime_options = normalize_runtime_options(runtime_options)
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_server_id(
-                provider, model, api_key, server_id, runtime_options
+                provider, model, api_key, server_id, normalized_runtime_options
             )
         )
 
@@ -239,7 +244,7 @@ class GopherAgent:
         model: str,
         api_key: str,
         server_name: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent scoped to a single MCP server by name.
@@ -258,9 +263,10 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
+        normalized_runtime_options = normalize_runtime_options(runtime_options)
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_server_name(
-                provider, model, api_key, server_name, runtime_options
+                provider, model, api_key, server_name, normalized_runtime_options
             )
         )
 
@@ -270,7 +276,7 @@ class GopherAgent:
         model: str,
         api_key: str,
         gateway_id: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent scoped to a single MCP gateway by id.
@@ -289,9 +295,10 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
+        normalized_runtime_options = normalize_runtime_options(runtime_options)
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_gateway_id(
-                provider, model, api_key, gateway_id, runtime_options
+                provider, model, api_key, gateway_id, normalized_runtime_options
             )
         )
 
@@ -301,7 +308,7 @@ class GopherAgent:
         model: str,
         api_key: str,
         gateway_name: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent scoped to a single MCP gateway by name.
@@ -320,9 +327,10 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
+        normalized_runtime_options = normalize_runtime_options(runtime_options)
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_gateway_name(
-                provider, model, api_key, gateway_name, runtime_options
+                provider, model, api_key, gateway_name, normalized_runtime_options
             )
         )
 
@@ -331,7 +339,7 @@ class GopherAgent:
         provider: str,
         model: str,
         url: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> "GopherAgent":
         """
         Create a new GopherAgent for a single MCP server reachable at a URL.
@@ -350,8 +358,11 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
+        normalized_runtime_options = normalize_runtime_options(runtime_options)
         return GopherAgent._create_from_ffi(
-            lambda lib: lib.agent_create_by_url(provider, model, url, runtime_options)
+            lambda lib: lib.agent_create_by_url(
+                provider, model, url, normalized_runtime_options
+            )
         )
 
     @staticmethod

@@ -9,7 +9,11 @@ from ctypes import c_char_p, c_void_p, c_int32, c_int64, c_size_t, POINTER, Stru
 from pathlib import Path
 from typing import Optional, Any
 
-from gopher_mcp_python.config import GopherAgentRuntimeOptions, normalize_runtime_options
+from gopher_mcp_python.config import (
+    GopherAgentRuntimeOptions,
+    RuntimeOptionsInput,
+    normalize_runtime_options,
+)
 
 # Type alias for opaque handle
 GopherOrchHandle = c_void_p
@@ -434,7 +438,7 @@ class GopherOrchLibrary:
         provider: str,
         model: str,
         server_json: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent using JSON server configuration."""
         if not self._available or self._lib is None:
@@ -463,7 +467,7 @@ class GopherOrchLibrary:
         provider: str,
         model: str,
         api_key: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent using API key."""
         if not self._available or self._lib is None:
@@ -493,7 +497,7 @@ class GopherOrchLibrary:
         model: str,
         api_key: str,
         server_id: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent scoped to a single MCP server by id.
 
@@ -533,7 +537,7 @@ class GopherOrchLibrary:
         model: str,
         api_key: str,
         server_name: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent scoped to a single MCP server by name.
 
@@ -571,7 +575,7 @@ class GopherOrchLibrary:
         model: str,
         api_key: str,
         gateway_id: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent scoped to a single MCP gateway by id.
 
@@ -611,7 +615,7 @@ class GopherOrchLibrary:
         model: str,
         api_key: str,
         gateway_name: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent scoped to a single MCP gateway by name.
 
@@ -650,7 +654,7 @@ class GopherOrchLibrary:
         provider: str,
         model: str,
         url: str,
-        runtime_options: Optional[object] = None,
+        runtime_options: RuntimeOptionsInput = None,
     ) -> Optional[GopherOrchHandle]:
         """Create an agent for a single MCP server reachable at a URL.
 
@@ -681,7 +685,7 @@ class GopherOrchLibrary:
         )
 
     def _build_agent_options(
-        self, runtime_options: Optional[object]
+        self, runtime_options: RuntimeOptionsInput
     ) -> Optional[_AgentOptionsStorage]:
         options = normalize_runtime_options(runtime_options)
         if options is None:

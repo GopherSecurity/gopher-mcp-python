@@ -181,8 +181,35 @@ def test_direct_factories_pass_runtime_options(fake_library, factory, expected) 
 
     call = fake_library.calls[0]
     assert call[:-1] == expected
-    assert call[-1] is runtime_options
+    _assert_normalized_options(call[-1], {"Authorization": "Bearer abc123"})
     agent.dispose()
+
+
+def test_direct_factory_normalizes_empty_runtime_options(fake_library) -> None:
+    agent = GopherAgent.create_with_url(
+        "Provider",
+        "model",
+        "http://127.0.0.1:5001/mcp",
+        {"access_token": ""},
+    )
+
+    call = fake_library.calls[0]
+    assert call == ("url", "Provider", "model", "http://127.0.0.1:5001/mcp", None)
+    agent.dispose()
+
+
+def test_direct_factory_rejects_invalid_runtime_options_before_ffi(
+    fake_library,
+) -> None:
+    with pytest.raises(ValueError, match="headers must be a string mapping"):
+        GopherAgent.create_with_url(
+            "Provider",
+            "model",
+            "http://127.0.0.1:5001/mcp",
+            {"headers": {"X-Test": 1}},
+        )
+
+    assert fake_library.calls == []
 
 
 def test_runtime_options_native_error_surfaces_as_agent_error(fake_library) -> None:
