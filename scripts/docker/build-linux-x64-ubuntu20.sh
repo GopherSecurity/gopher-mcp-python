@@ -71,7 +71,7 @@ done
 for sofile in /tmp/output/*.so /tmp/output/*.so.*; do
     [ -L "$sofile" ] && continue
     [ -f "$sofile" ] || continue
-    patchelf --set-rpath '$ORIGIN' "$sofile" 2>/dev/null || true
+    patchelf --set-rpath '$ORIGIN' "$sofile"
 done
 echo "=== Bundling complete ==="
 

@@ -154,6 +154,40 @@ jobs:
           echo "=== Package contents for ${{ matrix.platform }} ==="
           ls -la "$PKG_DIR/"
 
+      - name: Verify Linux native dependencies
+        if: matrix.platform == 'linux-x64'
+        run: |
+          set -euo pipefail
+
+          PKG_DIR="packages/${{ matrix.platform }}/${{ matrix.pkg_name }}/lib"
+          echo "=== Verifying Linux native dependencies in $PKG_DIR ==="
+
+          found=0
+          for sofile in "$PKG_DIR"/*.so "$PKG_DIR"/*.so.*; do
+            [ -L "$sofile" ] && continue
+            [ -f "$sofile" ] || continue
+            found=1
+            echo "--- $sofile"
+            readelf -d "$sofile" | grep -E 'RUNPATH|RPATH' | grep -F '$ORIGIN'
+            LD_LIBRARY_PATH="$PKG_DIR:${LD_LIBRARY_PATH:-}" ldd "$sofile" | tee /tmp/ldd.out
+            missing="$(awk '/not found/ {print $1}' /tmp/ldd.out | grep -Ev '^(libssl\.so|libcrypto\.so)' || true)"
+            if [ -n "$missing" ]; then
+              echo "$missing"
+              echo "Missing shared dependency for $sofile"
+              exit 1
+            fi
+          done
+
+          if find "$PKG_DIR" -maxdepth 1 -type f \( -name 'libssl.so*' -o -name 'libcrypto.so*' \) | grep .; then
+            echo "OpenSSL libraries must remain system-provided, not bundled."
+            exit 1
+          fi
+
+          if [ "$found" -ne 1 ]; then
+            echo "No Linux shared libraries found in $PKG_DIR"
+            exit 1
+          fi
+
       - name: Update package version
         run: |
           cd packages/${{ matrix.platform }}
