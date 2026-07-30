@@ -200,12 +200,17 @@ else
 fi
 echo -e "  New gopher-orch:        ${GREEN}v$GOPHER_ORCH_VERSION${NC}"
 
+if ! grep -q '^## \[Unreleased\]' "$CHANGELOG_FILE"; then
+    echo -e "${RED}Error: [Unreleased] section not found in $CHANGELOG_FILE${NC}"
+    exit 1
+fi
+
 # Preserve any manually-authored entries already under [Unreleased]
 MANUAL_CONTENT=$(awk '
     /^## \[Unreleased\]/ { capture = 1; next }
     /^## \[/ && capture { capture = 0 }
     capture { print }
-' "$CHANGELOG_FILE" | sed -e '/^[[:space:]]*$/d')
+' "$CHANGELOG_FILE")
 
 # Collect Python repo commits since previous tag (skip merges + prior release commits)
 PY_COMMITS=$(git log --no-merges --pretty=format:'- %s' \
@@ -223,6 +228,8 @@ fi
 
 # Extract the "What's Changed" block from the gopher-orch release notes,
 # stripping the Build Information preamble and the trailing Full Changelog link.
+# Rewrite PR refs and user mentions so this repo's rendered changelog does not
+# point #NNN at gopher-mcp-python or ping users from the upstream release.
 GOPHER_ORCH_NOTES=$(gh release view "v$GOPHER_ORCH_VERSION" \
     --repo GopherSecurity/gopher-orch \
     --json body -q '.body' 2>/dev/null | \
@@ -230,7 +237,10 @@ GOPHER_ORCH_NOTES=$(gh release view "v$GOPHER_ORCH_VERSION" \
         /^## What.s Changed/ { capture = 1; next }
         /^\*\*Full Changelog\*\*/ { capture = 0 }
         capture { print }
-    ' | sed -e '/^---$/d')
+    ' | sed -E \
+        -e '/^---$/d' \
+        -e 's/#([0-9]+)/https:\/\/github.com\/GopherSecurity\/gopher-orch\/pull\/\1/g' \
+        -e 's/@([A-Za-z0-9][A-Za-z0-9-]*)/github.com\/\1/g')
 
 if [ -n "$GOPHER_ORCH_NOTES" ]; then
     echo -e "  gopher-orch notes:      ${GREEN}fetched${NC}"
@@ -240,8 +250,10 @@ fi
 
 # Build the new [Unreleased] body
 RELEASE_NOTES_FILE=$(mktemp)
+CHANGELOG_TMP="${CHANGELOG_FILE}.gen"
+trap 'rm -f "$RELEASE_NOTES_FILE" "$CHANGELOG_TMP"' EXIT
 {
-    if [ -n "$MANUAL_CONTENT" ]; then
+    if printf '%s' "$MANUAL_CONTENT" | grep -q '[^[:space:]]'; then
         printf '%s\n\n' "$MANUAL_CONTENT"
     fi
 
@@ -275,7 +287,6 @@ RELEASE_NOTES_FILE=$(mktemp)
 
 # Splice the generated body in: replace everything between
 # "## [Unreleased]" and the next "## [" with the new content.
-CHANGELOG_TMP="${CHANGELOG_FILE}.gen"
 awk -v notes_file="$RELEASE_NOTES_FILE" '
     BEGIN {
         while ((getline line < notes_file) > 0) {
@@ -296,7 +307,6 @@ awk -v notes_file="$RELEASE_NOTES_FILE" '
     { print }
 ' "$CHANGELOG_FILE" > "$CHANGELOG_TMP"
 mv "$CHANGELOG_TMP" "$CHANGELOG_FILE"
-rm -f "$RELEASE_NOTES_FILE"
 
 # Recompute UNRELEASED_CONTENT for the eventual commit message
 UNRELEASED_CONTENT=$(awk '
