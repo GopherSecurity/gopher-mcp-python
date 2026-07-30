@@ -65,10 +65,17 @@ if [ -d "${NATIVE_DIR}" ] && [ ! -f "${NATIVE_DIR}/CMakeLists.txt" ]; then
     rm -rf .git/modules/third_party/gopher-orch 2>/dev/null || true
 fi
 
-# Update main submodule to the latest commit on the branch configured in
-# .gitmodules (currently br_release), not just the parent-recorded SHA.
-if ! git submodule update --init --remote --checkout third_party/gopher-orch; then
-    echo -e "${RED}Error: Failed to update gopher-orch submodule to latest remote branch${NC}"
+# Update the main submodule to the parent-recorded SHA by default so builds are
+# reproducible. Developers can opt into branch-tip tracking when refreshing the
+# pinned native dependency.
+SUBMODULE_UPDATE_ARGS=(--init --checkout)
+if [ "${GOPHER_ORCH_TRACK_REMOTE:-}" = "1" ]; then
+    echo -e "${YELLOW}  GOPHER_ORCH_TRACK_REMOTE=1: tracking configured remote branch tips${NC}"
+    SUBMODULE_UPDATE_ARGS+=(--remote)
+fi
+
+if ! git submodule update "${SUBMODULE_UPDATE_ARGS[@]}" third_party/gopher-orch; then
+    echo -e "${RED}Error: Failed to update gopher-orch submodule${NC}"
     echo -e "${YELLOW}If you have multiple GitHub accounts, use:${NC}"
     echo -e "  GITHUB_SSH_HOST=your-ssh-alias ./build.sh"
     exit 1
@@ -82,9 +89,10 @@ if [ -d "${NATIVE_DIR}" ]; then
     git config --local url."git@${SSH_HOST}:GopherSecurity/".insteadOf "https://github.com/GopherSecurity/"
     git submodule sync -- third_party/gopher-mcp
     git config --local submodule.third_party/gopher-mcp.url "git@${SSH_HOST}:GopherSecurity/gopher-mcp.git"
-    # Keep gopher-mcp on the latest commit from its configured release branch.
-    if ! git submodule update --init --remote --checkout third_party/gopher-mcp; then
-        echo -e "${RED}Error: Failed to update gopher-mcp submodule to latest remote branch${NC}"
+    # Keep the nested submodule pinned unless GOPHER_ORCH_TRACK_REMOTE=1 was
+    # requested above.
+    if ! git submodule update "${SUBMODULE_UPDATE_ARGS[@]}" third_party/gopher-mcp; then
+        echo -e "${RED}Error: Failed to update gopher-mcp submodule${NC}"
         echo -e "${YELLOW}If you have multiple GitHub accounts, use:${NC}"
         echo -e "  GITHUB_SSH_HOST=your-ssh-alias ./build.sh"
         exit 1
