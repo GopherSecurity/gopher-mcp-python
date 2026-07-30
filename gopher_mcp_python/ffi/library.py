@@ -136,51 +136,43 @@ class GopherOrchLibrary:
 
         # Routing factories: scope the agent to a single MCP server or gateway
         # selected by id / name, or to a known MCP URL. These C symbols landed
-        # in gopher-orch 0.1.23 -- wrapped in try / except so the SDK still
-        # loads against an older libgopher-orch, with the higher-level
-        # factories raising AgentError at call time if the symbol is missing.
-        try:
-            self._lib.gopher_orch_agent_create_by_server_id.argtypes = [
-                c_char_p,
-                c_char_p,
-                c_char_p,
-                c_char_p,
-            ]
-            self._lib.gopher_orch_agent_create_by_server_id.restype = c_void_p
-
-            self._lib.gopher_orch_agent_create_by_server_name.argtypes = [
-                c_char_p,
-                c_char_p,
-                c_char_p,
-                c_char_p,
-            ]
-            self._lib.gopher_orch_agent_create_by_server_name.restype = c_void_p
-
-            self._lib.gopher_orch_agent_create_by_gateway_id.argtypes = [
-                c_char_p,
-                c_char_p,
-                c_char_p,
-                c_char_p,
-            ]
-            self._lib.gopher_orch_agent_create_by_gateway_id.restype = c_void_p
-
-            self._lib.gopher_orch_agent_create_by_gateway_name.argtypes = [
-                c_char_p,
-                c_char_p,
-                c_char_p,
-                c_char_p,
-            ]
-            self._lib.gopher_orch_agent_create_by_gateway_name.restype = c_void_p
-
-            self._lib.gopher_orch_agent_create_by_url.argtypes = [
-                c_char_p,
-                c_char_p,
-                c_char_p,
-            ]
-            self._lib.gopher_orch_agent_create_by_url.restype = c_void_p
-        except AttributeError:
-            # Older libgopher-orch builds (< 0.1.23) lack these symbols.
-            pass
+        # in gopher-orch 0.1.23, so bind each one independently to keep the SDK
+        # loadable against older libgopher-orch builds while still configuring
+        # every symbol that is present.
+        routing_factories = [
+            (
+                "gopher_orch_agent_create_by_server_id",
+                [c_char_p, c_char_p, c_char_p, c_char_p],
+                c_void_p,
+            ),
+            (
+                "gopher_orch_agent_create_by_server_name",
+                [c_char_p, c_char_p, c_char_p, c_char_p],
+                c_void_p,
+            ),
+            (
+                "gopher_orch_agent_create_by_gateway_id",
+                [c_char_p, c_char_p, c_char_p, c_char_p],
+                c_void_p,
+            ),
+            (
+                "gopher_orch_agent_create_by_gateway_name",
+                [c_char_p, c_char_p, c_char_p, c_char_p],
+                c_void_p,
+            ),
+            (
+                "gopher_orch_agent_create_by_url",
+                [c_char_p, c_char_p, c_char_p],
+                c_void_p,
+            ),
+        ]
+        for name, argtypes, restype in routing_factories:
+            try:
+                fn = getattr(self._lib, name)
+            except AttributeError:
+                continue
+            fn.argtypes = argtypes
+            fn.restype = restype
 
         self._lib.gopher_orch_agent_run.argtypes = [c_void_p, c_char_p, c_int64]
         self._lib.gopher_orch_agent_run.restype = c_char_p
