@@ -56,7 +56,7 @@ def test_create_failure_uses_actionable_fallback(monkeypatch) -> None:
     assert "native library returned null without a specific error" in str(
         exc_info.value
     )
-    assert "Set GOPHER_DEBUG=1" in str(exc_info.value)
+    assert "Set DEBUG=1" in str(exc_info.value)
     assert fake.cleared is True
 
 

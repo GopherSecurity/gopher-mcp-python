@@ -505,6 +505,6 @@ def _build_create_error_message() -> str:
         "Failed to create agent: native library returned null without a "
         "specific error. Most often this means every configured MCP server "
         "failed to connect or returned no tools (TLS / network / bad URL), "
-        "or the LLM provider could not be initialized. Set GOPHER_DEBUG=1 to "
-        "see native-side logs."
+        "or the LLM provider could not be initialized. Set DEBUG=1 to see "
+        "Python-side native library load diagnostics and native-side logs."
     )
