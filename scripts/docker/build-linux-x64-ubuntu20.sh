@@ -56,7 +56,9 @@ for dylib in /tmp/output/libgopher-*.so*; do
         dep_path=$(echo "$line" | sed 's/.*=> //' | sed 's/ (.*//' | tr -d '[:space:]')
         dep_name=$(basename "$dep_path")
         case "$dep_name" in
-            libc.so*|libm.so*|libdl.so*|librt.so*|libpthread.so*|linux-vdso*|ld-linux*|libstdc++*|libgcc_s*|libresolv*|libnss*|libnsl*) continue ;;
+            # Keep toolchain, libc, NSS, and TLS libraries system-provided so
+            # distro security updates apply instead of vendoring stale copies.
+            libc.so*|libm.so*|libdl.so*|librt.so*|libpthread.so*|linux-vdso*|ld-linux*|libstdc++*|libgcc_s*|libresolv*|libnss*|libnsl*|libssl.so*|libcrypto.so*) continue ;;
         esac
         if [ -f "$dep_path" ] && [ ! -f "/tmp/output/$dep_name" ]; then
             echo "  Bundling: $dep_name"
