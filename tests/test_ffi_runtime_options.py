@@ -7,6 +7,7 @@ import ctypes
 import pytest
 
 from gopher_mcp_python.config import GopherAgentRuntimeOptions
+from gopher_mcp_python.errors import AgentError
 from gopher_mcp_python.ffi.library import (
     GopherOrchAgentOptions,
     GopherOrchLibrary,
@@ -118,7 +119,7 @@ def test_agent_create_by_url_requires_options_symbol_for_runtime_options() -> No
 
     lib = _new_library(FakeNativeLibrary())
 
-    with pytest.raises(RuntimeError, match="does not expose agent runtime options"):
+    with pytest.raises(AgentError, match="does not expose agent runtime options"):
         lib.agent_create_by_url(
             "Provider",
             "model",

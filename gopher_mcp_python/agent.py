@@ -29,8 +29,8 @@ Example with context manager:
 import atexit
 from typing import Callable, Optional
 
-from gopher_mcp_python.config import (
-    GopherAgentConfig,
+from gopher_mcp_python.config import GopherAgentConfig
+from gopher_mcp_python.runtime_options import (
     RuntimeOptionsInput,
     normalize_runtime_options,
 )
@@ -138,6 +138,8 @@ class GopherAgent:
                     config.server_config,
                     config.runtime_options,
                 )
+        except AgentError:
+            raise
         except Exception as e:
             raise AgentError(f"Failed to create agent: {e}")
 
@@ -385,6 +387,8 @@ class GopherAgent:
 
         try:
             handle = create_handle(lib)
+        except AgentError:
+            raise
         except Exception as e:
             raise AgentError(f"Failed to create agent: {e}")
 

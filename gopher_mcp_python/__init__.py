@@ -26,6 +26,8 @@ from gopher_mcp_python.agent import GopherAgent
 from gopher_mcp_python.config import (
     GopherAgentConfig,
     GopherAgentConfigBuilder,
+)
+from gopher_mcp_python.runtime_options import (
     GopherAgentRuntimeOptions,
 )
 from gopher_mcp_python.result import AgentResult, AgentResultStatus, AgentResultBuilder
