@@ -177,12 +177,21 @@ else
     PY_RANGE="HEAD"
 fi
 
-# Previous gopher-orch version recorded in the previous release commit
+# Previous gopher-orch version from the package version recorded at the
+# previous tag. Extended Python versions are X.Y.Z.E, where X.Y.Z tracks
+# gopher-orch.
 PREV_GOPHER_ORCH_VERSION=""
 if [ -n "$PREV_TAG" ]; then
-    PREV_GOPHER_ORCH_VERSION=$(git log -1 --format=%B "$PREV_TAG" 2>/dev/null | \
-        grep -oE 'gopher-orch version: [0-9]+\.[0-9]+\.[0-9]+' | \
-        awk '{print $NF}' | head -1)
+    PREV_PY_VERSION=$(git show "$PREV_TAG:$PYPROJECT_TOML" 2>/dev/null | \
+        grep -E '^version\s*=' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+    if echo "$PREV_PY_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
+        PREV_GOPHER_ORCH_VERSION=$(echo "$PREV_PY_VERSION" | \
+            sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)(\.[0-9]+)?$/\1/')
+    elif [ -n "$PREV_PY_VERSION" ]; then
+        echo -e "  ${YELLOW}Warning: could not derive previous gopher-orch version from $PREV_TAG:$PYPROJECT_TOML version '$PREV_PY_VERSION'${NC}"
+    else
+        echo -e "  ${YELLOW}Warning: could not read previous package version from $PREV_TAG:$PYPROJECT_TOML${NC}"
+    fi
 fi
 if [ -n "$PREV_GOPHER_ORCH_VERSION" ]; then
     echo -e "  Previous gopher-orch:   ${CYAN}v$PREV_GOPHER_ORCH_VERSION${NC}"
