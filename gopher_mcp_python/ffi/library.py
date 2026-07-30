@@ -340,7 +340,7 @@ class GopherOrchLibrary:
             return None
         fn = getattr(self._lib, "gopher_orch_agent_create_by_server_id", None)
         if fn is None:
-            return None
+            raise RuntimeError(_missing_routing_factory_message())
         return fn(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -359,7 +359,7 @@ class GopherOrchLibrary:
             return None
         fn = getattr(self._lib, "gopher_orch_agent_create_by_server_name", None)
         if fn is None:
-            return None
+            raise RuntimeError(_missing_routing_factory_message())
         return fn(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -380,7 +380,7 @@ class GopherOrchLibrary:
             return None
         fn = getattr(self._lib, "gopher_orch_agent_create_by_gateway_id", None)
         if fn is None:
-            return None
+            raise RuntimeError(_missing_routing_factory_message())
         return fn(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -399,7 +399,7 @@ class GopherOrchLibrary:
             return None
         fn = getattr(self._lib, "gopher_orch_agent_create_by_gateway_name", None)
         if fn is None:
-            return None
+            raise RuntimeError(_missing_routing_factory_message())
         return fn(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -420,7 +420,7 @@ class GopherOrchLibrary:
             return None
         fn = getattr(self._lib, "gopher_orch_agent_create_by_url", None)
         if fn is None:
-            return None
+            raise RuntimeError(_missing_routing_factory_message())
         return fn(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -507,3 +507,10 @@ class GopherOrchLibrary:
         """
         if self._available and self._lib is not None:
             self._lib.gopher_orch_set_log_level(level)
+
+
+def _missing_routing_factory_message() -> str:
+    return (
+        "this build of libgopher-orch predates the routing factories; "
+        "upgrade the native gopher-orch library to 0.1.23 or newer"
+    )

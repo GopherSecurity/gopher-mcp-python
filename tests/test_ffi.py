@@ -11,6 +11,8 @@ from ctypes import c_char_p, c_int, c_void_p
 
 import pytest
 
+import gopher_mcp_python.agent as agent_module
+from gopher_mcp_python import AgentError, GopherAgent
 from gopher_mcp_python.ffi import GopherOrchLibrary
 
 
@@ -78,6 +80,48 @@ class TestGopherOrchLibrary:
             c_char_p,
             c_char_p,
         ]
+
+    def test_missing_optional_routing_symbol_raises_upgrade_error(self):
+        """Absent routing factories should not look like native NULL returns."""
+
+        class FakeLib:
+            pass
+
+        lib = GopherOrchLibrary.__new__(GopherOrchLibrary)
+        lib._available = True
+        lib._lib = FakeLib()
+
+        with pytest.raises(RuntimeError, match="predates the routing factories"):
+            lib.agent_create_by_url(
+                "AnthropicProvider", "claude-3-haiku-20240307", "http://x/mcp"
+            )
+
+    def test_public_factory_surfaces_missing_routing_symbol_message(
+        self, monkeypatch
+    ):
+        """AgentError should tell users to upgrade when the native symbol is absent."""
+
+        class FakeLib:
+            def agent_create_by_url(self, provider, model, url):
+                raise RuntimeError(
+                    "this build of libgopher-orch predates the routing factories; "
+                    "upgrade the native gopher-orch library to 0.1.23 or newer"
+                )
+
+        monkeypatch.setattr(agent_module, "_initialized", True)
+        monkeypatch.setattr(
+            GopherOrchLibrary,
+            "get_instance",
+            classmethod(lambda cls: FakeLib()),
+        )
+
+        with pytest.raises(AgentError) as exc_info:
+            GopherAgent.create_with_url(
+                "AnthropicProvider", "claude-3-haiku-20240307", "http://x/mcp"
+            )
+
+        assert "predates the routing factories" in str(exc_info.value)
+        assert "upgrade the native gopher-orch library" in str(exc_info.value)
 
     def test_library_should_be_available(self):
         """Test that library should be available."""
