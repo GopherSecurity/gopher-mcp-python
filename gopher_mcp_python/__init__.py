@@ -22,6 +22,8 @@ Example:
     >>> agent.dispose()
 """
 
+from importlib import import_module
+
 from gopher_mcp_python.agent import GopherAgent
 from gopher_mcp_python.config import (
     GopherAgentConfig,
@@ -40,83 +42,22 @@ from gopher_mcp_python.errors import (
 from gopher_mcp_python.server_config import ServerConfig
 from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
-# Auth module re-exports
-from gopher_mcp_python.ffi.auth import (
-    # Types
-    GopherAuthError,
-    AutoRefreshResult,
-    RegistrationResponse,
-    TokenResponse,
-    ValidationResult,
-    TokenPayload,
-    GopherAuthContext,
-    ERROR_DESCRIPTIONS,
-    get_error_description,
-    gopher_create_empty_auth_context,
-    is_gopher_auth_error,
-    # Classes
-    GopherAuthClient,
-    GopherAuthConfig,
-    GopherOAuthClient,
-    GopherSessionManager,
-    GopherValidationOptions,
-    # Functions
-    gopher_auth_auto_refresh,
-    gopher_auth_build_oidc_discovery_metadata,
-    gopher_auth_build_oauth_server_metadata,
-    gopher_auth_build_protected_resource_metadata,
-    gopher_auth_extract_bearer_token,
-    gopher_auth_extract_method,
-    gopher_auth_extract_path,
-    gopher_auth_url_decode,
-    gopher_auth_url_encode,
-    gopher_auth_validate_all_scopes,
-    gopher_auth_validate_any_scopes,
-    gopher_auth_validate_idp,
-    gopher_create_validation_options,
-    gopher_generate_www_authenticate_header,
-    gopher_generate_www_authenticate_header_v2,
-    gopher_get_auth_library_version,
-    gopher_init_auth_library,
-    gopher_is_auth_library_initialized,
-    gopher_shutdown_auth_library,
-    is_auth_available,
-)
-from gopher_mcp_python.auth import (
-    GopherAuth,
-    GopherAuthError as GopherAuthBaseError,
-    ConfigurationError,
-    InsufficientScopesError,
-    JwksError,
-    TokenExchangeError,
-    TokenValidationError,
-    has_all_scopes,
-    has_any_scope,
-    has_scope,
-)
-
 __version__ = "0.1.2"
 
-__all__ = [
-    # Main classes
-    "GopherAgent",
-    "GopherAgentConfig",
-    "GopherAgentConfigBuilder",
-    "GopherAgentRuntimeOptions",
-    "AgentResult",
-    "AgentResultStatus",
-    "AgentResultBuilder",
-    "ServerConfig",
-    # Errors
-    "AgentError",
-    "ApiKeyError",
-    "ConnectionError",
-    "TimeoutError",
-    # FFI
-    "GopherOrchLibrary",
-    "GopherOrchHandle",
-    # Auth
+_AUTH_EXPORTS = {
+    "GopherAuth",
     "GopherAuthError",
+    "ConfigurationError",
+    "InsufficientScopesError",
+    "JwksError",
+    "TokenExchangeError",
+    "TokenValidationError",
+    "has_all_scopes",
+    "has_any_scope",
+    "has_scope",
+}
+
+_AUTH_FFI_EXPORTS = {
     "AutoRefreshResult",
     "RegistrationResponse",
     "TokenResponse",
@@ -152,8 +93,88 @@ __all__ = [
     "gopher_is_auth_library_initialized",
     "gopher_shutdown_auth_library",
     "is_auth_available",
+}
+
+
+def __getattr__(name: str):
+    if name in _AUTH_EXPORTS:
+        auth = import_module("gopher_mcp_python.auth")
+        value = getattr(auth, name)
+        globals()[name] = value
+        return value
+
+    if name == "GopherAuthFfiError":
+        from gopher_mcp_python.ffi.auth import GopherAuthError as GopherAuthFfiError
+
+        globals()[name] = GopherAuthFfiError
+        return GopherAuthFfiError
+
+    if name in _AUTH_FFI_EXPORTS:
+        ffi_auth = import_module("gopher_mcp_python.ffi.auth")
+        value = getattr(ffi_auth, name)
+        globals()[name] = value
+        return value
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = [
+    # Main classes
+    "GopherAgent",
+    "GopherAgentConfig",
+    "GopherAgentConfigBuilder",
+    "GopherAgentRuntimeOptions",
+    "AgentResult",
+    "AgentResultStatus",
+    "AgentResultBuilder",
+    "ServerConfig",
+    # Errors
+    "AgentError",
+    "ApiKeyError",
+    "ConnectionError",
+    "TimeoutError",
+    # FFI
+    "GopherOrchLibrary",
+    "GopherOrchHandle",
+    # Auth
     "GopherAuth",
-    "GopherAuthBaseError",
+    "GopherAuthError",
+    "GopherAuthFfiError",
+    "AutoRefreshResult",
+    "RegistrationResponse",
+    "TokenResponse",
+    "ValidationResult",
+    "TokenPayload",
+    "GopherAuthContext",
+    "ERROR_DESCRIPTIONS",
+    "get_error_description",
+    "gopher_create_empty_auth_context",
+    "is_gopher_auth_error",
+    "GopherAuthClient",
+    "GopherAuthConfig",
+    "GopherOAuthClient",
+    "GopherSessionManager",
+    "GopherValidationOptions",
+    "gopher_auth_auto_refresh",
+    "gopher_auth_build_oidc_discovery_metadata",
+    "gopher_auth_build_oauth_server_metadata",
+    "gopher_auth_build_protected_resource_metadata",
+    "gopher_auth_extract_bearer_token",
+    "gopher_auth_extract_method",
+    "gopher_auth_extract_path",
+    "gopher_auth_url_decode",
+    "gopher_auth_url_encode",
+    "gopher_auth_validate_all_scopes",
+    "gopher_auth_validate_any_scopes",
+    "gopher_auth_validate_idp",
+    "gopher_create_validation_options",
+    "gopher_generate_www_authenticate_header",
+    "gopher_generate_www_authenticate_header_v2",
+    "gopher_get_auth_library_version",
+    "gopher_init_auth_library",
+    "gopher_is_auth_library_initialized",
+    "gopher_shutdown_auth_library",
+    "is_auth_available",
     "ConfigurationError",
     "InsufficientScopesError",
     "JwksError",

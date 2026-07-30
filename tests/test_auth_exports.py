@@ -36,7 +36,8 @@ def test_root_exports_auth_ffi_helpers():
 def test_root_exports_reusable_auth_aliases():
     from gopher_mcp_python import (
         GopherAuth,
-        GopherAuthBaseError,
+        GopherAuthError,
+        GopherAuthFfiError,
         InsufficientScopesError,
         TokenExchangeError,
         TokenValidationError,
@@ -44,13 +45,15 @@ def test_root_exports_reusable_auth_aliases():
         has_any_scope,
         has_scope,
     )
-    from gopher_mcp_python.auth import GopherAuthError
+    from gopher_mcp_python.auth import GopherAuthError as AuthGopherAuthError
+    from gopher_mcp_python.ffi.auth import GopherAuthError as FfiGopherAuthError
 
     assert GopherAuth is not None
-    assert GopherAuthBaseError is GopherAuthError
-    assert issubclass(InsufficientScopesError, GopherAuthBaseError)
-    assert issubclass(TokenExchangeError, GopherAuthBaseError)
-    assert issubclass(TokenValidationError, GopherAuthBaseError)
+    assert GopherAuthError is AuthGopherAuthError
+    assert GopherAuthFfiError is FfiGopherAuthError
+    assert issubclass(InsufficientScopesError, GopherAuthError)
+    assert issubclass(TokenExchangeError, GopherAuthError)
+    assert issubclass(TokenValidationError, GopherAuthError)
     assert callable(has_all_scopes)
     assert callable(has_any_scope)
     assert callable(has_scope)
