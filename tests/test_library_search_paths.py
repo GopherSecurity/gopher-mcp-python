@@ -57,6 +57,19 @@ def test_resolves_environment_library_directory(tmp_path):
     )
 
 
+def test_prefers_unversioned_library_in_directory(tmp_path):
+    """Directory overrides prefer the canonical unversioned library name."""
+    lib = object.__new__(GopherOrchLibrary)
+    unversioned = tmp_path / "libgopher-orch.so"
+    versioned = tmp_path / "libgopher-orch.so.0.1.30"
+    unversioned.write_bytes(b"")
+    versioned.write_bytes(b"")
+
+    assert lib._resolve_library_path(str(tmp_path), "libgopher-orch.so") == str(
+        unversioned
+    )
+
+
 def test_resolves_versioned_library_in_directory(tmp_path):
     """Directory overrides can contain version-suffixed shared libraries."""
     lib = object.__new__(GopherOrchLibrary)
@@ -65,6 +78,30 @@ def test_resolves_versioned_library_in_directory(tmp_path):
 
     assert lib._resolve_library_path(str(tmp_path), "libgopher-orch.so") == str(
         lib_file
+    )
+
+
+def test_resolves_highest_linux_versioned_library_in_directory(tmp_path):
+    """Linux version sorting should be numeric, not lexicographic."""
+    lib = object.__new__(GopherOrchLibrary)
+    old = tmp_path / "libgopher-orch.so.0.1.2"
+    new = tmp_path / "libgopher-orch.so.0.1.30"
+    old.write_bytes(b"")
+    new.write_bytes(b"")
+
+    assert lib._resolve_library_path(str(tmp_path), "libgopher-orch.so") == str(new)
+
+
+def test_resolves_macos_versioned_dylib_in_directory(tmp_path):
+    """macOS versioned dylibs put the version before .dylib."""
+    lib = object.__new__(GopherOrchLibrary)
+    old = tmp_path / "libgopher-orch.0.1.2.dylib"
+    new = tmp_path / "libgopher-orch.0.1.30.dylib"
+    old.write_bytes(b"")
+    new.write_bytes(b"")
+
+    assert lib._resolve_library_path(str(tmp_path), "libgopher-orch.dylib") == str(
+        new
     )
 
 

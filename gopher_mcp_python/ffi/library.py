@@ -4,10 +4,11 @@ ctypes interface to the gopher-mcp-python native library.
 
 import ctypes
 import os
+import re
 import sys
 from ctypes import c_char_p, c_void_p, c_int32, c_int64, c_size_t, POINTER, Structure
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, Tuple
 
 from gopher_mcp_python.errors import AgentError
 from gopher_mcp_python.runtime_options import (
@@ -236,12 +237,19 @@ class GopherOrchLibrary:
         if os.path.exists(direct):
             return direct
 
-        matches = sorted(
+        matches = [
             name
             for name in os.listdir(candidate)
-            if name == library_name or name.startswith(f"{library_name}.")
+            if _library_version_key(name, library_name) is not None
+        ]
+        if not matches:
+            return None
+
+        matches.sort(
+            key=lambda name: _library_version_key(name, library_name),
+            reverse=True,
         )
-        return os.path.join(candidate, matches[0]) if matches else None
+        return os.path.join(candidate, matches[0])
 
     def _record_load_error(self, message: str) -> None:
         self._load_errors.append(message)
@@ -868,3 +876,33 @@ def _missing_routing_factory_message() -> str:
         "this build of libgopher-orch predates the routing factories; "
         "upgrade to a native gopher-orch library release that includes them"
     )
+
+
+def _library_version_key(
+    filename: str, library_name: str
+) -> Optional[Tuple[int, Tuple[int, ...], str]]:
+    """
+    Return a sortable key for versioned variants of library_name.
+
+    Exact library_name is handled before this helper. Linux uses
+    libname.so.X.Y.Z; macOS uses libname.X.Y.Z.dylib.
+    """
+    linux_prefix = f"{library_name}."
+    if filename.startswith(linux_prefix):
+        version = filename[len(linux_prefix) :]
+        return (1, _parse_library_version(version), filename)
+
+    dylib_suffix = ".dylib"
+    if library_name.endswith(dylib_suffix) and filename.endswith(dylib_suffix):
+        stem = library_name[: -len(dylib_suffix)]
+        versioned_prefix = f"{stem}."
+        if filename.startswith(versioned_prefix):
+            version = filename[len(versioned_prefix) : -len(dylib_suffix)]
+            return (1, _parse_library_version(version), filename)
+
+    return None
+
+
+def _parse_library_version(version: str) -> Tuple[int, ...]:
+    parts = re.findall(r"\d+", version)
+    return tuple(int(part) for part in parts) if parts else (0,)
