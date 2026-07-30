@@ -66,13 +66,15 @@ def runtime_options_from_env() -> dict[str, object]:
             headers["Authorization"] = f"Bearer {access_token}"
         return {"headers": headers}
 
-    return {
-        "access_token": access_token,
+    options: dict[str, object] = {
         "headers": {
             "x-gopher-example": "header-create-by-url",
             "x-trace-id": trace_id,
         },
     }
+    if access_token:
+        options["access_token"] = access_token
+    return options
 
 
 def main() -> None:

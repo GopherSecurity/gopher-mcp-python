@@ -20,8 +20,9 @@ class GopherAgentRuntimeOptions:
         access_token: Optional[str] = None,
         headers: Optional[Mapping[str, str]] = None,
     ) -> None:
-        self._access_token = access_token
-        self._headers = _normalize_headers(access_token, headers)
+        normalized_access_token = _normalize_access_token(access_token)
+        self._access_token = normalized_access_token
+        self._headers = _normalize_headers(normalized_access_token, headers)
 
     @property
     def access_token(self) -> Optional[str]:
@@ -54,6 +55,8 @@ def normalize_runtime_options(
     if isinstance(options, Mapping):
         access_token = options.get("access_token")
         headers = options.get("headers")
+        if access_token == "":
+            access_token = None
         if access_token is None and (headers is None or len(headers) == 0):
             return None
         return GopherAgentRuntimeOptions(access_token=access_token, headers=headers)
@@ -77,13 +80,17 @@ def _normalize_headers(
                 raise ValueError("runtime option headers must be a string mapping")
             normalized[name] = value
 
-    if access_token is not None:
-        if not isinstance(access_token, str):
-            raise ValueError("runtime option access_token must be a string")
+    if access_token:
         if "Authorization" not in normalized:
             normalized["Authorization"] = f"Bearer {access_token}"
 
     return normalized
+
+
+def _normalize_access_token(access_token: Optional[str]) -> Optional[str]:
+    if access_token is not None and not isinstance(access_token, str):
+        raise ValueError("runtime option access_token must be a string")
+    return access_token or None
 
 
 class GopherAgentConfig:

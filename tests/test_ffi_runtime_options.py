@@ -6,6 +6,7 @@ import ctypes
 
 import pytest
 
+from gopher_mcp_python.config import GopherAgentRuntimeOptions
 from gopher_mcp_python.ffi.library import (
     GopherOrchAgentOptions,
     GopherOrchLibrary,
@@ -55,6 +56,13 @@ def test_build_agent_options_normalizes_empty_options_to_none() -> None:
     lib = object.__new__(GopherOrchLibrary)
 
     assert lib._build_agent_options({"headers": {}}) is None
+
+
+def test_build_agent_options_normalizes_empty_access_token_to_none() -> None:
+    lib = object.__new__(GopherOrchLibrary)
+
+    assert lib._build_agent_options({"access_token": ""}) is None
+    assert lib._build_agent_options(GopherAgentRuntimeOptions(access_token="")) is None
 
 
 def test_agent_create_by_url_uses_existing_symbol_without_runtime_options() -> None:
