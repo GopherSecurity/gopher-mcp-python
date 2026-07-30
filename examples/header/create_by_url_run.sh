@@ -7,16 +7,12 @@ SERVER_BIN="${SCRIPT_DIR}/create_by_url_server"
 GATEWAY_BIN="${SCRIPT_DIR}/create_by_url_gateway"
 CLIENT_PY="${SCRIPT_DIR}/create_by_url.py"
 
-SERVER_PORT="${GOPHER_MCP_SERVER_PORT:-5000}"
-GATEWAY_PORT="${GOPHER_GATEWAY_PORT:-5001}"
-BACKEND_URL="http://127.0.0.1:${SERVER_PORT}/mcp"
-GATEWAY_URL="http://127.0.0.1:${GATEWAY_PORT}/mcp"
-
 TOKEN="${GOPHER_ACCESS_TOKEN:-abc123456789xyz}"
 QUERY="${1:-What is the weather in Tokyo?}"
 SESSION_ID="gopher-mcp-python-header-create-by-url-run"
 
-LOG_DIR="${TMPDIR:-/tmp}/gopher-mcp-python-header-verify.$$"
+LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/gopher-mcp-python-header-verify.XXXXXX")"
+chmod 700 "${LOG_DIR}"
 SERVER_LOG="${LOG_DIR}/server.log"
 GATEWAY_LOG="${LOG_DIR}/gateway.log"
 CLIENT_LOG="${LOG_DIR}/client.log"
@@ -37,14 +33,51 @@ redacted_token() {
   fi
 }
 
+port_in_use() {
+  local port="$1"
+  lsof -tiTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+find_available_port() {
+  local start="$1"
+  local end=$((start + 100))
+  local port
+
+  for ((port = start; port <= end; port++)); do
+    if ! port_in_use "${port}"; then
+      printf '%s\n' "${port}"
+      return 0
+    fi
+  done
+
+  echo "ERROR: no free TCP port found in ${start}-${end}" >&2
+  return 1
+}
+
+require_available_port() {
+  local port="$1"
+  local name="$2"
+
+  if port_in_use "${port}"; then
+    echo "ERROR: ${name} port ${port} is already in use." >&2
+    echo "Set a different port with GOPHER_MCP_SERVER_PORT or GOPHER_GATEWAY_PORT." >&2
+    return 1
+  fi
+}
+
 wait_for_url() {
   local url="$1"
   local name="$2"
+  local log_file="${3:-}"
   local deadline=$((SECONDS + 20))
 
   while ((SECONDS < deadline)); do
     if curl -fsS "${url}" >/dev/null 2>&1; then
       return 0
+    fi
+    if [[ -n "${log_file}" ]] && grep -F "Failed to bind socket" "${log_file}" >/dev/null 2>&1; then
+      echo "ERROR: ${name} failed to bind at ${url}" >&2
+      return 1
     fi
     sleep 0.5
   done
@@ -53,43 +86,91 @@ wait_for_url() {
   return 1
 }
 
-release_port() {
-  local port="$1"
-  local pids
-  pids="$(lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null || true)"
-  if [[ -z "${pids}" ]]; then
-    return 0
+stop_pid() {
+  local pid="$1"
+  if [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null; then
+    kill "${pid}" 2>/dev/null || true
+    wait "${pid}" 2>/dev/null || true
+  fi
+}
+
+start_server() {
+  local attempts=1
+  if [[ -z "${GOPHER_MCP_SERVER_PORT:-}" ]]; then
+    attempts=10
   fi
 
-  echo "Releasing TCP port ${port}: ${pids}"
-  kill ${pids} 2>/dev/null || true
+  for ((attempt = 1; attempt <= attempts; attempt++)); do
+    BACKEND_URL="http://127.0.0.1:${SERVER_PORT}/mcp"
+    echo "Starting local MCP server on ${BACKEND_URL}..."
+    GOPHER_SDK_TEST=1 \
+    GOPHER_MCP_LOG_FLOW=1 \
+    GOPHER_MCP_SERVER_PORT="${SERVER_PORT}" \
+    "${SERVER_BIN}" >"${SERVER_LOG}" 2>&1 &
+    SERVER_PID=$!
 
-  local deadline=$((SECONDS + 5))
-  while ((SECONDS < deadline)); do
-    pids="$(lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null || true)"
-    if [[ -z "${pids}" ]]; then
+    if wait_for_url "http://127.0.0.1:${SERVER_PORT}/health" "MCP server" "${SERVER_LOG}"; then
       return 0
     fi
-    sleep 0.2
+
+    stop_pid "${SERVER_PID}"
+    SERVER_PID=""
+    if [[ -n "${GOPHER_MCP_SERVER_PORT:-}" ]]; then
+      return 1
+    fi
+    SERVER_PORT="$(find_available_port $((SERVER_PORT + 1)))"
+    : >"${SERVER_LOG}"
   done
 
-  pids="$(lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null || true)"
-  if [[ -n "${pids}" ]]; then
-    echo "Force releasing TCP port ${port}: ${pids}"
-    kill -9 ${pids} 2>/dev/null || true
+  echo "ERROR: MCP server did not start on any auto-selected port" >&2
+  return 1
+}
+
+start_gateway() {
+  local attempts=1
+  if [[ -z "${GOPHER_GATEWAY_PORT:-}" ]]; then
+    attempts=10
   fi
+
+  for ((attempt = 1; attempt <= attempts; attempt++)); do
+    if [[ "${GATEWAY_PORT}" = "${SERVER_PORT}" ]]; then
+      if [[ -n "${GOPHER_GATEWAY_PORT:-}" ]]; then
+        echo "ERROR: MCP server and gateway ports must be different." >&2
+        return 1
+      fi
+      GATEWAY_PORT="$(find_available_port $((GATEWAY_PORT + 1)))"
+    fi
+
+    GATEWAY_URL="http://127.0.0.1:${GATEWAY_PORT}/mcp"
+    echo "Starting local gateway on ${GATEWAY_URL}..."
+    GOPHER_SDK_TEST=1 \
+    GOPHER_MCP_LOG_FLOW=1 \
+    GOPHER_GATEWAY_PORT="${GATEWAY_PORT}" \
+    GOPHER_BACKEND_MCP_URL="${BACKEND_URL}" \
+    "${GATEWAY_BIN}" >"${GATEWAY_LOG}" 2>&1 &
+    GATEWAY_PID=$!
+
+    if wait_for_url "http://127.0.0.1:${GATEWAY_PORT}/health" "gateway" "${GATEWAY_LOG}"; then
+      return 0
+    fi
+
+    stop_pid "${GATEWAY_PID}"
+    GATEWAY_PID=""
+    if [[ -n "${GOPHER_GATEWAY_PORT:-}" ]]; then
+      return 1
+    fi
+    GATEWAY_PORT="$(find_available_port $((GATEWAY_PORT + 1)))"
+    : >"${GATEWAY_LOG}"
+  done
+
+  echo "ERROR: gateway did not start on any auto-selected port" >&2
+  return 1
 }
 
 cleanup() {
   local status=$?
-  if [[ -n "${GATEWAY_PID}" ]] && kill -0 "${GATEWAY_PID}" 2>/dev/null; then
-    kill "${GATEWAY_PID}" 2>/dev/null || true
-    wait "${GATEWAY_PID}" 2>/dev/null || true
-  fi
-  if [[ -n "${SERVER_PID}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
-    kill "${SERVER_PID}" 2>/dev/null || true
-    wait "${SERVER_PID}" 2>/dev/null || true
-  fi
+  stop_pid "${GATEWAY_PID}"
+  stop_pid "${SERVER_PID}"
 
   if [[ ${status} -ne 0 ]]; then
     echo
@@ -100,13 +181,16 @@ cleanup() {
     echo "  curl:    ${CURL_LOG}" >&2
   else
     echo
-    echo "Verification passed. Logs are in: ${LOG_DIR}"
+    if [[ "${GOPHER_KEEP_LOGS:-}" = "1" ]]; then
+      echo "Verification passed. Logs are in: ${LOG_DIR}"
+    else
+      rm -rf "${LOG_DIR}"
+      echo "Verification passed. Logs removed. Set GOPHER_KEEP_LOGS=1 to keep them."
+    fi
   fi
   exit "${status}"
 }
 trap cleanup EXIT
-
-mkdir -p "${LOG_DIR}"
 
 for bin in "${SERVER_BIN}" "${GATEWAY_BIN}"; do
   if [[ ! -x "${bin}" ]]; then
@@ -120,25 +204,27 @@ if [[ ! -f "${CLIENT_PY}" ]]; then
   exit 1
 fi
 
-release_port "${SERVER_PORT}"
-release_port "${GATEWAY_PORT}"
+if [[ -n "${GOPHER_MCP_SERVER_PORT:-}" ]]; then
+  SERVER_PORT="${GOPHER_MCP_SERVER_PORT}"
+  require_available_port "${SERVER_PORT}" "MCP server"
+else
+  SERVER_PORT="$(find_available_port 5100)"
+fi
 
-echo "Starting local MCP server on ${BACKEND_URL}..."
-GOPHER_SDK_TEST=1 \
-GOPHER_MCP_LOG_FLOW=1 \
-GOPHER_MCP_SERVER_PORT="${SERVER_PORT}" \
-"${SERVER_BIN}" >"${SERVER_LOG}" 2>&1 &
-SERVER_PID=$!
-wait_for_url "http://127.0.0.1:${SERVER_PORT}/health" "MCP server"
+if [[ -n "${GOPHER_GATEWAY_PORT:-}" ]]; then
+  GATEWAY_PORT="${GOPHER_GATEWAY_PORT}"
+  require_available_port "${GATEWAY_PORT}" "gateway"
+else
+  GATEWAY_PORT="$(find_available_port $((SERVER_PORT + 1)))"
+fi
 
-echo "Starting local gateway on ${GATEWAY_URL}..."
-GOPHER_SDK_TEST=1 \
-GOPHER_MCP_LOG_FLOW=1 \
-GOPHER_GATEWAY_PORT="${GATEWAY_PORT}" \
-GOPHER_BACKEND_MCP_URL="${BACKEND_URL}" \
-"${GATEWAY_BIN}" >"${GATEWAY_LOG}" 2>&1 &
-GATEWAY_PID=$!
-wait_for_url "http://127.0.0.1:${GATEWAY_PORT}/health" "gateway"
+if [[ "${SERVER_PORT}" = "${GATEWAY_PORT}" ]]; then
+  echo "ERROR: MCP server and gateway ports must be different." >&2
+  exit 1
+fi
+
+start_server
+start_gateway
 
 echo "Running deterministic MCP calls through gateway..."
 {
@@ -184,18 +270,10 @@ fi
 
 EXPECTED="Bearer $(redacted_token "${TOKEN}") len=${#TOKEN}"
 
-echo "Checking token trace: ${EXPECTED}"
-grep -F "token=${EXPECTED}" "${SERVER_LOG}" >/dev/null
+echo "Checking authorization trace: ${EXPECTED}"
+grep -F "mcp auth: local example server received Authorization header present=true" "${SERVER_LOG}" >/dev/null
 grep -F "[access-token-server] get-weather" "${SERVER_LOG}" >/dev/null
 grep -F "Current weather in Tokyo" "${CURL_LOG}" >/dev/null
-if grep -F "mcp auth:" "${GATEWAY_LOG}" >/dev/null; then
-  grep -F "token=${EXPECTED}" "${GATEWAY_LOG}" >/dev/null
-fi
-if [[ -s "${CLIENT_LOG}" ]]; then
-  if grep -F "mcp auth:" "${CLIENT_LOG}" >/dev/null; then
-    grep -F "token=${EXPECTED}" "${CLIENT_LOG}" >/dev/null
-  fi
-fi
 
 echo
 echo "Matched token logs:"
@@ -205,7 +283,7 @@ else
   echo "(Python SDK client skipped; no client log)"
 fi
 grep -F "token=${EXPECTED}" "${GATEWAY_LOG}" | head -n 5 || true
-grep -F "token=${EXPECTED}" "${SERVER_LOG}" | head -n 3
+grep -F "token=${EXPECTED}" "${SERVER_LOG}" | head -n 3 || true
 echo
 echo "MCP tools/call response:"
 grep -F "Current weather in Tokyo" "${CURL_LOG}" | head -n 1
