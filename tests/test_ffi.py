@@ -91,7 +91,7 @@ class TestGopherOrchLibrary:
         lib._available = True
         lib._lib = FakeLib()
 
-        with pytest.raises(RuntimeError, match="predates the routing factories"):
+        with pytest.raises(AgentError, match="predates the routing factories"):
             lib.agent_create_by_url(
                 "AnthropicProvider", "claude-3-haiku-20240307", "http://x/mcp"
             )

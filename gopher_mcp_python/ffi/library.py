@@ -9,7 +9,8 @@ from ctypes import c_char_p, c_void_p, c_int32, c_int64, c_size_t, POINTER, Stru
 from pathlib import Path
 from typing import Optional, Any
 
-from gopher_mcp_python.config import (
+from gopher_mcp_python.errors import AgentError
+from gopher_mcp_python.runtime_options import (
     GopherAgentRuntimeOptions,
     RuntimeOptionsInput,
     normalize_runtime_options,
@@ -449,7 +450,7 @@ class GopherOrchLibrary:
                 self._lib, "gopher_orch_agent_create_by_json_with_options", None
             )
             if fn is None:
-                raise RuntimeError(self._missing_options_symbol_message())
+                raise AgentError(self._missing_options_symbol_message())
             return fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
@@ -478,7 +479,7 @@ class GopherOrchLibrary:
                 self._lib, "gopher_orch_agent_create_by_api_key_with_options", None
             )
             if fn is None:
-                raise RuntimeError(self._missing_options_symbol_message())
+                raise AgentError(self._missing_options_symbol_message())
             return fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
@@ -513,7 +514,7 @@ class GopherOrchLibrary:
                 self._lib, "gopher_orch_agent_create_by_server_id_with_options", None
             )
             if fn is None:
-                raise RuntimeError(self._missing_options_symbol_message())
+                raise AgentError(self._missing_options_symbol_message())
             return fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
@@ -523,7 +524,7 @@ class GopherOrchLibrary:
             )
         fn = getattr(self._lib, "gopher_orch_agent_create_by_server_id", None)
         if fn is None:
-            raise RuntimeError(_missing_routing_factory_message())
+            raise AgentError(_missing_routing_factory_message())
         return fn(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -551,7 +552,7 @@ class GopherOrchLibrary:
                 self._lib, "gopher_orch_agent_create_by_server_name_with_options", None
             )
             if fn is None:
-                raise RuntimeError(self._missing_options_symbol_message())
+                raise AgentError(self._missing_options_symbol_message())
             return fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
@@ -561,7 +562,7 @@ class GopherOrchLibrary:
             )
         fn = getattr(self._lib, "gopher_orch_agent_create_by_server_name", None)
         if fn is None:
-            raise RuntimeError(_missing_routing_factory_message())
+            raise AgentError(_missing_routing_factory_message())
         return fn(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -591,7 +592,7 @@ class GopherOrchLibrary:
                 self._lib, "gopher_orch_agent_create_by_gateway_id_with_options", None
             )
             if fn is None:
-                raise RuntimeError(self._missing_options_symbol_message())
+                raise AgentError(self._missing_options_symbol_message())
             return fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
@@ -601,7 +602,7 @@ class GopherOrchLibrary:
             )
         fn = getattr(self._lib, "gopher_orch_agent_create_by_gateway_id", None)
         if fn is None:
-            raise RuntimeError(_missing_routing_factory_message())
+            raise AgentError(_missing_routing_factory_message())
         return fn(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -631,7 +632,7 @@ class GopherOrchLibrary:
                 None,
             )
             if fn is None:
-                raise RuntimeError(self._missing_options_symbol_message())
+                raise AgentError(self._missing_options_symbol_message())
             return fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
@@ -641,7 +642,7 @@ class GopherOrchLibrary:
             )
         fn = getattr(self._lib, "gopher_orch_agent_create_by_gateway_name", None)
         if fn is None:
-            raise RuntimeError(_missing_routing_factory_message())
+            raise AgentError(_missing_routing_factory_message())
         return fn(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -668,7 +669,7 @@ class GopherOrchLibrary:
         if options is not None:
             fn = getattr(self._lib, "gopher_orch_agent_create_by_url_with_options", None)
             if fn is None:
-                raise RuntimeError(self._missing_options_symbol_message())
+                raise AgentError(self._missing_options_symbol_message())
             return fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
@@ -677,7 +678,7 @@ class GopherOrchLibrary:
             )
         fn = getattr(self._lib, "gopher_orch_agent_create_by_url", None)
         if fn is None:
-            raise RuntimeError(_missing_routing_factory_message())
+            raise AgentError(_missing_routing_factory_message())
         return fn(
             provider.encode("utf-8"),
             model.encode("utf-8"),
