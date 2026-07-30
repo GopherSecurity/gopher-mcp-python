@@ -39,8 +39,8 @@ def has_routing_factory_symbols() -> bool:
 pytestmark = pytest.mark.skipif(
     not has_routing_factory_symbols(),
     reason=(
-        "Native routing factory symbols not available -- use libgopher-orch "
-        "0.1.23 or newer"
+        "Native routing factory symbols not available -- use a libgopher-orch "
+        "release that includes them"
     ),
 )
 

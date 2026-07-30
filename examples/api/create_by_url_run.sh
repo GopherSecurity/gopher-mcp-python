@@ -5,9 +5,9 @@
 # installs the SDK plus the matching platform native package from PyPI,
 # then runs the example.
 #
-# Set SDK_VERSION to pin to a specific release (e.g. SDK_VERSION=0.1.23);
-# otherwise the latest published version is installed. create_with_url
-# requires gopher-mcp-python >= 0.1.23.
+# Set SDK_VERSION to pin to a specific release; otherwise the latest
+# published version is installed. create_with_url requires a release
+# that includes the native routing factory symbols.
 
 set -e
 
