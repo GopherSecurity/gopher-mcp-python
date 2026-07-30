@@ -7,6 +7,7 @@ through ctypes FFI bindings.
 
 import json
 import os
+from ctypes import c_char_p, c_int, c_void_p
 
 import pytest
 
@@ -20,6 +21,63 @@ def is_native_library_available() -> bool:
 
 class TestGopherOrchLibrary:
     """Tests for GopherOrchLibrary FFI bindings."""
+
+    def test_should_bind_present_optional_routing_symbols_independently(self):
+        """Missing optional symbols must not skip binding later symbols."""
+
+        class FakeFunction:
+            def __init__(self):
+                self.argtypes = None
+                self.restype = c_int
+
+            def __call__(self, *args):
+                return None
+
+        class FakeLib:
+            missing = {"gopher_orch_agent_create_by_server_id"}
+
+            def __init__(self):
+                names = [
+                    "gopher_orch_agent_create_by_json",
+                    "gopher_orch_agent_create_by_api_key",
+                    "gopher_orch_agent_create_by_server_name",
+                    "gopher_orch_agent_create_by_gateway_id",
+                    "gopher_orch_agent_create_by_gateway_name",
+                    "gopher_orch_agent_create_by_url",
+                    "gopher_orch_agent_run",
+                    "gopher_orch_agent_add_ref",
+                    "gopher_orch_agent_release",
+                    "gopher_orch_api_fetch_servers",
+                    "gopher_orch_last_error",
+                    "gopher_orch_clear_error",
+                    "gopher_orch_free",
+                    "gopher_orch_set_log_level",
+                ]
+                self._functions = {name: FakeFunction() for name in names}
+
+            def __getattr__(self, name):
+                if name in self.missing:
+                    raise AttributeError(name)
+                try:
+                    return self._functions[name]
+                except KeyError:
+                    raise AttributeError(name) from None
+
+        fake_lib = FakeLib()
+        lib = GopherOrchLibrary.__new__(GopherOrchLibrary)
+        lib._lib = fake_lib
+
+        lib._setup_functions()
+
+        assert fake_lib.gopher_orch_agent_create_by_server_name.restype is c_void_p
+        assert fake_lib.gopher_orch_agent_create_by_gateway_id.restype is c_void_p
+        assert fake_lib.gopher_orch_agent_create_by_gateway_name.restype is c_void_p
+        assert fake_lib.gopher_orch_agent_create_by_url.restype is c_void_p
+        assert fake_lib.gopher_orch_agent_create_by_url.argtypes == [
+            c_char_p,
+            c_char_p,
+            c_char_p,
+        ]
 
     def test_library_should_be_available(self):
         """Test that library should be available."""
