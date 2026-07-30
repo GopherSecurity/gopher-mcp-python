@@ -1,7 +1,11 @@
 """Tests for GopherAgentConfig."""
 
 import pytest
-from gopher_mcp_python.config import GopherAgentConfig, GopherAgentRuntimeOptions
+from gopher_mcp_python.config import (
+    GopherAgentConfig,
+    GopherAgentRuntimeOptions,
+    normalize_runtime_options,
+)
 
 
 class TestGopherAgentConfig:
@@ -86,6 +90,42 @@ class TestGopherAgentConfig:
             .model("claude-3-haiku-20240307")
             .api_key("test-key")
             .runtime_options({})
+            .build()
+        )
+
+        assert config.runtime_options is None
+
+    def test_should_normalize_empty_access_token_to_none(self):
+        """Test empty access_token does not create an empty bearer header."""
+        options = normalize_runtime_options({"access_token": ""})
+
+        assert options is None
+
+    def test_should_ignore_empty_access_token_with_headers(self):
+        """Test headers survive while empty access_token is ignored."""
+        options = normalize_runtime_options(
+            {"access_token": "", "headers": {"X-Test": "one"}}
+        )
+
+        assert options is not None
+        assert options.access_token is None
+        assert options.headers == {"X-Test": "one"}
+
+    def test_should_ignore_empty_access_token_in_runtime_options_object(self):
+        """Test direct runtime options do not create an empty bearer header."""
+        options = GopherAgentRuntimeOptions(access_token="")
+
+        assert options.access_token is None
+        assert options.headers == {}
+
+    def test_builder_empty_access_token_is_omitted(self):
+        """Test builder access_token('') normalizes away."""
+        config = (
+            GopherAgentConfig.builder()
+            .provider("AnthropicProvider")
+            .model("claude-3-haiku-20240307")
+            .api_key("test-key")
+            .access_token("")
             .build()
         )
 
