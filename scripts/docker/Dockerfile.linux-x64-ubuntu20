@@ -1,6 +1,7 @@
 # Dockerfile for Ubuntu 20.04-compatible Linux x86_64 gopher-orch builds.
 # Ubuntu 20.04 ships GLIBC 2.31, so artifacts built here can run on Ubuntu 20.
-FROM ubuntu:20.04
+ARG UBUNTU_20_04_IMAGE=ubuntu:20.04@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214
+FROM ${UBUNTU_20_04_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
 

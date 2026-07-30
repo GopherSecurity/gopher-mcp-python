@@ -11,6 +11,29 @@ def _linux_builder_script() -> str:
     return (ROOT / "scripts" / "docker" / "build-linux-x64-ubuntu20.sh").read_text()
 
 
+def _linux_builder_dockerfile() -> str:
+    return (ROOT / "scripts" / "docker" / "Dockerfile.linux-x64-ubuntu20").read_text()
+
+
+def _root_build_script() -> str:
+    return (ROOT / "build.sh").read_text()
+
+
+def test_linux_x64_uses_digest_pinned_ubuntu_builder_image() -> None:
+    dockerfile = _linux_builder_dockerfile()
+    build_script = _root_build_script()
+    pinned_image_pattern = r"ubuntu:20\.04@sha256:[0-9a-f]{64}"
+
+    assert re.search(pinned_image_pattern, dockerfile)
+    assert "FROM ubuntu:20.04\n" not in dockerfile
+    assert "ARG UBUNTU_20_04_IMAGE=" in dockerfile
+    assert "FROM ${UBUNTU_20_04_IMAGE}" in dockerfile
+
+    assert re.search(pinned_image_pattern, build_script)
+    assert "--build-arg \"UBUNTU_20_04_IMAGE=${UBUNTU_20_04_IMAGE}\"" in build_script
+    assert re.search(r"\subuntu:20\.04\s", build_script) is None
+
+
 def test_linux_x64_builder_does_not_bundle_openssl() -> None:
     script = _linux_builder_script()
     dep_skip_block = re.search(r"case \"\$dep_name\" in(?P<body>.*?)esac", script, re.S)

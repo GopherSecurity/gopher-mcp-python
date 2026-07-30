@@ -16,6 +16,7 @@ BUILD_DIR="${NATIVE_DIR}/build"
 NATIVE_ROOT="${SCRIPT_DIR}/native"
 ACTIVE_NATIVE_DIR="${NATIVE_ROOT}/current"
 LINUX_X64_DOCKERFILE="${SCRIPT_DIR}/scripts/docker/Dockerfile.linux-x64-ubuntu20"
+UBUNTU_20_04_IMAGE="ubuntu:20.04@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214"
 REQUESTED_TARGET=""
 RESOLVED_TARGET=""
 TARGET_NATIVE_DIR=""
@@ -294,6 +295,7 @@ build_linux_x64_docker() {
     echo -e "${YELLOW}  Building Docker image from Ubuntu 20.04...${NC}"
     docker build \
         --platform linux/amd64 \
+        --build-arg "UBUNTU_20_04_IMAGE=${UBUNTU_20_04_IMAGE}" \
         -t gopher-orch-python:linux-x64-ubuntu20 \
         -f "${LINUX_X64_DOCKERFILE}" \
         "${SCRIPT_DIR}"
@@ -343,7 +345,7 @@ verify_linux_x64_docker_output() {
             --platform linux/amd64 \
             -v "${TARGET_NATIVE_DIR}:/work" \
             -w /work/lib \
-            ubuntu:20.04 \
+            "${UBUNTU_20_04_IMAGE}" \
             sh -c 'LD_LIBRARY_PATH=/work/lib /work/bin/verify_orch'
     fi
 }
