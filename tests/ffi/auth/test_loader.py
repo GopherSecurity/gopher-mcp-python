@@ -71,8 +71,8 @@ class TestGetSearchPaths:
         native_lib_found = any("native" in p and "lib" in p for p in paths)
         assert native_lib_found
 
-    def test_prefers_local_native_lib_before_platform_package(self, monkeypatch):
-        """Test local native/lib is searched before installed native packages."""
+    def test_prefers_platform_package_before_local_native_lib(self, monkeypatch):
+        """Test installed native packages are searched before local paths."""
         monkeypatch.setattr(
             auth_loader,
             "_get_platform_package_path",
@@ -81,7 +81,7 @@ class TestGetSearchPaths:
         paths = _get_search_paths()
         local_path = str(auth_loader.Path.cwd() / "native" / "lib")
         platform_path = "/tmp/gopher-platform-native/lib"
-        assert paths.index(local_path) < paths.index(platform_path)
+        assert paths.index(platform_path) < paths.index(local_path)
 
     @patch("platform.system")
     def test_darwin_includes_homebrew(self, mock_system):

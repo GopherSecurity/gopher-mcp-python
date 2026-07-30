@@ -102,7 +102,7 @@ class TestGopherOrchLibrary:
         """AgentError should tell users to upgrade when the native symbol is absent."""
 
         class FakeLib:
-            def agent_create_by_url(self, provider, model, url):
+            def agent_create_by_url(self, provider, model, url, runtime_options=None):
                 raise RuntimeError(
                     "this build of libgopher-orch predates the routing factories; "
                     "upgrade to a native gopher-orch library release that includes "

@@ -5,8 +5,8 @@ import os
 from gopher_mcp_python.ffi.library import GopherOrchLibrary
 
 
-def test_prefers_local_native_lib_before_platform_package(monkeypatch):
-    """Local builds from ./build.sh should win over installed native packages."""
+def test_prefers_platform_package_before_local_native_lib(monkeypatch):
+    """Installed native packages should win unless an env override is set."""
     lib = object.__new__(GopherOrchLibrary)
     monkeypatch.setattr(
         lib,
@@ -16,6 +16,6 @@ def test_prefers_local_native_lib_before_platform_package(monkeypatch):
 
     paths = lib._get_search_paths()
 
-    assert paths.index(os.path.join(os.getcwd(), "native", "lib")) < paths.index(
-        "/tmp/gopher-platform-native/lib"
+    assert paths.index("/tmp/gopher-platform-native/lib") < paths.index(
+        os.path.join(os.getcwd(), "native", "lib")
     )
