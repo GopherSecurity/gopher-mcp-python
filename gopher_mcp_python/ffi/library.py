@@ -399,11 +399,16 @@ class GopherOrchLibrary:
     def _get_search_paths(self) -> list:
         paths = []
 
-        # 1. Get the directory containing this module for development fallbacks
+        # 1. Try platform-specific package (pip distribution)
+        platform_path = self._get_platform_package_path()
+        if platform_path:
+            paths.append(platform_path)
+
+        # 2. Get the directory containing this module for development fallbacks
         module_dir = Path(__file__).parent.parent.parent
 
-        # Development paths (native/lib in various locations). Prefer these so
-        # examples and tests use the library produced by ./build.sh.
+        # Development paths (native/lib in various locations). Explicitly set
+        # GOPHER_MCP_PYTHON_LIBRARY_PATH to force a local build.
         paths.extend(
             [
                 # Project root native/lib
@@ -413,11 +418,6 @@ class GopherOrchLibrary:
                 os.path.join(module_dir.parent, "native", "lib"),
             ]
         )
-
-        # 2. Try platform-specific package (pip distribution)
-        platform_path = self._get_platform_package_path()
-        if platform_path:
-            paths.append(platform_path)
 
         # 3. System paths as last resort
         if sys.platform == "darwin":
