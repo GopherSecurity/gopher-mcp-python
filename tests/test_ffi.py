@@ -105,7 +105,8 @@ class TestGopherOrchLibrary:
             def agent_create_by_url(self, provider, model, url):
                 raise RuntimeError(
                     "this build of libgopher-orch predates the routing factories; "
-                    "upgrade the native gopher-orch library to 0.1.23 or newer"
+                    "upgrade to a native gopher-orch library release that includes "
+                    "them"
                 )
 
         monkeypatch.setattr(agent_module, "_initialized", True)
@@ -121,7 +122,9 @@ class TestGopherOrchLibrary:
             )
 
         assert "predates the routing factories" in str(exc_info.value)
-        assert "upgrade the native gopher-orch library" in str(exc_info.value)
+        assert "upgrade to a native gopher-orch library release" in str(
+            exc_info.value
+        )
 
     def test_library_should_be_available(self):
         """Test that library should be available."""

@@ -63,7 +63,7 @@ arguments to the example as queries.
    a wrapper. Otherwise the latest published version is installed:
 
    ```sh
-   SDK_VERSION=0.1.23 ./examples/api/create_by_server_id_run.sh
+   SDK_VERSION=<published-version> ./examples/api/create_by_server_id_run.sh
    ```
 
 The wrappers are idempotent: each run nukes its `test-project-*`
@@ -136,9 +136,9 @@ C++ docs and the TypeScript port.
 
 The five routing factories
 (`create_with_server_id` / `_server_name` / `_gateway_id` /
-`_gateway_name` / `_url`) require `gopher-mcp-python` ≥ 0.1.23 on
-PyPI. Earlier versions only expose `create_with_api_key` and
-`create_with_server_config`.
+`_gateway_name` / `_url`) require a PyPI release that includes the
+routing factory native symbols. Earlier releases only expose
+`create_with_api_key` and `create_with_server_config`.
 
 ## How the examples find the SDK
 
@@ -211,13 +211,14 @@ xattr -d com.apple.quarantine "$(python -c 'import gopher_mcp_python_native_darw
 
 ### Routing factory raises `AgentError` against an older PyPI release
 
-The five routing factories landed in `gopher-mcp-python` 0.1.23. If
-the wrapper installs an older version, the higher-level factory
-raises `AgentError` because the underlying C symbol is missing. Pin
-to a recent release:
+The five routing factories require a `gopher-mcp-python` release that
+includes the matching native routing factory symbols. If the wrapper
+installs an older version, the higher-level factory raises `AgentError`
+because the underlying C symbol is missing. Pin to a release that
+contains this feature once it is published:
 
 ```sh
-SDK_VERSION=0.1.23 ./examples/api/create_by_server_id_run.sh
+SDK_VERSION=<published-version> ./examples/api/create_by_server_id_run.sh
 ```
 
 ## Cross-reference

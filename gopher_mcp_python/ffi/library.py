@@ -136,9 +136,9 @@ class GopherOrchLibrary:
 
         # Routing factories: scope the agent to a single MCP server or gateway
         # selected by id / name, or to a known MCP URL. These C symbols landed
-        # in gopher-orch 0.1.23, so bind each one independently to keep the SDK
-        # loadable against older libgopher-orch builds while still configuring
-        # every symbol that is present.
+        # after the initial factories, so bind each one independently to keep
+        # the SDK loadable against older libgopher-orch builds while still
+        # configuring every symbol that is present.
         routing_factories = [
             (
                 "gopher_orch_agent_create_by_server_id",
@@ -512,5 +512,5 @@ class GopherOrchLibrary:
 def _missing_routing_factory_message() -> str:
     return (
         "this build of libgopher-orch predates the routing factories; "
-        "upgrade the native gopher-orch library to 0.1.23 or newer"
+        "upgrade to a native gopher-orch library release that includes them"
     )
