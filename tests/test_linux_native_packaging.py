@@ -69,6 +69,18 @@ def test_verify_examples_workflow_bounds_pr_cost_and_runtime() -> None:
     assert "timeout-minutes: 30" in workflow
 
 
+def test_verify_examples_workflow_checks_linux_native_dependencies() -> None:
+    workflow = _verify_examples_workflow()
+
+    assert "Verify Linux native package" in workflow
+    assert "=== Linux Native Dependencies ===" in workflow
+    assert "readelf -d \"$sofile\"" in workflow
+    assert "ldd \"$sofile\"" in workflow
+    assert "grep -Ev '^(libssl\\.so|libcrypto\\.so)'" in workflow
+    assert "OpenSSL libraries must remain system-provided" in workflow
+    assert "No Linux shared libraries found" in workflow
+
+
 def test_verify_examples_live_checks_only_agent_response_body() -> None:
     script = _verify_examples_script()
     workflow = _verify_examples_workflow()
