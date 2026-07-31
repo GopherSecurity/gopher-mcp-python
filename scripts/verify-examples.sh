@@ -19,6 +19,7 @@ NATIVE_INSTALL_SPEC="${NATIVE_INSTALL_SPEC:-}"
 SDK_VERSION="${VERIFY_PYPI_VERSION:-latest}"
 VERIFY_LIVE_PROMPT="${VERIFY_LIVE_PROMPT:-What tools do we have?}"
 VERIFY_EXPECTED_ANSWER="${VERIFY_EXPECTED_ANSWER:-tool}"
+VERIFY_EXPECTED_ANSWER_TERMS="${VERIFY_EXPECTED_ANSWER_TERMS:-}"
 LIVE_CHECKS_RUN=0
 LIVE_CHECKS_SKIPPED=0
 LIVE_ANSWER_SUMMARY=""
@@ -50,6 +51,7 @@ Environment:
   NATIVE_INSTALL_SPEC            Override native package pip install spec
   VERIFY_LIVE_PROMPT             Prompt used for live agent.run() checks
   VERIFY_EXPECTED_ANSWER         Text that must appear in the live answer
+  VERIFY_EXPECTED_ANSWER_TERMS   Comma-separated terms that must all appear in the live answer
 EOF
 }
 
@@ -341,6 +343,26 @@ has_required_env() {
   return 0
 }
 
+validate_expected_answer_terms() {
+  local answer_body="$1"
+  local terms="$2"
+  local term
+
+  terms="${terms},"
+  while [ -n "$terms" ]; do
+    term="${terms%%,*}"
+    terms="${terms#*,}"
+    term="$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' <<<"$term")"
+    [ -n "$term" ] || continue
+
+    if ! grep -qi -- "$term" <<<"$answer_body"; then
+      return 1
+    fi
+  done
+
+  return 0
+}
+
 run_live_example_checks() {
   local spec
   local name
@@ -350,6 +372,7 @@ run_live_example_checks() {
   local target_file
   local output
   local status
+  local answer_body
   local answer_excerpt
 
   for spec in "${SELECTED_EXAMPLES[@]}"; do
@@ -383,18 +406,31 @@ run_live_example_checks() {
       fail "${name} live: example exited with status ${status}"
     fi
 
-    if ! grep -q 'Agent Response' <<<"$output"; then
+    answer_body="$(awk '/Agent Response/{capture=1; next} capture {print}' <<<"$output")"
+    answer_excerpt="$(sed -n '1,8p' <<<"$answer_body")"
+
+    if [ -z "$(tr -d '[:space:]' <<<"$answer_body")" ]; then
       printf '%s\n' "$output"
-      fail "${name} live: missing Agent Response marker"
+      fail "${name} live: missing agent response body"
+    fi
+
+    if grep -Eqi '(^|[[:space:]])(Error:|Traceback|isError)' <<<"$answer_body"; then
+      printf '%s\n' "$output"
+      fail "${name} live: agent response contains an error"
     fi
 
     if [ -n "$VERIFY_EXPECTED_ANSWER" ] &&
-      ! grep -qi -- "$VERIFY_EXPECTED_ANSWER" <<<"$output"; then
+      ! grep -qi -- "$VERIFY_EXPECTED_ANSWER" <<<"$answer_body"; then
       printf '%s\n' "$output"
       fail "${name} live: expected answer text '${VERIFY_EXPECTED_ANSWER}' not found"
     fi
 
-    answer_excerpt="$(awk '/Agent Response/{capture=1; next} capture {print}' <<<"$output" | sed -n '1,8p')"
+    if [ -n "$VERIFY_EXPECTED_ANSWER_TERMS" ] &&
+      ! validate_expected_answer_terms "$answer_body" "$VERIFY_EXPECTED_ANSWER_TERMS"; then
+      printf '%s\n' "$output"
+      fail "${name} live: expected answer terms '${VERIFY_EXPECTED_ANSWER_TERMS}' not found"
+    fi
+
     LIVE_CHECKS_RUN=$((LIVE_CHECKS_RUN + 1))
     LIVE_ANSWER_SUMMARY="${LIVE_ANSWER_SUMMARY}"$'\n'"${name}: ${answer_excerpt}"
     log "${name} live: OK"

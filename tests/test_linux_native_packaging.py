@@ -23,6 +23,10 @@ def _verify_examples_workflow() -> str:
     return (ROOT / ".github" / "workflows" / "verify-examples.yml").read_text()
 
 
+def _verify_examples_script() -> str:
+    return (ROOT / "scripts" / "verify-examples.sh").read_text()
+
+
 def test_linux_x64_uses_digest_pinned_ubuntu_builder_image() -> None:
     dockerfile = _linux_builder_dockerfile()
     build_script = _root_build_script()
@@ -63,6 +67,20 @@ def test_verify_examples_workflow_bounds_pr_cost_and_runtime() -> None:
     assert "group: ${{ github.workflow }}-${{ github.ref }}" in workflow
     assert "cancel-in-progress: true" in workflow
     assert "timeout-minutes: 30" in workflow
+
+
+def test_verify_examples_live_checks_only_agent_response_body() -> None:
+    script = _verify_examples_script()
+    workflow = _verify_examples_workflow()
+
+    assert "answer_body=\"$(awk '/Agent Response/{capture=1; next} capture {print}'" in script
+    assert 'grep -qi -- "$VERIFY_EXPECTED_ANSWER" <<<"$answer_body"' in script
+    assert 'grep -qi -- "$VERIFY_EXPECTED_ANSWER" <<<"$output"' not in script
+    assert "VERIFY_EXPECTED_ANSWER_TERMS" in script
+    assert 'validate_expected_answer_terms "$answer_body"' in script
+    assert "agent response contains an error" in script
+    assert "Draft ID,Message ID,Thread ID" in workflow
+    assert "table using columns Draft ID, Message ID, and Thread ID" in workflow
 
 
 def test_linux_x64_builder_does_not_bundle_openssl() -> None:
