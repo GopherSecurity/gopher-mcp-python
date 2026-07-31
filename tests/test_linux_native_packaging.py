@@ -95,8 +95,9 @@ def test_verify_examples_live_checks_only_agent_response_body() -> None:
     assert "VERIFY_EXPECTED_ANSWER_TERMS" in script
     assert 'validate_expected_answer_terms "$answer_body"' in script
     assert "agent response contains an error" in script
-    assert "Draft ID,Message ID,Thread ID" in workflow
-    assert "table using columns Draft ID, Message ID, and Thread ID" in workflow
+    assert 'VERIFY_LIVE_PROMPT="list my draft mails"' in workflow
+    assert 'VERIFY_EXPECTED_ANSWER="r-2553040815323886578"' in workflow
+    assert "Draft ID,Message ID,Thread ID" not in workflow
 
 
 def test_verify_examples_live_logs_redact_agent_output() -> None:
