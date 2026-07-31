@@ -8,6 +8,8 @@ dist/
 native/
 test-project-api/
 examples/api/test-project-*/
+examples/header/create_by_url_server
+examples/header/create_by_url_gateway
 
 # Python cache
 __pycache__/
