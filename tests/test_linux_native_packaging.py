@@ -27,6 +27,10 @@ def _verify_examples_script() -> str:
     return (ROOT / "scripts" / "verify-examples.sh").read_text()
 
 
+def _api_example(path: str) -> str:
+    return (ROOT / "examples" / "api" / path).read_text()
+
+
 def test_linux_x64_uses_digest_pinned_ubuntu_builder_image() -> None:
     dockerfile = _linux_builder_dockerfile()
     build_script = _root_build_script()
@@ -111,6 +115,40 @@ def test_verify_examples_cleanup_trap_covers_project_creation() -> None:
     main_body = script[script.index("main() {") :]
 
     assert main_body.index("trap cleanup EXIT") < main_body.index("create_project")
+
+
+def test_verify_examples_offline_checks_stable_missing_env_markers() -> None:
+    script = _verify_examples_script()
+
+    assert "missing_required_env_marker" in script
+    assert "expected missing-env exit status 1" in script
+    assert 'grep -Fxq "$expected_marker"' in script
+    assert "must (both |all )?be set" not in script
+
+    expected_markers = {
+        "create_by_url.py": "ERROR: missing-required-env: GOPHER_MCP_URL,LLM_MODEL",
+        "create_by_api_key.py": "ERROR: missing-required-env: GOPHER_API_KEY,LLM_MODEL",
+        "create_by_json.py": "ERROR: missing-required-env: LLM_MODEL",
+        "create_by_server_id.py": (
+            "ERROR: missing-required-env: "
+            "GOPHER_API_KEY,GOPHER_MCP_SERVER_ID,LLM_MODEL"
+        ),
+        "create_by_server_name.py": (
+            "ERROR: missing-required-env: "
+            "GOPHER_API_KEY,GOPHER_MCP_SERVER_NAME,LLM_MODEL"
+        ),
+        "create_by_gateway_id.py": (
+            "ERROR: missing-required-env: "
+            "GOPHER_API_KEY,GOPHER_MCP_GATEWAY_ID,LLM_MODEL"
+        ),
+        "create_by_gateway_name.py": (
+            "ERROR: missing-required-env: "
+            "GOPHER_API_KEY,GOPHER_MCP_GATEWAY_NAME,LLM_MODEL"
+        ),
+    }
+
+    for filename, marker in expected_markers.items():
+        assert marker in _api_example(filename)
 
 
 def test_linux_x64_builder_does_not_bundle_openssl() -> None:

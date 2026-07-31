@@ -33,6 +33,7 @@ import traceback
 from gopher_mcp_python import GopherAgent
 
 MODEL_PLACEHOLDER = "{YOUR_LLM_MODEL}"
+MISSING_ENV_MARKER = "ERROR: missing-required-env: LLM_MODEL"
 
 SERVER_CONFIG = json.dumps(
     {
@@ -82,6 +83,7 @@ def main() -> None:
     print(f"Queries:  {len(queries)}")
 
     if model == MODEL_PLACEHOLDER:
+        print(MISSING_ENV_MARKER, file=sys.stderr)
         print("\nError: LLM_MODEL must be set.", file=sys.stderr)
         sys.exit(1)
 

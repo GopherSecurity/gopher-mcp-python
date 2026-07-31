@@ -39,6 +39,9 @@ from gopher_mcp_python import GopherAgent
 API_KEY_PLACEHOLDER = "{YOUR_GOPHER_API_KEY}"
 SERVER_NAME_PLACEHOLDER = "{YOUR_MCP_SERVER_NAME}"
 MODEL_PLACEHOLDER = "{YOUR_LLM_MODEL}"
+MISSING_ENV_MARKER = (
+    "ERROR: missing-required-env: GOPHER_API_KEY,GOPHER_MCP_SERVER_NAME,LLM_MODEL"
+)
 
 
 def env_or(name: str, fallback: str) -> str:
@@ -82,6 +85,7 @@ def main() -> None:
         or api_key == API_KEY_PLACEHOLDER
         or server_name == SERVER_NAME_PLACEHOLDER
     ):
+        print(MISSING_ENV_MARKER, file=sys.stderr)
         print(
             "\nError: LLM_MODEL, GOPHER_API_KEY, and GOPHER_MCP_SERVER_NAME "
             "must all be set.",

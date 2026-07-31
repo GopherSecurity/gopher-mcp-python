@@ -228,6 +228,24 @@ example_provider_env() {
   printf '%s\n' "$rest"
 }
 
+missing_required_env_marker() {
+  local required="$1"
+  local keys=()
+  local key
+  local joined
+  local old_ifs="$IFS"
+
+  for key in $required; do
+    keys+=("$key")
+  done
+
+  IFS=","
+  joined="${keys[*]}"
+  IFS="$old_ifs"
+
+  printf 'ERROR: missing-required-env: %s\n' "$joined"
+}
+
 select_examples() {
   local spec
   local name
@@ -297,11 +315,13 @@ run_offline_example_bootstrap_checks() {
   local target_file
   local output
   local status
+  local expected_marker
 
   for spec in "${SELECTED_EXAMPLES[@]}"; do
     name="$(example_name "$spec")"
     source_path="${REPO_ROOT}/$(example_path "$spec")"
     target_file="${PROJECT_DIR}/$(basename "$source_path")"
+    expected_marker="$(missing_required_env_marker "$(example_required_env "$spec")")"
 
     if [ ! -f "$source_path" ]; then
       fail "${name} offline: source file not found: ${source_path}"
@@ -327,14 +347,14 @@ run_offline_example_bootstrap_checks() {
     status=$?
     set -e
 
-    if [ "$status" -eq 0 ]; then
+    if [ "$status" -ne 1 ]; then
       printf '%s\n' "$output"
-      fail "${name} offline: expected missing-env validation failure"
+      fail "${name} offline: expected missing-env exit status 1, got ${status}"
     fi
 
-    if ! grep -Eq 'must (both |all )?be set' <<<"$output"; then
+    if ! grep -Fxq "$expected_marker" <<<"$output"; then
       printf '%s\n' "$output"
-      fail "${name} offline: did not report expected missing-env validation"
+      fail "${name} offline: did not report expected marker '${expected_marker}'"
     fi
 
     log "${name} offline: missing-env validation OK"
