@@ -190,6 +190,11 @@ if [ -n "$PREV_TAG" ]; then
     if echo "$PREV_PY_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
         PREV_GOPHER_ORCH_VERSION=$(echo "$PREV_PY_VERSION" | \
             sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)(\.[0-9]+)?$/\1/')
+        PREV_TAG_BASE=$(echo "${PREV_TAG#v}" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+        if [ "$PREV_GOPHER_ORCH_VERSION" != "$PREV_TAG_BASE" ]; then
+            echo -e "  ${YELLOW}Warning: $PREV_TAG records package version $PREV_PY_VERSION; tag name and recorded version disagree${NC}"
+            PREV_GOPHER_ORCH_VERSION=""
+        fi
     elif [ -n "$PREV_PY_VERSION" ]; then
         echo -e "  ${YELLOW}Warning: could not derive previous gopher-orch version from $PREV_TAG:$PYPROJECT_TOML version '$PREV_PY_VERSION'${NC}"
     else
