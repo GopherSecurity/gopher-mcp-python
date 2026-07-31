@@ -36,6 +36,7 @@ from gopher_mcp_python import GopherAgent
 
 URL_PLACEHOLDER = "{YOUR_MCP_URL}"
 MODEL_PLACEHOLDER = "{YOUR_LLM_MODEL}"
+MISSING_ENV_MARKER = "ERROR: missing-required-env: GOPHER_MCP_URL,LLM_MODEL"
 
 
 def env_or(name: str, fallback: str) -> str:
@@ -64,6 +65,7 @@ def main() -> None:
     print(f"Queries:  {len(queries)}")
 
     if model == MODEL_PLACEHOLDER or url == URL_PLACEHOLDER:
+        print(MISSING_ENV_MARKER, file=sys.stderr)
         print(
             "\nError: LLM_MODEL and GOPHER_MCP_URL must both be set.",
             file=sys.stderr,

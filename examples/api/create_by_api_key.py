@@ -35,6 +35,7 @@ from gopher_mcp_python import GopherAgent
 
 API_KEY_PLACEHOLDER = "{YOUR_GOPHER_API_KEY}"
 MODEL_PLACEHOLDER = "{YOUR_LLM_MODEL}"
+MISSING_ENV_MARKER = "ERROR: missing-required-env: GOPHER_API_KEY,LLM_MODEL"
 
 
 def env_or(name: str, fallback: str) -> str:
@@ -67,6 +68,7 @@ def main() -> None:
     print(f"Queries:  {len(queries)}")
 
     if model == MODEL_PLACEHOLDER or api_key == API_KEY_PLACEHOLDER:
+        print(MISSING_ENV_MARKER, file=sys.stderr)
         print(
             "\nError: LLM_MODEL and GOPHER_API_KEY must both be set.",
             file=sys.stderr,
