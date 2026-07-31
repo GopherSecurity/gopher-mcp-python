@@ -106,6 +106,13 @@ def test_verify_examples_live_logs_redact_agent_output() -> None:
     assert "printf '%s\\n' \"$output\"\n      fail \"${name} live:" not in script
 
 
+def test_verify_examples_cleanup_trap_covers_project_creation() -> None:
+    script = _verify_examples_script()
+    main_body = script[script.index("main() {") :]
+
+    assert main_body.index("trap cleanup EXIT") < main_body.index("create_project")
+
+
 def test_linux_x64_builder_does_not_bundle_openssl() -> None:
     script = _linux_builder_script()
     dep_skip_block = re.search(r"case \"\$dep_name\" in(?P<body>.*?)esac", script, re.S)

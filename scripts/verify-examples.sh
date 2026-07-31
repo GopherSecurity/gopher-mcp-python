@@ -469,8 +469,8 @@ main() {
   log "sdk_install=${SDK_INSTALL_SPEC}"
   log "native_install=${NATIVE_INSTALL_SPEC}"
 
-  create_project
   trap cleanup EXIT
+  create_project
 
   run_native_probe
 
