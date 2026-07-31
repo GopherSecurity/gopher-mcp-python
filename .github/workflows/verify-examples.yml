@@ -159,6 +159,10 @@ jobs:
           done
 
           if find "$native_lib_dir" -maxdepth 1 -type f \( -name 'libssl.so*' -o -name 'libcrypto.so*' \) | grep .; then
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "OpenSSL libraries must remain system-provided in PR-built packages."
+              exit 1
+            fi
             echo "WARNING: OpenSSL libraries should remain system-provided in newly published packages."
           fi
 
