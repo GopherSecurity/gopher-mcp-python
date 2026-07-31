@@ -61,7 +61,9 @@ jobs:
           python -m venv native-preflight
           source native-preflight/bin/activate
           python -m pip install --upgrade pip
-          if [ "$VERIFY_PYPI_VERSION" = "latest" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python -m pip install -e . "gopher-mcp-python-native-${{ matrix.platform }}"
+          elif [ "$VERIFY_PYPI_VERSION" = "latest" ]; then
             python -m pip install gopher-mcp-python gopher-mcp-python-native-${{ matrix.platform }}
           else
             python -m pip install "gopher-mcp-python==${VERIFY_PYPI_VERSION}" "gopher-mcp-python-native-${{ matrix.platform }}==${VERIFY_PYPI_VERSION}"
@@ -135,6 +137,7 @@ jobs:
           GOPHER_API_KEY: ${{ secrets.GOPHER_API_KEY }}
           GOPHER_MCP_URL: ${{ secrets.GOPHER_MCP_URL }}
           GOPHER_SDK_TEST: true
+          SDK_INSTALL_SPEC: ${{ github.event_name == 'pull_request' && github.workspace || '' }}
         run: |
           VERIFY_LIVE_PROMPT="List my draft mails" \
           VERIFY_EXPECTED_ANSWER="draft" \
