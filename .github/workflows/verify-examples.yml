@@ -19,12 +19,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify-examples:
     name: ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     env:
-      VERIFY_EXAMPLES_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'live' }}
+      VERIFY_EXAMPLES_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'auto' }}
       VERIFY_PYPI_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.pypi_version || 'latest' }}
     strategy:
       fail-fast: false
