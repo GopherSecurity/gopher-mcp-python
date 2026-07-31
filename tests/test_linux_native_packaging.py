@@ -41,6 +41,10 @@ def test_linux_x64_uses_digest_pinned_ubuntu_builder_image() -> None:
 def test_verify_examples_prs_install_checked_out_sdk() -> None:
     workflow = _verify_examples_workflow()
 
+    assert (
+        "VERIFY_EXAMPLES_MODE: ${{ github.event_name == 'workflow_dispatch' "
+        "&& inputs.mode || 'auto' }}"
+    ) in workflow
     assert 'if [ "${{ github.event_name }}" = "pull_request" ]; then' in workflow
     assert (
         'python -m pip install -e . "gopher-mcp-python-native-${{ matrix.platform }}"'
@@ -50,6 +54,15 @@ def test_verify_examples_prs_install_checked_out_sdk() -> None:
         "SDK_INSTALL_SPEC: ${{ github.event_name == 'pull_request' && "
         "github.workspace || '' }}"
     ) in workflow
+
+
+def test_verify_examples_workflow_bounds_pr_cost_and_runtime() -> None:
+    workflow = _verify_examples_workflow()
+
+    assert "concurrency:" in workflow
+    assert "group: ${{ github.workflow }}-${{ github.ref }}" in workflow
+    assert "cancel-in-progress: true" in workflow
+    assert "timeout-minutes: 30" in workflow
 
 
 def test_linux_x64_builder_does_not_bundle_openssl() -> None:
