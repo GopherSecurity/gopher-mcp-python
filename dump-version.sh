@@ -165,10 +165,13 @@ fi
 # Fetch tags so PREV_TAG resolution is accurate even on shallow clones
 git fetch --tags --quiet 2>/dev/null || true
 
-# Previous Python tag reachable from HEAD. Using git describe keeps the range
-# anchored to this branch instead of picking the highest version tag anywhere in
-# the repository.
-PREV_TAG=$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null || true)
+# Previous Python tag reachable from HEAD. Prefer the highest version tag
+# directly on HEAD when release tags are stacked on one commit; otherwise use
+# git describe to keep the range anchored to this branch.
+PREV_TAG=$(git tag --points-at HEAD --list 'v*' --sort=-v:refname | head -1)
+if [ -z "$PREV_TAG" ]; then
+    PREV_TAG=$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null || true)
+fi
 if [ -n "$PREV_TAG" ]; then
     echo -e "  Previous Python tag:    ${CYAN}$PREV_TAG${NC}"
     PY_RANGE="$PREV_TAG..HEAD"
