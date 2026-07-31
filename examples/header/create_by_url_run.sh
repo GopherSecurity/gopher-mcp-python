@@ -2,9 +2,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+ORCH_DIR="${REPO_ROOT}/third_party/gopher-orch"
+ORCH_BUILD_DIR="${GOPHER_ORCH_BUILD_DIR:-${ORCH_DIR}/build}"
+BIN_DIR="${ORCH_BUILD_DIR}/bin/examples/sdk/header"
 
-SERVER_BIN="${SCRIPT_DIR}/create_by_url_server"
-GATEWAY_BIN="${SCRIPT_DIR}/create_by_url_gateway"
+SERVER_BIN="${BIN_DIR}/header_access_token_create_by_url_server"
+GATEWAY_BIN="${BIN_DIR}/header_access_token_create_by_url_gateway"
 CLIENT_PY="${SCRIPT_DIR}/create_by_url.py"
 
 TOKEN="${GOPHER_ACCESS_TOKEN:-abc123456789xyz}"
@@ -92,6 +96,26 @@ stop_pid() {
     kill "${pid}" 2>/dev/null || true
     wait "${pid}" 2>/dev/null || true
   fi
+}
+
+build_header_binaries() {
+  if [[ ! -d "${ORCH_DIR}" || ! -f "${ORCH_DIR}/CMakeLists.txt" ]]; then
+    echo "ERROR: gopher-orch submodule is not initialized at ${ORCH_DIR}" >&2
+    echo "Run: git submodule update --init --recursive third_party/gopher-orch" >&2
+    return 1
+  fi
+
+  if [[ ! -f "${ORCH_DIR}/third_party/gopher-mcp/CMakeLists.txt" ]]; then
+    echo "Initializing nested gopher-orch submodules..."
+    git -C "${ORCH_DIR}" submodule update --init --recursive
+  fi
+
+  echo "Building header example binaries from gopher-orch..."
+  cmake -S "${ORCH_DIR}" -B "${ORCH_BUILD_DIR}" -DCMAKE_BUILD_TYPE=Release
+  cmake --build "${ORCH_BUILD_DIR}" --config Release \
+    --target header_access_token_create_by_url_server \
+             header_access_token_create_by_url_gateway \
+    -j "$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)"
 }
 
 start_server() {
@@ -192,9 +216,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ ! -x "${SERVER_BIN}" || ! -x "${GATEWAY_BIN}" ]]; then
+  build_header_binaries
+fi
+
 for bin in "${SERVER_BIN}" "${GATEWAY_BIN}"; do
   if [[ ! -x "${bin}" ]]; then
-    echo "ERROR: required binary not found or not executable: ${bin}" >&2
+    echo "ERROR: required binary was not built or is not executable: ${bin}" >&2
     exit 1
   fi
 done
