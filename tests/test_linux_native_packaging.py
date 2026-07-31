@@ -79,9 +79,11 @@ def test_verify_examples_workflow_checks_linux_native_dependencies() -> None:
     assert "Verify Linux native package" in workflow
     assert "=== Linux Native Dependencies ===" in workflow
     assert "readelf -d \"$sofile\"" in workflow
+    assert "No RPATH/RUNPATH declared for $sofile" in workflow
+    assert "RPATH/RUNPATH without \\$ORIGIN" in workflow
     assert "ldd \"$sofile\"" in workflow
     assert "grep -Ev '^(libssl\\.so|libcrypto\\.so)'" in workflow
-    assert "OpenSSL libraries must remain system-provided" in workflow
+    assert "WARNING: OpenSSL libraries should remain system-provided" in workflow
     assert "No Linux shared libraries found" in workflow
 
 
