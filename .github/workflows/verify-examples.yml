@@ -176,11 +176,9 @@ jobs:
           GOPHER_SDK_TEST: true
           SDK_INSTALL_SPEC: ${{ github.event_name == 'pull_request' && github.workspace || '' }}
         run: |
-          VERIFY_LIVE_PROMPT="List my draft mails. Return a concise Markdown answer with a table using columns Draft ID, Message ID, and Thread ID." \
-          VERIFY_EXPECTED_ANSWER="" \
-          VERIFY_EXPECTED_ANSWER_TERMS="Draft ID,Message ID,Thread ID" \
+          VERIFY_LIVE_PROMPT="list my draft mails" \
+          VERIFY_EXPECTED_ANSWER="r-2553040815323886578" \
             scripts/verify-examples.sh --mode "$VERIFY_EXAMPLES_MODE" --only create_by_api_key
-          VERIFY_LIVE_PROMPT="List my draft mails. Return a concise Markdown answer with a table using columns Draft ID, Message ID, and Thread ID." \
-          VERIFY_EXPECTED_ANSWER="" \
-          VERIFY_EXPECTED_ANSWER_TERMS="Draft ID,Message ID,Thread ID" \
+          VERIFY_LIVE_PROMPT="list my draft mails" \
+          VERIFY_EXPECTED_ANSWER="r-2553040815323886578" \
             scripts/verify-examples.sh --mode "$VERIFY_EXAMPLES_MODE" --only create_by_url
