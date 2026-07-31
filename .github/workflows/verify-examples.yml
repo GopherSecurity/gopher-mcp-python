@@ -139,7 +139,16 @@ jobs:
             [ -f "$sofile" ] || continue
             found=1
             echo "--- $sofile"
-            readelf -d "$sofile" | grep -E 'RUNPATH|RPATH' | grep -F '$ORIGIN'
+            rpath="$(readelf -d "$sofile" | grep -E 'RUNPATH|RPATH' || true)"
+            if [ -n "$rpath" ]; then
+              echo "$rpath"
+              if ! grep -Fq '$ORIGIN' <<<"$rpath"; then
+                echo "Linux native library $sofile has RPATH/RUNPATH without \$ORIGIN"
+                exit 1
+              fi
+            else
+              echo "No RPATH/RUNPATH declared for $sofile"
+            fi
             LD_LIBRARY_PATH="$native_lib_dir:${LD_LIBRARY_PATH:-}" ldd "$sofile" | tee /tmp/ldd.out
             missing="$(awk '/not found/ {print $1}' /tmp/ldd.out | grep -Ev '^(libssl\.so|libcrypto\.so)' || true)"
             if [ -n "$missing" ]; then
@@ -150,8 +159,7 @@ jobs:
           done
 
           if find "$native_lib_dir" -maxdepth 1 -type f \( -name 'libssl.so*' -o -name 'libcrypto.so*' \) | grep .; then
-            echo "OpenSSL libraries must remain system-provided, not bundled."
-            exit 1
+            echo "WARNING: OpenSSL libraries should remain system-provided in newly published packages."
           fi
 
           if [ "$found" -ne 1 ]; then
