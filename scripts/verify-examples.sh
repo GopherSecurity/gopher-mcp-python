@@ -64,6 +64,26 @@ fail() {
   exit 1
 }
 
+log_live_failure_diagnostics() {
+  local output="$1"
+  local answer_body="$2"
+  local output_bytes
+  local output_lines
+  local answer_bytes
+  local answer_lines
+  local marker_present="false"
+
+  output_bytes="$(printf '%s' "$output" | wc -c | tr -d '[:space:]')"
+  output_lines="$(printf '%s\n' "$output" | wc -l | tr -d '[:space:]')"
+  answer_bytes="$(printf '%s' "$answer_body" | wc -c | tr -d '[:space:]')"
+  answer_lines="$(printf '%s\n' "$answer_body" | wc -l | tr -d '[:space:]')"
+  if grep -q 'Agent Response' <<<"$output"; then
+    marker_present="true"
+  fi
+
+  log "live output redacted: output_bytes=${output_bytes} output_lines=${output_lines} agent_response_marker=${marker_present} answer_bytes=${answer_bytes} answer_lines=${answer_lines}"
+}
+
 parse_args() {
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -373,7 +393,6 @@ run_live_example_checks() {
   local output
   local status
   local answer_body
-  local answer_excerpt
 
   for spec in "${SELECTED_EXAMPLES[@]}"; do
     name="$(example_name "$spec")"
@@ -402,38 +421,37 @@ run_live_example_checks() {
     set -e
 
     if [ "$status" -ne 0 ]; then
-      printf '%s\n' "$output"
+      log_live_failure_diagnostics "$output" ""
       fail "${name} live: example exited with status ${status}"
     fi
 
     answer_body="$(awk '/Agent Response/{capture=1; next} capture {print}' <<<"$output")"
-    answer_excerpt="$(sed -n '1,8p' <<<"$answer_body")"
 
     if [ -z "$(tr -d '[:space:]' <<<"$answer_body")" ]; then
-      printf '%s\n' "$output"
+      log_live_failure_diagnostics "$output" "$answer_body"
       fail "${name} live: missing agent response body"
     fi
 
     if grep -Eqi '(^|[[:space:]])(Error:|Traceback|isError)' <<<"$answer_body"; then
-      printf '%s\n' "$output"
+      log_live_failure_diagnostics "$output" "$answer_body"
       fail "${name} live: agent response contains an error"
     fi
 
     if [ -n "$VERIFY_EXPECTED_ANSWER" ] &&
       ! grep -qi -- "$VERIFY_EXPECTED_ANSWER" <<<"$answer_body"; then
-      printf '%s\n' "$output"
+      log_live_failure_diagnostics "$output" "$answer_body"
       fail "${name} live: expected answer text '${VERIFY_EXPECTED_ANSWER}' not found"
     fi
 
     if [ -n "$VERIFY_EXPECTED_ANSWER_TERMS" ] &&
       ! validate_expected_answer_terms "$answer_body" "$VERIFY_EXPECTED_ANSWER_TERMS"; then
-      printf '%s\n' "$output"
+      log_live_failure_diagnostics "$output" "$answer_body"
       fail "${name} live: expected answer terms '${VERIFY_EXPECTED_ANSWER_TERMS}' not found"
     fi
 
     LIVE_CHECKS_RUN=$((LIVE_CHECKS_RUN + 1))
-    LIVE_ANSWER_SUMMARY="${LIVE_ANSWER_SUMMARY}"$'\n'"${name}: ${answer_excerpt}"
-    log "${name} live: OK"
+    LIVE_ANSWER_SUMMARY="${LIVE_ANSWER_SUMMARY}"$'\n'"${name}: answer_bytes=$(printf '%s' "$answer_body" | wc -c | tr -d '[:space:]')"
+    log "${name} live: OK (answer redacted)"
   done
 }
 

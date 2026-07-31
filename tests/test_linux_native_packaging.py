@@ -95,6 +95,17 @@ def test_verify_examples_live_checks_only_agent_response_body() -> None:
     assert "table using columns Draft ID, Message ID, and Thread ID" in workflow
 
 
+def test_verify_examples_live_logs_redact_agent_output() -> None:
+    script = _verify_examples_script()
+
+    assert "log_live_failure_diagnostics" in script
+    assert "live output redacted:" in script
+    assert "answer redacted" in script
+    assert "answer_excerpt" not in script
+    assert "${name}: ${answer_excerpt}" not in script
+    assert "printf '%s\\n' \"$output\"\n      fail \"${name} live:" not in script
+
+
 def test_linux_x64_builder_does_not_bundle_openssl() -> None:
     script = _linux_builder_script()
     dep_skip_block = re.search(r"case \"\$dep_name\" in(?P<body>.*?)esac", script, re.S)
