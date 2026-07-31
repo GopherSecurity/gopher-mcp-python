@@ -124,8 +124,40 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
+          set -euo pipefail
+
           source native-preflight/bin/activate
-          python -c 'import importlib; from pathlib import Path; module = importlib.import_module("${{ matrix.native_module }}"); lib_file = Path(module.get_library_file()); print(lib_file); raise SystemExit(0 if lib_file.is_file() else f"missing native library: {lib_file}")'
+          native_lib_dir="$(
+            python -c 'import importlib; module = importlib.import_module("${{ matrix.native_module }}"); print(module.get_lib_path())'
+          )"
+          cd "$native_lib_dir"
+
+          echo "=== Linux Native Dependencies ==="
+          found=0
+          for sofile in *.so *.so.*; do
+            [ -L "$sofile" ] && continue
+            [ -f "$sofile" ] || continue
+            found=1
+            echo "--- $sofile"
+            readelf -d "$sofile" | grep -E 'RUNPATH|RPATH' | grep -F '$ORIGIN'
+            LD_LIBRARY_PATH="$native_lib_dir:${LD_LIBRARY_PATH:-}" ldd "$sofile" | tee /tmp/ldd.out
+            missing="$(awk '/not found/ {print $1}' /tmp/ldd.out | grep -Ev '^(libssl\.so|libcrypto\.so)' || true)"
+            if [ -n "$missing" ]; then
+              echo "$missing"
+              echo "Missing shared dependency for $sofile"
+              exit 1
+            fi
+          done
+
+          if find "$native_lib_dir" -maxdepth 1 -type f \( -name 'libssl.so*' -o -name 'libcrypto.so*' \) | grep .; then
+            echo "OpenSSL libraries must remain system-provided, not bundled."
+            exit 1
+          fi
+
+          if [ "$found" -ne 1 ]; then
+            echo "No Linux shared libraries found in $native_lib_dir"
+            exit 1
+          fi
 
       - name: Verify native loading
         shell: bash
