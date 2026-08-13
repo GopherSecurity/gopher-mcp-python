@@ -1,11 +1,16 @@
 """Tests for GopherAgentConfig."""
 
 import pytest
+import gopher_mcp_python
 from gopher_mcp_python.config import (
     GopherAgentConfig,
+    GopherAgentCreateOptions,
+    GopherAgentOAuthOptions,
     GopherAgentRuntimeOptions,
+    GopherAgentTokenRecord,
     normalize_runtime_options,
 )
+from gopher_mcp_python.runtime_options import normalize_create_options
 
 
 class TestGopherAgentConfig:
@@ -211,3 +216,66 @@ class TestGopherAgentConfig:
         """Test access_token must be a string."""
         with pytest.raises(ValueError, match="access_token must be a string"):
             GopherAgentRuntimeOptions(access_token=123)
+
+    def test_should_create_options_with_oauth_disabled(self):
+        """Test OAuth options normalize alongside runtime options."""
+        options = normalize_create_options({"oauth": {"mode": "disabled"}})
+
+        assert options is not None
+        assert options.access_token is None
+        assert options.headers == {}
+        assert options.oauth is not None
+        assert options.oauth.mode == "disabled"
+
+    def test_should_create_options_with_oauth_metadata(self):
+        """Test OAuth option fields support Python and JS-style keys."""
+        options = GopherAgentCreateOptions(
+            access_token="abc123",
+            oauth={
+                "scopes": ["openid", "email"],
+                "clientName": "Python Client",
+                "redirectUri": "http://127.0.0.1:4321/callback",
+                "openBrowser": False,
+            },
+        )
+
+        assert options.access_token == "abc123"
+        assert options.headers == {"Authorization": "Bearer abc123"}
+        assert options.oauth is not None
+        assert options.oauth.scopes == ["openid", "email"]
+        assert options.oauth.client_name == "Python Client"
+        assert options.oauth.redirect_uri == "http://127.0.0.1:4321/callback"
+        assert options.oauth.open_browser is False
+
+    def test_builder_preserves_oauth_when_setting_headers(self):
+        """Test builder header helpers do not drop OAuth options."""
+        config = (
+            GopherAgentConfig.builder()
+            .provider("AnthropicProvider")
+            .model("claude-3-haiku-20240307")
+            .api_key("test-key")
+            .runtime_options({"oauth": {"mode": "disabled"}})
+            .headers({"X-Test": "one"})
+            .build()
+        )
+
+        assert config.runtime_options is not None
+        assert config.runtime_options.headers == {"X-Test": "one"}
+        assert config.runtime_options.oauth is not None
+        assert config.runtime_options.oauth.mode == "disabled"
+
+    def test_should_reject_invalid_oauth_mode(self):
+        """Test OAuth mode validation."""
+        with pytest.raises(ValueError, match="oauth mode"):
+            GopherAgentOAuthOptions(mode="interactive")
+
+    def test_token_record_requires_access_token(self):
+        """Test token records validate required fields."""
+        with pytest.raises(ValueError, match="access_token"):
+            GopherAgentTokenRecord(access_token="")
+
+    def test_root_exports_oauth_create_types(self):
+        """Test SDK-level OAuth types are exported."""
+        assert gopher_mcp_python.GopherAgentCreateOptions is GopherAgentCreateOptions
+        assert gopher_mcp_python.GopherAgentOAuthOptions is GopherAgentOAuthOptions
+        assert gopher_mcp_python.GopherAgentTokenRecord is GopherAgentTokenRecord

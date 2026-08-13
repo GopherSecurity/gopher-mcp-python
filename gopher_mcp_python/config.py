@@ -7,8 +7,13 @@ Provides a builder pattern for creating agent configurations with validation.
 from typing import Mapping, Optional
 
 from gopher_mcp_python.runtime_options import (
+    GopherAgentCreateOptions,
+    GopherAgentOAuthOptions,
     GopherAgentRuntimeOptions,
+    GopherAgentTokenRecord,
+    GopherAgentTokenStore,
     RuntimeOptionsInput,
+    normalize_create_options,
     normalize_runtime_options,
 )
 
@@ -59,7 +64,7 @@ class GopherAgentConfig:
         self._model = model
         self._api_key = api_key
         self._server_config = server_config
-        self._runtime_options = normalize_runtime_options(runtime_options)
+        self._runtime_options = normalize_create_options(runtime_options)
 
     @property
     def provider(self) -> str:
@@ -82,8 +87,8 @@ class GopherAgentConfig:
         return self._server_config
 
     @property
-    def runtime_options(self) -> Optional[GopherAgentRuntimeOptions]:
-        """Get dynamic MCP runtime options."""
+    def runtime_options(self) -> Optional[GopherAgentCreateOptions]:
+        """Get dynamic MCP runtime and SDK OAuth options."""
         return self._runtime_options
 
     def has_api_key(self) -> bool:
@@ -112,7 +117,7 @@ class GopherAgentConfigBuilder:
         self._model: Optional[str] = None
         self._api_key: Optional[str] = None
         self._server_config: Optional[str] = None
-        self._runtime_options: Optional[GopherAgentRuntimeOptions] = None
+        self._runtime_options: Optional[GopherAgentCreateOptions] = None
 
     def provider(self, provider: str) -> "GopherAgentConfigBuilder":
         """
@@ -182,7 +187,7 @@ class GopherAgentConfigBuilder:
         Returns:
             self for chaining
         """
-        self._runtime_options = normalize_runtime_options(options)
+        self._runtime_options = normalize_create_options(options)
         return self
 
     def access_token(self, access_token: str) -> "GopherAgentConfigBuilder":
@@ -198,8 +203,15 @@ class GopherAgentConfigBuilder:
         current_headers = (
             self._runtime_options.headers if self._runtime_options is not None else None
         )
-        self._runtime_options = normalize_runtime_options(
-            {"access_token": access_token, "headers": current_headers}
+        current_oauth = (
+            self._runtime_options.oauth if self._runtime_options is not None else None
+        )
+        self._runtime_options = normalize_create_options(
+            {
+                "access_token": access_token,
+                "headers": current_headers,
+                "oauth": current_oauth,
+            }
         )
         return self
 
@@ -218,8 +230,15 @@ class GopherAgentConfigBuilder:
             if self._runtime_options is not None
             else None
         )
-        self._runtime_options = normalize_runtime_options(
-            {"access_token": current_token, "headers": headers}
+        current_oauth = (
+            self._runtime_options.oauth if self._runtime_options is not None else None
+        )
+        self._runtime_options = normalize_create_options(
+            {
+                "access_token": current_token,
+                "headers": headers,
+                "oauth": current_oauth,
+            }
         )
         return self
 

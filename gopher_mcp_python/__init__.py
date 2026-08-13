@@ -30,7 +30,11 @@ from gopher_mcp_python.config import (
     GopherAgentConfigBuilder,
 )
 from gopher_mcp_python.runtime_options import (
+    GopherAgentCreateOptions,
+    GopherAgentOAuthOptions,
     GopherAgentRuntimeOptions,
+    GopherAgentTokenRecord,
+    GopherAgentTokenStore,
 )
 from gopher_mcp_python.result import AgentResult, AgentResultStatus, AgentResultBuilder
 from gopher_mcp_python.errors import (
@@ -123,7 +127,11 @@ __all__ = [
     "GopherAgent",
     "GopherAgentConfig",
     "GopherAgentConfigBuilder",
+    "GopherAgentCreateOptions",
+    "GopherAgentOAuthOptions",
     "GopherAgentRuntimeOptions",
+    "GopherAgentTokenRecord",
+    "GopherAgentTokenStore",
     "AgentResult",
     "AgentResultStatus",
     "AgentResultBuilder",
