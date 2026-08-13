@@ -37,6 +37,20 @@ def _read_options(options_ptr):
     return access_token, headers
 
 
+def _read_raw_options(options_ptr):
+    return ctypes.cast(options_ptr, ctypes.POINTER(GopherOrchAgentOptions)).contents
+
+
+def test_agent_options_struct_matches_native_field_order() -> None:
+    assert [name for name, _ctype in GopherOrchAgentOptions._fields_] == [
+        "access_token",
+        "headers",
+        "header_count",
+        "server_options",
+        "server_option_count",
+    ]
+
+
 def test_build_agent_options_maps_access_token_and_headers() -> None:
     lib = object.__new__(GopherOrchLibrary)
 
@@ -45,12 +59,15 @@ def test_build_agent_options_maps_access_token_and_headers() -> None:
     )
 
     assert storage is not None
+    raw_options = _read_raw_options(storage.pointer)
     access_token, headers = _read_options(storage.pointer)
     assert access_token == "abc123"
     assert headers == {
         "X-Trace": "trace-1",
         "Authorization": "Bearer abc123",
     }
+    assert not raw_options.server_options
+    assert raw_options.server_option_count == 0
 
 
 def test_build_agent_options_normalizes_empty_options_to_none() -> None:
