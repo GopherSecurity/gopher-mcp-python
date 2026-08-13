@@ -29,12 +29,17 @@ Example with context manager:
 import atexit
 from typing import Callable, Optional
 
+import gopher_mcp_python.oauth_resolver as oauth_resolver
 from gopher_mcp_python.config import GopherAgentConfig
 from gopher_mcp_python.runtime_options import (
+    GopherAgentOAuthOptions,
+    GopherAgentRuntimeOptions,
     RuntimeOptionsInput,
+    normalize_create_options,
     normalize_runtime_options,
 )
 from gopher_mcp_python.result import AgentResult, AgentResultStatus
+from gopher_mcp_python.server_config import ServerConfig, ServerConfigRoute
 from gopher_mcp_python.errors import AgentError, TimeoutError
 from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
@@ -155,6 +160,28 @@ class GopherAgent:
         return GopherAgent(handle)
 
     @staticmethod
+    async def create_async(config: GopherAgentConfig) -> "GopherAgent":
+        """
+        Create a new GopherAgent, resolving SDK OAuth credentials if needed.
+
+        Sync create() remains non-interactive. This async factory is the
+        OAuth-aware path for local/desktop clients.
+        """
+        if config.has_api_key():
+            return await GopherAgent.create_with_api_key_async(
+                config.provider,
+                config.model,
+                config.api_key,
+                config.runtime_options,
+            )
+        return await GopherAgent.create_with_server_config_async(
+            config.provider,
+            config.model,
+            config.server_config,
+            config.runtime_options,
+        )
+
+    @staticmethod
     def create_with_api_key(
         provider: str,
         model: str,
@@ -182,6 +209,33 @@ class GopherAgent:
         if runtime_options is not None:
             builder.runtime_options(runtime_options)
         return GopherAgent.create(builder.build())
+
+    @staticmethod
+    async def create_with_api_key_async(
+        provider: str,
+        model: str,
+        api_key: str,
+        options: RuntimeOptionsInput = None,
+    ) -> "GopherAgent":
+        """
+        Create an agent from a Gopher API key with SDK-side OAuth auto-flow.
+        """
+        create_options = normalize_create_options(options)
+        runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(runtime_options, oauth):
+            return GopherAgent.create_with_api_key(
+                provider, model, api_key, runtime_options
+            )
+
+        return await _create_from_api_config_async(
+            provider,
+            model,
+            api_key,
+            route=None,
+            runtime_options=runtime_options,
+            oauth=oauth,
+        )
 
     @staticmethod
     def create_with_server_config(
@@ -213,6 +267,36 @@ class GopherAgent:
         return GopherAgent.create(builder.build())
 
     @staticmethod
+    async def create_with_server_config_async(
+        provider: str,
+        model: str,
+        server_config: str,
+        options: RuntimeOptionsInput = None,
+    ) -> "GopherAgent":
+        """
+        Create an agent from server config with SDK-side OAuth auto-flow.
+        """
+        create_options = normalize_create_options(options)
+        runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(runtime_options, oauth):
+            return GopherAgent.create_with_server_config(
+                provider, model, server_config, runtime_options
+            )
+
+        resolved_runtime_options = await oauth_resolver.resolve_runtime_options_with_oauth(
+            urls=[],
+            server_config=server_config,
+            runtime_options=runtime_options,
+            oauth=oauth,
+        )
+        return GopherAgent._create_from_ffi(
+            lambda lib: lib.agent_create_by_json(
+                provider, model, server_config, resolved_runtime_options
+            )
+        )
+
+    @staticmethod
     def create_with_server_id(
         provider: str,
         model: str,
@@ -242,6 +326,34 @@ class GopherAgent:
             lambda lib: lib.agent_create_by_server_id(
                 provider, model, api_key, server_id, normalized_runtime_options
             )
+        )
+
+    @staticmethod
+    async def create_with_server_id_async(
+        provider: str,
+        model: str,
+        api_key: str,
+        server_id: str,
+        options: RuntimeOptionsInput = None,
+    ) -> "GopherAgent":
+        """
+        Create an agent scoped by MCP server id with SDK-side OAuth auto-flow.
+        """
+        create_options = normalize_create_options(options)
+        runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(runtime_options, oauth):
+            return GopherAgent.create_with_server_id(
+                provider, model, api_key, server_id, runtime_options
+            )
+
+        return await _create_from_api_config_async(
+            provider,
+            model,
+            api_key,
+            route=ServerConfigRoute("serverId", server_id),
+            runtime_options=runtime_options,
+            oauth=oauth,
         )
 
     @staticmethod
@@ -277,6 +389,34 @@ class GopherAgent:
         )
 
     @staticmethod
+    async def create_with_server_name_async(
+        provider: str,
+        model: str,
+        api_key: str,
+        server_name: str,
+        options: RuntimeOptionsInput = None,
+    ) -> "GopherAgent":
+        """
+        Create an agent scoped by MCP server name with SDK-side OAuth auto-flow.
+        """
+        create_options = normalize_create_options(options)
+        runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(runtime_options, oauth):
+            return GopherAgent.create_with_server_name(
+                provider, model, api_key, server_name, runtime_options
+            )
+
+        return await _create_from_api_config_async(
+            provider,
+            model,
+            api_key,
+            route=ServerConfigRoute("serverName", server_name),
+            runtime_options=runtime_options,
+            oauth=oauth,
+        )
+
+    @staticmethod
     def create_with_gateway_id(
         provider: str,
         model: str,
@@ -306,6 +446,34 @@ class GopherAgent:
             lambda lib: lib.agent_create_by_gateway_id(
                 provider, model, api_key, gateway_id, normalized_runtime_options
             )
+        )
+
+    @staticmethod
+    async def create_with_gateway_id_async(
+        provider: str,
+        model: str,
+        api_key: str,
+        gateway_id: str,
+        options: RuntimeOptionsInput = None,
+    ) -> "GopherAgent":
+        """
+        Create an agent scoped by MCP gateway id with SDK-side OAuth auto-flow.
+        """
+        create_options = normalize_create_options(options)
+        runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(runtime_options, oauth):
+            return GopherAgent.create_with_gateway_id(
+                provider, model, api_key, gateway_id, runtime_options
+            )
+
+        return await _create_from_api_config_async(
+            provider,
+            model,
+            api_key,
+            route=ServerConfigRoute("gatewayId", gateway_id),
+            runtime_options=runtime_options,
+            oauth=oauth,
         )
 
     @staticmethod
@@ -341,6 +509,34 @@ class GopherAgent:
         )
 
     @staticmethod
+    async def create_with_gateway_name_async(
+        provider: str,
+        model: str,
+        api_key: str,
+        gateway_name: str,
+        options: RuntimeOptionsInput = None,
+    ) -> "GopherAgent":
+        """
+        Create an agent scoped by MCP gateway name with SDK-side OAuth auto-flow.
+        """
+        create_options = normalize_create_options(options)
+        runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(runtime_options, oauth):
+            return GopherAgent.create_with_gateway_name(
+                provider, model, api_key, gateway_name, runtime_options
+            )
+
+        return await _create_from_api_config_async(
+            provider,
+            model,
+            api_key,
+            route=ServerConfigRoute("gatewayName", gateway_name),
+            runtime_options=runtime_options,
+            oauth=oauth,
+        )
+
+    @staticmethod
     def create_with_url(
         provider: str,
         model: str,
@@ -368,6 +564,33 @@ class GopherAgent:
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_url(
                 provider, model, url, normalized_runtime_options
+            )
+        )
+
+    @staticmethod
+    async def create_with_url_async(
+        provider: str,
+        model: str,
+        url: str,
+        options: RuntimeOptionsInput = None,
+    ) -> "GopherAgent":
+        """
+        Create an agent for a direct MCP URL with SDK-side OAuth auto-flow.
+        """
+        create_options = normalize_create_options(options)
+        runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(runtime_options, oauth):
+            return GopherAgent.create_with_url(provider, model, url, runtime_options)
+
+        resolved_runtime_options = await oauth_resolver.resolve_url_runtime_options_with_oauth(
+            url,
+            runtime_options=runtime_options,
+            oauth=oauth,
+        )
+        return GopherAgent._create_from_ffi(
+            lambda lib: lib.agent_create_by_url(
+                provider, model, url, resolved_runtime_options
             )
         )
 
@@ -491,6 +714,41 @@ def _setup_cleanup_handler() -> None:
 
     _cleanup_handler_registered = True
     atexit.register(GopherAgent.shutdown)
+
+
+async def _create_from_api_config_async(
+    provider: str,
+    model: str,
+    api_key: str,
+    route: Optional[ServerConfigRoute],
+    runtime_options: Optional[GopherAgentRuntimeOptions],
+    oauth: Optional[GopherAgentOAuthOptions],
+) -> GopherAgent:
+    server_config = ServerConfig.fetch(api_key, route=route)
+    resolved_runtime_options = await oauth_resolver.resolve_runtime_options_with_oauth(
+        urls=[],
+        server_config=server_config,
+        runtime_options=runtime_options,
+        oauth=oauth,
+    )
+    return GopherAgent._create_from_ffi(
+        lambda lib: lib.agent_create_by_json(
+            provider, model, server_config, resolved_runtime_options
+        )
+    )
+
+
+def _should_skip_oauth(
+    runtime_options: Optional[GopherAgentRuntimeOptions],
+    oauth: Optional[GopherAgentOAuthOptions],
+) -> bool:
+    if oauth is not None and oauth.mode == "disabled":
+        return True
+    if runtime_options is None:
+        return False
+    if runtime_options.access_token is not None:
+        return True
+    return any(name.lower() == "authorization" for name in runtime_options.headers)
 
 
 def _build_create_error_message() -> str:
