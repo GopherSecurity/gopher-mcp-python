@@ -43,7 +43,7 @@ from gopher_mcp_python.errors import (
     ConnectionError,
     TimeoutError,
 )
-from gopher_mcp_python.server_config import ServerConfig
+from gopher_mcp_python.server_config import ServerConfig, ServerConfigRoute
 from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
 __version__ = "0.1.2"
@@ -136,6 +136,7 @@ __all__ = [
     "AgentResultStatus",
     "AgentResultBuilder",
     "ServerConfig",
+    "ServerConfigRoute",
     # Errors
     "AgentError",
     "ApiKeyError",
