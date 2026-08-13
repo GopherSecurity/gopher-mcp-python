@@ -27,6 +27,7 @@ Example with context manager:
 """
 
 import atexit
+import weakref
 from typing import Callable, Optional
 
 import gopher_mcp_python.oauth_resolver as oauth_resolver
@@ -60,6 +61,7 @@ class GopherAgent:
         """
         self._handle = handle
         self._disposed = False
+        self._finalizer = weakref.finalize(self, _release_handle_best_effort, handle)
 
     def __enter__(self) -> "GopherAgent":
         """Context manager entry."""
@@ -687,14 +689,18 @@ class GopherAgent:
             return AgentResult.error(str(e))
 
     def dispose(self) -> None:
-        """Dispose of the agent and free resources."""
+        """
+        Dispose of the agent and free native resources deterministically.
+
+        A best-effort finalizer also releases forgotten agents during garbage
+        collection, but callers should prefer dispose() or a with block.
+        """
         if self._disposed:
             return
 
         self._disposed = True
-        lib = GopherOrchLibrary.get_instance()
-        if lib is not None and self._handle is not None:
-            lib.agent_release(self._handle)
+        if self._finalizer.alive:
+            self._finalizer()
 
     def is_disposed(self) -> bool:
         """Check if agent is disposed."""
@@ -714,6 +720,15 @@ def _setup_cleanup_handler() -> None:
 
     _cleanup_handler_registered = True
     atexit.register(GopherAgent.shutdown)
+
+
+def _release_handle_best_effort(handle: GopherOrchHandle) -> None:
+    try:
+        lib = GopherOrchLibrary.get_instance()
+        if lib is not None and handle is not None:
+            lib.agent_release(handle)
+    except Exception:
+        return
 
 
 async def _create_from_api_config_async(
