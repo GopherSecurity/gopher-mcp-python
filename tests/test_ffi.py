@@ -80,6 +80,73 @@ class TestGopherOrchLibrary:
             c_char_p,
             c_char_p,
         ]
+        assert fake_lib.gopher_orch_agent_run.restype is c_void_p
+        assert fake_lib.gopher_orch_api_fetch_servers.restype is c_void_p
+
+    def test_agent_run_decodes_and_frees_owned_string(self):
+        """Owned run responses must be released with gopher_orch_free."""
+
+        class FakeLib:
+            def __init__(self):
+                self.buffer = b"agent response"
+                self.freed = []
+
+            def gopher_orch_agent_run(self, agent, query, timeout_ms):
+                return c_char_p(self.buffer)
+
+            def gopher_orch_free(self, ptr):
+                self.freed.append(ptr)
+
+        fake_lib = FakeLib()
+        lib = GopherOrchLibrary.__new__(GopherOrchLibrary)
+        lib._available = True
+        lib._lib = fake_lib
+
+        assert lib.agent_run(c_void_p(123), "hello", 1000) == "agent response"
+        assert len(fake_lib.freed) == 1
+
+    def test_api_fetch_servers_decodes_and_frees_owned_string(self):
+        """Owned API config responses must be released with gopher_orch_free."""
+
+        class FakeLib:
+            def __init__(self):
+                self.buffer = b'{"succeeded":true}'
+                self.freed = []
+
+            def gopher_orch_api_fetch_servers(self, api_key):
+                return c_char_p(self.buffer)
+
+            def gopher_orch_free(self, ptr):
+                self.freed.append(ptr)
+
+        fake_lib = FakeLib()
+        lib = GopherOrchLibrary.__new__(GopherOrchLibrary)
+        lib._available = True
+        lib._lib = fake_lib
+
+        assert lib.api_fetch_servers("key") == '{"succeeded":true}'
+        assert len(fake_lib.freed) == 1
+
+    def test_owned_string_null_return_is_not_freed(self):
+        """Null native string returns should stay None without a free call."""
+
+        class FakeLib:
+            def __init__(self):
+                self.freed = []
+
+            def gopher_orch_agent_run(self, agent, query, timeout_ms):
+                return None
+
+            def gopher_orch_free(self, ptr):
+                self.freed.append(ptr)
+
+        fake_lib = FakeLib()
+        lib = GopherOrchLibrary.__new__(GopherOrchLibrary)
+        lib._available = True
+        lib._lib = fake_lib
+
+        assert lib.agent_run(c_void_p(123), "hello", 1000) is None
+        assert fake_lib.freed == []
 
     def test_missing_optional_routing_symbol_raises_upgrade_error(self):
         """Absent routing factories should not look like native NULL returns."""

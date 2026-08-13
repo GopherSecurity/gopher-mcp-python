@@ -353,7 +353,7 @@ class GopherOrchLibrary:
             self._bind_optional_agent_options_symbol(options_name, options_argtypes)
 
         self._lib.gopher_orch_agent_run.argtypes = [c_void_p, c_char_p, c_int64]
-        self._lib.gopher_orch_agent_run.restype = c_char_p
+        self._lib.gopher_orch_agent_run.restype = c_void_p
 
         self._lib.gopher_orch_agent_add_ref.argtypes = [c_void_p]
         self._lib.gopher_orch_agent_add_ref.restype = None
@@ -363,7 +363,7 @@ class GopherOrchLibrary:
 
         # API functions
         self._lib.gopher_orch_api_fetch_servers.argtypes = [c_char_p]
-        self._lib.gopher_orch_api_fetch_servers.restype = c_char_p
+        self._lib.gopher_orch_api_fetch_servers.restype = c_void_p
 
         # Error functions
         self._lib.gopher_orch_last_error.argtypes = []
@@ -794,9 +794,7 @@ class GopherOrchLibrary:
         result = self._lib.gopher_orch_agent_run(
             agent, query.encode("utf-8"), timeout_ms
         )
-        if result:
-            return result.decode("utf-8")
-        return None
+        return self._decode_owned_c_string(result)
 
     def agent_add_ref(self, agent: GopherOrchHandle) -> None:
         """Add a reference to the agent."""
@@ -814,9 +812,7 @@ class GopherOrchLibrary:
         if not self._available or self._lib is None:
             return None
         result = self._lib.gopher_orch_api_fetch_servers(api_key.encode("utf-8"))
-        if result:
-            return result.decode("utf-8")
-        return None
+        return self._decode_owned_c_string(result)
 
     # Error functions
     def last_error(self) -> Optional[GopherOrchErrorInfo]:
@@ -848,6 +844,15 @@ class GopherOrchLibrary:
         """Free memory allocated by the library."""
         if self._available and self._lib is not None:
             self._lib.gopher_orch_free(ptr)
+
+    def _decode_owned_c_string(self, ptr: Any) -> Optional[str]:
+        """Decode an owned native string and always release it."""
+        if not ptr:
+            return None
+        try:
+            return ctypes.string_at(ptr).decode("utf-8")
+        finally:
+            self.free(ptr)
 
     def set_log_level(self, level: int) -> None:
         """
