@@ -15,7 +15,10 @@ def open_authorization_url(
         return {"opened": False, "url": url}
 
     open_fn = opener if opener is not None else webbrowser.open
-    opened = bool(open_fn(url))
+    try:
+        opened = bool(open_fn(url))
+    except Exception as exc:
+        raise RuntimeError(f"Failed to open OAuth authorization URL {url}: {exc}") from exc
     result: Dict[str, Any] = {"opened": opened, "url": url}
     if opened:
         result["command"] = _command_for_platform(sys.platform)

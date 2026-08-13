@@ -44,3 +44,37 @@ async def _test_loopback_rejects_wrong_state() -> None:
         urllib.request.urlopen(f"{server.redirect_uri}?code=abc&state=wrong").read()
     with pytest.raises(RuntimeError, match="state mismatch"):
         await task
+
+
+def test_loopback_captures_oauth_error() -> None:
+    asyncio.run(_test_loopback_captures_oauth_error())
+
+
+async def _test_loopback_captures_oauth_error() -> None:
+    server = await create_oauth_loopback_callback_server(
+        state="state",
+        timeout_ms=1000,
+    )
+    task = asyncio.create_task(server.wait_for_callback())
+
+    with pytest.raises(Exception):
+        urllib.request.urlopen(
+            f"{server.redirect_uri}?error=access_denied"
+            "&error_description=Nope&state=state"
+        ).read()
+    with pytest.raises(RuntimeError, match="access_denied: Nope"):
+        await task
+
+
+def test_loopback_times_out() -> None:
+    asyncio.run(_test_loopback_times_out())
+
+
+async def _test_loopback_times_out() -> None:
+    server = await create_oauth_loopback_callback_server(
+        state="state",
+        timeout_ms=10,
+    )
+
+    with pytest.raises(asyncio.TimeoutError):
+        await server.wait_for_callback()
