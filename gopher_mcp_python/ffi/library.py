@@ -64,6 +64,8 @@ class GopherOrchAgentOptions(Structure):
         const char* access_token;
         const gopher_orch_header_t* headers;
         gopher_orch_size_t header_count;
+        const gopher_orch_server_agent_options_t* server_options;
+        gopher_orch_size_t server_option_count;
     } gopher_orch_agent_options_t;
     """
 
@@ -71,6 +73,8 @@ class GopherOrchAgentOptions(Structure):
         ("access_token", c_char_p),
         ("headers", POINTER(GopherOrchHeader)),
         ("header_count", c_size_t),
+        ("server_options", c_void_p),
+        ("server_option_count", c_size_t),
     ]
 
 
@@ -107,6 +111,8 @@ class _AgentOptionsStorage:
             access_token_bytes,
             headers_ptr,
             self.header_count,
+            None,
+            0,
         )
 
     @property
