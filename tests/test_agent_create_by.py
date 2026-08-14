@@ -88,7 +88,12 @@ class TestRoutingFactoryContracts:
 
     def test_create_with_url_rejects_unknown_provider(self) -> None:
         with pytest.raises(AgentError):
-            GopherAgent.create_with_url(BAD_PROVIDER, MODEL, URL)
+            GopherAgent.create_with_url(
+                BAD_PROVIDER,
+                MODEL,
+                URL,
+                {"oauth": {"mode": "disabled"}},
+            )
 
     # ----------------------------------------------------------------
     # AgentError surfaces a non-empty message so SDK consumers can log

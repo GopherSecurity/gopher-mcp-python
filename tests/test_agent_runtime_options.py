@@ -130,7 +130,7 @@ def test_create_with_api_key_accepts_runtime_options(fake_library) -> None:
         "Provider",
         "model",
         "api-key",
-        {"headers": {"X-Trace": "trace-1"}},
+        {"headers": {"X-Trace": "trace-1"}, "oauth": {"mode": "disabled"}},
     )
 
     call = fake_library.calls[0]
@@ -190,7 +190,7 @@ def test_direct_factory_normalizes_empty_runtime_options(fake_library) -> None:
         "Provider",
         "model",
         "http://127.0.0.1:5001/mcp",
-        {"access_token": ""},
+        {"access_token": "", "oauth": {"mode": "disabled"}},
     )
 
     call = fake_library.calls[0]
