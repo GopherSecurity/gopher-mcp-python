@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import sys
+from dataclasses import replace
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from gopher_mcp_python.oauth_authorization_url import build_oauth_authorization_url
@@ -65,19 +66,16 @@ async def _default_acquire_token(
     oauth: GopherAgentOAuthOptions,
 ) -> GopherAgentRuntimeOptions:
     challenge = challenges[0]
-    if challenge.resource_metadata_url is None:
-        raise RuntimeError(
-            f"oauth_metadata_missing: MCP OAuth challenge for {challenge.url} "
-            "is missing resource_metadata"
-        )
-
-    resource_metadata = fetch_oauth_protected_resource_metadata(
-        challenge.resource_metadata_url
-    )
+    resource_metadata = _resolve_resource_metadata_for_challenge(challenge)
     authorization_server = _select_authorization_server(challenge, resource_metadata)
     authorization_metadata = fetch_oauth_authorization_server_metadata(
         authorization_server
     )
+    if challenge.registration_endpoint is not None:
+        authorization_metadata = replace(
+            authorization_metadata,
+            registration_endpoint=challenge.registration_endpoint,
+        )
     scopes = _select_scopes(oauth, resource_metadata, authorization_metadata)
     state = create_code_verifier()
     loopback = await create_oauth_loopback_callback_server(state=state)
@@ -310,6 +308,24 @@ def _select_authorization_server(
             "missing authorization_servers"
         )
     return metadata.authorization_servers[0]
+
+
+def _resolve_resource_metadata_for_challenge(
+    challenge: McpOAuthChallenge,
+) -> OAuthProtectedResourceMetadata:
+    if challenge.resource_metadata_url is not None:
+        return fetch_oauth_protected_resource_metadata(challenge.resource_metadata_url)
+    if challenge.authorization_server is None:
+        raise RuntimeError(
+            f"oauth_metadata_missing: MCP OAuth challenge for {challenge.url} "
+            "is missing resource_metadata"
+        )
+    return OAuthProtectedResourceMetadata(
+        resource=challenge.resource or challenge.url,
+        authorization_servers=[challenge.authorization_server],
+        scopes_supported=list(challenge.scopes or []),
+        raw_json="{}",
+    )
 
 
 def _select_scopes(

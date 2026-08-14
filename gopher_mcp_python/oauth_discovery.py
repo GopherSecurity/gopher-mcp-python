@@ -8,6 +8,19 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse, urlunparse
 
 
+GOPHER_HOSTED_OAUTH_DEFAULT_SCOPES = ["openid", "profile", "email"]
+GOPHER_HOSTED_OAUTH_ENDPOINTS = {
+    "mcp.gopher.security": {
+        "authorization_server": "https://auth.gopher.security/realms/gopher-mcp",
+        "registration_endpoint": "https://api.gopher.security/oauth/register",
+    },
+    "mcp-test.gopher.security": {
+        "authorization_server": "https://auth-test.gopher.security/realms/gopher-mcp",
+        "registration_endpoint": "https://api-test.gopher.security/oauth/register",
+    },
+}
+
+
 MCP_DISCOVERY_BODY = json.dumps(
     {
         "jsonrpc": "2.0",
@@ -35,6 +48,7 @@ class McpOAuthChallenge:
     authorization_server: Optional[str] = None
     resource: Optional[str] = None
     scopes: Optional[List[str]] = None
+    registration_endpoint: Optional[str] = None
 
 
 @dataclass
@@ -81,6 +95,9 @@ def probe_mcp_oauth_challenge(url: str, timeout: float = 10.0) -> McpOAuthChalle
             )
     except urllib.error.HTTPError as exc:
         if exc.code != 401:
+            fallback = _gopher_hosted_oauth_challenge(url, exc.code)
+            if fallback is not None:
+                return fallback
             raise RuntimeError(
                 f"oauth_metadata_fetch_failed: MCP OAuth probe for {url} "
                 f"received HTTP {exc.code}"
@@ -108,6 +125,29 @@ def probe_mcp_oauth_challenge(url: str, timeout: float = 10.0) -> McpOAuthChalle
             f"oauth_metadata_fetch_failed: MCP OAuth probe failed for {url}: "
             f"{exc.reason}"
         )
+
+
+def _gopher_hosted_oauth_challenge(
+    url: str,
+    http_status: int,
+) -> Optional[McpOAuthChallenge]:
+    if http_status != 404:
+        return None
+
+    hostname = urlparse(url).hostname
+    endpoints = GOPHER_HOSTED_OAUTH_ENDPOINTS.get(hostname or "")
+    if endpoints is None:
+        return None
+
+    return McpOAuthChallenge(
+        url=url,
+        requires_oauth=True,
+        http_status=http_status,
+        authorization_server=endpoints["authorization_server"],
+        registration_endpoint=endpoints["registration_endpoint"],
+        resource=url,
+        scopes=list(GOPHER_HOSTED_OAUTH_DEFAULT_SCOPES),
+    )
 
 
 def parse_www_authenticate_param(challenge: str, name: str) -> Optional[str]:
@@ -247,6 +287,17 @@ def _split_challenge_params(challenge: str) -> List[str]:
 def _build_well_known_url(issuer: str, well_known_name: str) -> str:
     parsed = urlparse(issuer)
     path = "" if parsed.path in ("", "/") else parsed.path.rstrip("/")
+    if well_known_name == "openid-configuration":
+        return urlunparse(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                f"{path}/.well-known/{well_known_name}",
+                "",
+                "",
+                "",
+            )
+        )
     return urlunparse(
         (
             parsed.scheme,

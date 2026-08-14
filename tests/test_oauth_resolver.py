@@ -6,6 +6,7 @@ import pytest
 
 from gopher_mcp_python.oauth_discovery import McpOAuthChallenge
 from gopher_mcp_python.oauth_resolver import (
+    _resolve_resource_metadata_for_challenge,
     resolve_runtime_options_with_oauth,
     set_oauth_resolver_hooks_for_test,
 )
@@ -84,6 +85,34 @@ async def _test_one_oauth_server_returns_token_options() -> None:
 
     assert result is not None
     assert result.access_token == "token"
+
+
+def test_synthetic_gopher_challenge_builds_resource_metadata() -> None:
+    challenge = McpOAuthChallenge(
+        url="https://mcp.gopher.security/v1/mcp/servers/example/mcp",
+        requires_oauth=True,
+        http_status=404,
+        authorization_server="https://auth.gopher.security/realms/gopher-mcp",
+        resource="https://mcp.gopher.security/v1/mcp/servers/example/mcp",
+        scopes=["openid", "profile", "email"],
+    )
+
+    metadata = _resolve_resource_metadata_for_challenge(challenge)
+
+    assert metadata.resource == challenge.resource
+    assert metadata.authorization_servers == [challenge.authorization_server]
+    assert metadata.scopes_supported == ["openid", "profile", "email"]
+
+
+def test_missing_resource_metadata_without_authorization_server_fails() -> None:
+    challenge = McpOAuthChallenge(
+        url="https://mcp.example.com/mcp",
+        requires_oauth=True,
+        http_status=401,
+    )
+
+    with pytest.raises(RuntimeError, match="missing resource_metadata"):
+        _resolve_resource_metadata_for_challenge(challenge)
 
 
 def test_incompatible_oauth_servers_fail() -> None:
