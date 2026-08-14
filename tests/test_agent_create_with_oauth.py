@@ -1,9 +1,9 @@
-"""Tests for OAuth-aware async GopherAgent factories."""
+"""Tests for OAuth-aware GopherAgent factories."""
 
-import asyncio
+import pytest
 
 import gopher_mcp_python.agent as agent_module
-from gopher_mcp_python import GopherAgent
+from gopher_mcp_python import AgentError, GopherAgent
 from gopher_mcp_python.runtime_options import GopherAgentRuntimeOptions
 
 
@@ -76,11 +76,7 @@ def _install_fake_library(monkeypatch):
     return fake
 
 
-def test_create_with_url_async_resolves_oauth_token(monkeypatch) -> None:
-    asyncio.run(_test_create_with_url_async_resolves_oauth_token(monkeypatch))
-
-
-async def _test_create_with_url_async_resolves_oauth_token(monkeypatch) -> None:
+def test_create_with_url_resolves_oauth_token(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
     resolver_calls = []
 
@@ -94,7 +90,7 @@ async def _test_create_with_url_async_resolves_oauth_token(monkeypatch) -> None:
         resolver,
     )
 
-    agent = await GopherAgent.create_with_url_async(
+    agent = GopherAgent.create_with_url(
         "Provider",
         "model",
         "https://mcp.example.com/mcp",
@@ -107,11 +103,7 @@ async def _test_create_with_url_async_resolves_oauth_token(monkeypatch) -> None:
     agent.dispose()
 
 
-def test_create_with_url_async_disabled_oauth_skips_resolver(monkeypatch) -> None:
-    asyncio.run(_test_create_with_url_async_disabled_oauth_skips_resolver(monkeypatch))
-
-
-async def _test_create_with_url_async_disabled_oauth_skips_resolver(monkeypatch) -> None:
+def test_create_with_url_disabled_oauth_skips_resolver(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
 
     async def resolver(*args, **kwargs):
@@ -123,7 +115,7 @@ async def _test_create_with_url_async_disabled_oauth_skips_resolver(monkeypatch)
         resolver,
     )
 
-    agent = await GopherAgent.create_with_url_async(
+    agent = GopherAgent.create_with_url(
         "Provider",
         "model",
         "https://mcp.example.com/mcp",
@@ -140,11 +132,7 @@ async def _test_create_with_url_async_disabled_oauth_skips_resolver(monkeypatch)
     agent.dispose()
 
 
-def test_create_with_url_async_explicit_token_skips_resolver(monkeypatch) -> None:
-    asyncio.run(_test_create_with_url_async_explicit_token_skips_resolver(monkeypatch))
-
-
-async def _test_create_with_url_async_explicit_token_skips_resolver(monkeypatch) -> None:
+def test_create_with_url_explicit_token_skips_resolver(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
 
     async def resolver(*args, **kwargs):
@@ -156,7 +144,7 @@ async def _test_create_with_url_async_explicit_token_skips_resolver(monkeypatch)
         resolver,
     )
 
-    agent = await GopherAgent.create_with_url_async(
+    agent = GopherAgent.create_with_url(
         "Provider",
         "model",
         "https://mcp.example.com/mcp",
@@ -169,11 +157,7 @@ async def _test_create_with_url_async_explicit_token_skips_resolver(monkeypatch)
     agent.dispose()
 
 
-def test_create_with_server_config_async_uses_resolved_options(monkeypatch) -> None:
-    asyncio.run(_test_create_with_server_config_async_uses_resolved_options(monkeypatch))
-
-
-async def _test_create_with_server_config_async_uses_resolved_options(monkeypatch) -> None:
+def test_create_with_server_config_uses_resolved_options(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
     resolver_calls = []
 
@@ -187,7 +171,7 @@ async def _test_create_with_server_config_async_uses_resolved_options(monkeypatc
         resolver,
     )
 
-    agent = await GopherAgent.create_with_server_config_async(
+    agent = GopherAgent.create_with_server_config(
         "Provider",
         "model",
         '{"servers":[]}',
@@ -200,11 +184,7 @@ async def _test_create_with_server_config_async_uses_resolved_options(monkeypatc
     agent.dispose()
 
 
-def test_create_with_api_key_async_fetches_config_before_oauth(monkeypatch) -> None:
-    asyncio.run(_test_create_with_api_key_async_fetches_config_before_oauth(monkeypatch))
-
-
-async def _test_create_with_api_key_async_fetches_config_before_oauth(monkeypatch) -> None:
+def test_create_with_api_key_fetches_config_before_oauth(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
     server_config = '{"servers":[{"config":{"url":"https://mcp.example.com/mcp"}}]}'
 
@@ -223,11 +203,7 @@ async def _test_create_with_api_key_async_fetches_config_before_oauth(monkeypatc
         resolver,
     )
 
-    agent = await GopherAgent.create_with_api_key_async(
-        "Provider",
-        "model",
-        "api-key",
-    )
+    agent = GopherAgent.create_with_api_key("Provider", "model", "api-key")
 
     call = fake.calls[0]
     assert call[:4] == ("json", "Provider", "model", server_config)
@@ -235,11 +211,7 @@ async def _test_create_with_api_key_async_fetches_config_before_oauth(monkeypatc
     agent.dispose()
 
 
-def test_create_with_server_id_async_fetches_routed_config(monkeypatch) -> None:
-    asyncio.run(_test_create_with_server_id_async_fetches_routed_config(monkeypatch))
-
-
-async def _test_create_with_server_id_async_fetches_routed_config(monkeypatch) -> None:
+def test_create_with_server_id_fetches_routed_config(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
     server_config = '{"servers":[{"id":"srv-1"}]}'
     fetch_calls = []
@@ -259,12 +231,7 @@ async def _test_create_with_server_id_async_fetches_routed_config(monkeypatch) -
         resolver,
     )
 
-    agent = await GopherAgent.create_with_server_id_async(
-        "Provider",
-        "model",
-        "api-key",
-        "srv-1",
-    )
+    agent = GopherAgent.create_with_server_id("Provider", "model", "api-key", "srv-1")
 
     assert fetch_calls[0][0] == "api-key"
     assert fetch_calls[0][1].key == "serverId"
@@ -275,13 +242,7 @@ async def _test_create_with_server_id_async_fetches_routed_config(monkeypatch) -
     agent.dispose()
 
 
-def test_create_with_gateway_name_async_fetches_routed_config(monkeypatch) -> None:
-    asyncio.run(_test_create_with_gateway_name_async_fetches_routed_config(monkeypatch))
-
-
-async def _test_create_with_gateway_name_async_fetches_routed_config(
-    monkeypatch,
-) -> None:
+def test_create_with_gateway_name_fetches_routed_config(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
     server_config = '{"servers":[{"name":"gateway"}]}'
     fetch_calls = []
@@ -301,7 +262,7 @@ async def _test_create_with_gateway_name_async_fetches_routed_config(
         resolver,
     )
 
-    agent = await GopherAgent.create_with_gateway_name_async(
+    agent = GopherAgent.create_with_gateway_name(
         "Provider",
         "model",
         "api-key",
@@ -317,17 +278,7 @@ async def _test_create_with_gateway_name_async_fetches_routed_config(
     agent.dispose()
 
 
-def test_create_with_server_name_async_explicit_token_uses_sync_selector(
-    monkeypatch,
-) -> None:
-    asyncio.run(
-        _test_create_with_server_name_async_explicit_token_uses_sync_selector(
-            monkeypatch
-        )
-    )
-
-
-async def _test_create_with_server_name_async_explicit_token_uses_sync_selector(
+def test_create_with_server_name_explicit_token_uses_native_selector(
     monkeypatch,
 ) -> None:
     fake = _install_fake_library(monkeypatch)
@@ -341,7 +292,7 @@ async def _test_create_with_server_name_async_explicit_token_uses_sync_selector(
         resolver,
     )
 
-    agent = await GopherAgent.create_with_server_name_async(
+    agent = GopherAgent.create_with_server_name(
         "Provider",
         "model",
         "api-key",
@@ -355,17 +306,7 @@ async def _test_create_with_server_name_async_explicit_token_uses_sync_selector(
     agent.dispose()
 
 
-def test_create_with_gateway_id_async_disabled_oauth_uses_sync_selector(
-    monkeypatch,
-) -> None:
-    asyncio.run(
-        _test_create_with_gateway_id_async_disabled_oauth_uses_sync_selector(
-            monkeypatch
-        )
-    )
-
-
-async def _test_create_with_gateway_id_async_disabled_oauth_uses_sync_selector(
+def test_create_with_gateway_id_disabled_oauth_uses_native_selector(
     monkeypatch,
 ) -> None:
     fake = _install_fake_library(monkeypatch)
@@ -379,7 +320,7 @@ async def _test_create_with_gateway_id_async_disabled_oauth_uses_sync_selector(
         resolver,
     )
 
-    agent = await GopherAgent.create_with_gateway_id_async(
+    agent = GopherAgent.create_with_gateway_id(
         "Provider",
         "model",
         "api-key",
@@ -398,11 +339,7 @@ async def _test_create_with_gateway_id_async_disabled_oauth_uses_sync_selector(
     agent.dispose()
 
 
-def test_create_async_uses_server_config_async_path(monkeypatch) -> None:
-    asyncio.run(_test_create_async_uses_server_config_async_path(monkeypatch))
-
-
-async def _test_create_async_uses_server_config_async_path(monkeypatch) -> None:
+def test_create_uses_server_config_oauth_path(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
 
     async def resolver(urls=None, server_config=None, runtime_options=None, oauth=None):
@@ -422,8 +359,18 @@ async def _test_create_async_uses_server_config_async_path(monkeypatch) -> None:
         .build()
     )
 
-    agent = await GopherAgent.create_async(config)
+    agent = GopherAgent.create(config)
 
     assert fake.calls[0][0] == "json"
     assert fake.calls[0][4].access_token == "oauth-token"
     agent.dispose()
+
+
+def test_oauth_inside_running_event_loop_fails_clearly(monkeypatch) -> None:
+    _install_fake_library(monkeypatch)
+
+    async def create_inside_loop():
+        with pytest.raises(AgentError, match="active asyncio event loop"):
+            GopherAgent.create_with_url("Provider", "model", "https://mcp.example.com/mcp")
+
+    agent_module.asyncio.run(create_inside_loop())

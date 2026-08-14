@@ -50,7 +50,10 @@ def test_create_failure_uses_actionable_fallback(monkeypatch) -> None:
 
     with pytest.raises(AgentError) as exc_info:
         GopherAgent.create_with_url(
-            "Provider", "model", "http://127.0.0.1:5001/mcp"
+            "Provider",
+            "model",
+            "http://127.0.0.1:5001/mcp",
+            {"oauth": {"mode": "disabled"}},
         )
 
     assert "native library returned null without a specific error" in str(
@@ -71,7 +74,10 @@ def test_create_failure_keeps_native_error_message(monkeypatch) -> None:
 
     with pytest.raises(AgentError) as exc_info:
         GopherAgent.create_with_url(
-            "Provider", "model", "http://127.0.0.1:5001/mcp"
+            "Provider",
+            "model",
+            "http://127.0.0.1:5001/mcp",
+            {"oauth": {"mode": "disabled"}},
         )
 
     assert str(exc_info.value) == "Failed to create agent from MCP server URL: Timeout"

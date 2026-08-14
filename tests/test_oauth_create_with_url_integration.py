@@ -1,6 +1,5 @@
-"""Local integration test for OAuth-aware create_with_url_async."""
+"""Local integration test for OAuth-aware create_with_url."""
 
-import asyncio
 import json
 import threading
 import urllib.parse
@@ -35,14 +34,6 @@ class FakeLibrary:
 
 
 def test_local_oauth_flow_obtains_token_before_url_agent_creation(monkeypatch) -> None:
-    asyncio.run(
-        _test_local_oauth_flow_obtains_token_before_url_agent_creation(monkeypatch)
-    )
-
-
-async def _test_local_oauth_flow_obtains_token_before_url_agent_creation(
-    monkeypatch,
-) -> None:
     server = _FakeOAuthServer.start()
     fake = FakeLibrary()
     opened_authorization_urls = []
@@ -61,7 +52,7 @@ async def _test_local_oauth_flow_obtains_token_before_url_agent_creation(
     monkeypatch.setattr(oauth_resolver, "open_authorization_url", open_authorization_url)
 
     try:
-        agent = await GopherAgent.create_with_url_async(PROVIDER, MODEL, server.mcp_url)
+        agent = GopherAgent.create_with_url(PROVIDER, MODEL, server.mcp_url)
     finally:
         oauth_resolver.set_oauth_resolver_hooks_for_test()
         oauth_resolver.set_oauth_url_runtime_options_resolver_for_test()

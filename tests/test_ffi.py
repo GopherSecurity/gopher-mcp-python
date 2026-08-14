@@ -185,7 +185,10 @@ class TestGopherOrchLibrary:
 
         with pytest.raises(AgentError) as exc_info:
             GopherAgent.create_with_url(
-                "AnthropicProvider", "claude-3-haiku-20240307", "http://x/mcp"
+                "AnthropicProvider",
+                "claude-3-haiku-20240307",
+                "http://x/mcp",
+                {"oauth": {"mode": "disabled"}},
             )
 
         assert "predates the routing factories" in str(exc_info.value)
