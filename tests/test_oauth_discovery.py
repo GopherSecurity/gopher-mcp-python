@@ -2,6 +2,7 @@
 
 import json
 import threading
+import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -51,6 +52,47 @@ def test_probe_returns_oauth_challenge() -> None:
 
     assert result.requires_oauth is True
     assert result.resource_metadata_url == f"{server.url}/resource"
+
+
+def test_probe_uses_gopher_hosted_oauth_fallback_for_prod_404(monkeypatch) -> None:
+    monkeypatch.setattr("urllib.request.urlopen", _raise_http_404)
+    hosted_url = "https://mcp.gopher.security/v1/mcp/servers/example/mcp"
+    result = probe_mcp_oauth_challenge(hosted_url)
+
+    assert result.requires_oauth is True
+    assert result.http_status == 404
+    assert (
+        result.authorization_server
+        == "https://auth.gopher.security/realms/gopher-mcp"
+    )
+    assert result.registration_endpoint == "https://api.gopher.security/oauth/register"
+    assert result.resource == hosted_url
+    assert result.scopes == ["openid", "profile", "email"]
+
+
+def test_probe_uses_gopher_hosted_oauth_fallback_for_test_404(monkeypatch) -> None:
+    monkeypatch.setattr("urllib.request.urlopen", _raise_http_404)
+    hosted_url = "https://mcp-test.gopher.security/v1/mcp/servers/example/mcp"
+    result = probe_mcp_oauth_challenge(hosted_url)
+
+    assert result.requires_oauth is True
+    assert result.http_status == 404
+    assert (
+        result.authorization_server
+        == "https://auth-test.gopher.security/realms/gopher-mcp"
+    )
+    assert result.registration_endpoint == "https://api-test.gopher.security/oauth/register"
+    assert result.resource == hosted_url
+    assert result.scopes == ["openid", "profile", "email"]
+
+
+def test_probe_non_gopher_404_still_fails() -> None:
+    server = _start_server(lambda handler: _json(handler, 404, {}))
+    try:
+        with pytest.raises(RuntimeError, match="received HTTP 404"):
+            probe_mcp_oauth_challenge(f"{server.url}/mcp")
+    finally:
+        server.close()
 
 
 def test_probe_missing_resource_metadata_fails() -> None:
@@ -118,6 +160,40 @@ def test_fetches_authorization_server_metadata_with_oidc_fallback() -> None:
     assert metadata.registration_endpoint == f"{server.url}/register"
 
 
+def test_fetches_path_based_oidc_metadata() -> None:
+    issuer = ""
+
+    def handle(handler):
+        if handler.path.startswith("/.well-known/oauth-authorization-server"):
+            _json(handler, 404, {})
+            return
+        if handler.path != "/realms/gopher-mcp/.well-known/openid-configuration":
+            _json(handler, 404, {})
+            return
+        _json(
+            handler,
+            200,
+            {
+                "issuer": issuer,
+                "authorization_endpoint": f"{issuer}/protocol/openid-connect/auth",
+                "token_endpoint": f"{issuer}/protocol/openid-connect/token",
+                "registration_endpoint": f"{issuer}/clients-registrations/openid-connect",
+                "scopes_supported": ["openid"],
+            },
+        )
+
+    server = _start_server(handle)
+    issuer = f"{server.url}/realms/gopher-mcp"
+    try:
+        metadata = fetch_oauth_authorization_server_metadata(issuer)
+    finally:
+        server.close()
+
+    assert metadata.issuer == issuer
+    assert metadata.authorization_endpoint == f"{issuer}/protocol/openid-connect/auth"
+    assert metadata.token_endpoint == f"{issuer}/protocol/openid-connect/token"
+
+
 class _Server:
     def __init__(self, server):
         self._server = server
@@ -143,6 +219,16 @@ def _start_server(callback):
             callback(self)
 
     return _Server(ThreadingHTTPServer(("127.0.0.1", 0), Handler))
+
+
+def _raise_http_404(request, timeout):
+    raise urllib.error.HTTPError(
+        request.full_url,
+        404,
+        "Not Found",
+        {},
+        None,
+    )
 
 
 def _json(handler, status, body):
