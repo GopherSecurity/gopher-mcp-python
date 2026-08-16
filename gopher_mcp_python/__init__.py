@@ -30,7 +30,11 @@ from gopher_mcp_python.config import (
     GopherAgentConfigBuilder,
 )
 from gopher_mcp_python.runtime_options import (
+    GopherAgentCreateOptions,
+    GopherAgentOAuthOptions,
     GopherAgentRuntimeOptions,
+    GopherAgentTokenRecord,
+    GopherAgentTokenStore,
 )
 from gopher_mcp_python.result import AgentResult, AgentResultStatus, AgentResultBuilder
 from gopher_mcp_python.errors import (
@@ -39,10 +43,10 @@ from gopher_mcp_python.errors import (
     ConnectionError,
     TimeoutError,
 )
-from gopher_mcp_python.server_config import ServerConfig
+from gopher_mcp_python.server_config import ServerConfig, ServerConfigRoute
 from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
-__version__ = "0.1.2"
+__version__ = "0.1.34"
 
 _AUTH_EXPORTS = {
     "GopherAuth",
@@ -123,11 +127,16 @@ __all__ = [
     "GopherAgent",
     "GopherAgentConfig",
     "GopherAgentConfigBuilder",
+    "GopherAgentCreateOptions",
+    "GopherAgentOAuthOptions",
     "GopherAgentRuntimeOptions",
+    "GopherAgentTokenRecord",
+    "GopherAgentTokenStore",
     "AgentResult",
     "AgentResultStatus",
     "AgentResultBuilder",
     "ServerConfig",
+    "ServerConfigRoute",
     # Errors
     "AgentError",
     "ApiKeyError",

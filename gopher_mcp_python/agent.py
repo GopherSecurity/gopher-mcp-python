@@ -27,14 +27,21 @@ Example with context manager:
 """
 
 import atexit
+import asyncio
+import weakref
 from typing import Callable, Optional
 
+import gopher_mcp_python.oauth_resolver as oauth_resolver
 from gopher_mcp_python.config import GopherAgentConfig
 from gopher_mcp_python.runtime_options import (
+    GopherAgentOAuthOptions,
+    GopherAgentRuntimeOptions,
     RuntimeOptionsInput,
+    normalize_create_options,
     normalize_runtime_options,
 )
 from gopher_mcp_python.result import AgentResult, AgentResultStatus
+from gopher_mcp_python.server_config import ServerConfig, ServerConfigRoute
 from gopher_mcp_python.errors import AgentError, TimeoutError
 from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
@@ -55,6 +62,7 @@ class GopherAgent:
         """
         self._handle = handle
         self._disposed = False
+        self._finalizer = weakref.finalize(self, _release_handle_best_effort, handle)
 
     def __enter__(self) -> "GopherAgent":
         """Context manager entry."""
@@ -107,7 +115,7 @@ class GopherAgent:
     @staticmethod
     def create(config: GopherAgentConfig) -> "GopherAgent":
         """
-        Create a new GopherAgent instance.
+        Create a new GopherAgent instance, resolving SDK OAuth credentials if needed.
 
         Args:
             config: Agent configuration
@@ -118,41 +126,19 @@ class GopherAgent:
         Raises:
             AgentError: if agent creation fails
         """
-        if not _initialized:
-            GopherAgent.init()
-
-        lib = GopherOrchLibrary.get_instance()
-        if lib is None:
-            load_error = GopherOrchLibrary.get_load_error_message()
-            raise AgentError(f"Native library not available.\n{load_error}")
-
-        handle: Optional[GopherOrchHandle] = None
-        try:
-            if config.has_api_key():
-                handle = lib.agent_create_by_api_key(
-                    config.provider,
-                    config.model,
-                    config.api_key,
-                    config.runtime_options,
-                )
-            else:
-                handle = lib.agent_create_by_json(
-                    config.provider,
-                    config.model,
-                    config.server_config,
-                    config.runtime_options,
-                )
-        except AgentError:
-            raise
-        except Exception as e:
-            raise AgentError(f"Failed to create agent: {e}")
-
-        if handle is None:
-            error = lib.get_last_error_message()
-            lib.clear_error()
-            raise AgentError(error or _build_create_error_message())
-
-        return GopherAgent(handle)
+        if config.has_api_key():
+            return GopherAgent.create_with_api_key(
+                config.provider,
+                config.model,
+                config.api_key,
+                config.runtime_options,
+            )
+        return GopherAgent.create_with_server_config(
+            config.provider,
+            config.model,
+            config.server_config,
+            config.runtime_options,
+        )
 
     @staticmethod
     def create_with_api_key(
@@ -173,15 +159,24 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        builder = (
-            GopherAgentConfig.builder()
-            .provider(provider)
-            .model(model)
-            .api_key(api_key)
+        create_options = normalize_create_options(runtime_options)
+        runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(runtime_options, oauth):
+            return GopherAgent._create_from_ffi(
+                lambda lib: lib.agent_create_by_api_key(
+                    provider, model, api_key, runtime_options
+                )
+            )
+
+        return _create_from_api_config(
+            provider,
+            model,
+            api_key,
+            route=None,
+            runtime_options=runtime_options,
+            oauth=oauth,
         )
-        if runtime_options is not None:
-            builder.runtime_options(runtime_options)
-        return GopherAgent.create(builder.build())
 
     @staticmethod
     def create_with_server_config(
@@ -202,15 +197,29 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        builder = (
-            GopherAgentConfig.builder()
-            .provider(provider)
-            .model(model)
-            .server_config(server_config)
+        create_options = normalize_create_options(runtime_options)
+        runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(runtime_options, oauth):
+            return GopherAgent._create_from_ffi(
+                lambda lib: lib.agent_create_by_json(
+                    provider, model, server_config, runtime_options
+                )
+            )
+
+        resolved_runtime_options = _run_oauth_coroutine(
+            lambda: oauth_resolver.resolve_runtime_options_with_oauth(
+                urls=[],
+                server_config=server_config,
+                runtime_options=runtime_options,
+                oauth=oauth,
+            )
         )
-        if runtime_options is not None:
-            builder.runtime_options(runtime_options)
-        return GopherAgent.create(builder.build())
+        return GopherAgent._create_from_ffi(
+            lambda lib: lib.agent_create_by_json(
+                provider, model, server_config, resolved_runtime_options
+            )
+        )
 
     @staticmethod
     def create_with_server_id(
@@ -237,11 +246,22 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        normalized_runtime_options = normalize_runtime_options(runtime_options)
-        return GopherAgent._create_from_ffi(
-            lambda lib: lib.agent_create_by_server_id(
-                provider, model, api_key, server_id, normalized_runtime_options
+        create_options = normalize_create_options(runtime_options)
+        normalized_runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(normalized_runtime_options, oauth):
+            return GopherAgent._create_from_ffi(
+                lambda lib: lib.agent_create_by_server_id(
+                    provider, model, api_key, server_id, normalized_runtime_options
+                )
             )
+        return _create_from_api_config(
+            provider,
+            model,
+            api_key,
+            route=ServerConfigRoute("serverId", server_id),
+            runtime_options=normalized_runtime_options,
+            oauth=oauth,
         )
 
     @staticmethod
@@ -269,11 +289,22 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        normalized_runtime_options = normalize_runtime_options(runtime_options)
-        return GopherAgent._create_from_ffi(
-            lambda lib: lib.agent_create_by_server_name(
-                provider, model, api_key, server_name, normalized_runtime_options
+        create_options = normalize_create_options(runtime_options)
+        normalized_runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(normalized_runtime_options, oauth):
+            return GopherAgent._create_from_ffi(
+                lambda lib: lib.agent_create_by_server_name(
+                    provider, model, api_key, server_name, normalized_runtime_options
+                )
             )
+        return _create_from_api_config(
+            provider,
+            model,
+            api_key,
+            route=ServerConfigRoute("serverName", server_name),
+            runtime_options=normalized_runtime_options,
+            oauth=oauth,
         )
 
     @staticmethod
@@ -301,11 +332,22 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        normalized_runtime_options = normalize_runtime_options(runtime_options)
-        return GopherAgent._create_from_ffi(
-            lambda lib: lib.agent_create_by_gateway_id(
-                provider, model, api_key, gateway_id, normalized_runtime_options
+        create_options = normalize_create_options(runtime_options)
+        normalized_runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(normalized_runtime_options, oauth):
+            return GopherAgent._create_from_ffi(
+                lambda lib: lib.agent_create_by_gateway_id(
+                    provider, model, api_key, gateway_id, normalized_runtime_options
+                )
             )
+        return _create_from_api_config(
+            provider,
+            model,
+            api_key,
+            route=ServerConfigRoute("gatewayId", gateway_id),
+            runtime_options=normalized_runtime_options,
+            oauth=oauth,
         )
 
     @staticmethod
@@ -333,11 +375,22 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        normalized_runtime_options = normalize_runtime_options(runtime_options)
-        return GopherAgent._create_from_ffi(
-            lambda lib: lib.agent_create_by_gateway_name(
-                provider, model, api_key, gateway_name, normalized_runtime_options
+        create_options = normalize_create_options(runtime_options)
+        normalized_runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if _should_skip_oauth(normalized_runtime_options, oauth):
+            return GopherAgent._create_from_ffi(
+                lambda lib: lib.agent_create_by_gateway_name(
+                    provider, model, api_key, gateway_name, normalized_runtime_options
+                )
             )
+        return _create_from_api_config(
+            provider,
+            model,
+            api_key,
+            route=ServerConfigRoute("gatewayName", gateway_name),
+            runtime_options=normalized_runtime_options,
+            oauth=oauth,
         )
 
     @staticmethod
@@ -364,7 +417,17 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        normalized_runtime_options = normalize_runtime_options(runtime_options)
+        create_options = normalize_create_options(runtime_options)
+        normalized_runtime_options = normalize_runtime_options(create_options)
+        oauth = create_options.oauth if create_options is not None else None
+        if url != "" and not _should_skip_oauth(normalized_runtime_options, oauth):
+            normalized_runtime_options = _run_oauth_coroutine(
+                lambda: oauth_resolver.resolve_url_runtime_options_with_oauth(
+                    url,
+                    runtime_options=normalized_runtime_options,
+                    oauth=oauth,
+                )
+            )
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_url(
                 provider, model, url, normalized_runtime_options
@@ -464,14 +527,18 @@ class GopherAgent:
             return AgentResult.error(str(e))
 
     def dispose(self) -> None:
-        """Dispose of the agent and free resources."""
+        """
+        Dispose of the agent and free native resources deterministically.
+
+        A best-effort finalizer also releases forgotten agents during garbage
+        collection, but callers should prefer dispose() or a with block.
+        """
         if self._disposed:
             return
 
         self._disposed = True
-        lib = GopherOrchLibrary.get_instance()
-        if lib is not None and self._handle is not None:
-            lib.agent_release(self._handle)
+        if self._finalizer.alive:
+            self._finalizer()
 
     def is_disposed(self) -> bool:
         """Check if agent is disposed."""
@@ -491,6 +558,64 @@ def _setup_cleanup_handler() -> None:
 
     _cleanup_handler_registered = True
     atexit.register(GopherAgent.shutdown)
+
+
+def _release_handle_best_effort(handle: GopherOrchHandle) -> None:
+    try:
+        lib = GopherOrchLibrary.get_instance()
+        if lib is not None and handle is not None:
+            lib.agent_release(handle)
+    except Exception:
+        return
+
+
+def _create_from_api_config(
+    provider: str,
+    model: str,
+    api_key: str,
+    route: Optional[ServerConfigRoute],
+    runtime_options: Optional[GopherAgentRuntimeOptions],
+    oauth: Optional[GopherAgentOAuthOptions],
+) -> GopherAgent:
+    server_config = ServerConfig.fetch(api_key, route=route)
+    resolved_runtime_options = _run_oauth_coroutine(
+        lambda: oauth_resolver.resolve_runtime_options_with_oauth(
+            urls=[],
+            server_config=server_config,
+            runtime_options=runtime_options,
+            oauth=oauth,
+        )
+    )
+    return GopherAgent._create_from_ffi(
+        lambda lib: lib.agent_create_by_json(
+            provider, model, server_config, resolved_runtime_options
+        )
+    )
+
+
+def _run_oauth_coroutine(create_coroutine):
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(create_coroutine())
+    raise AgentError(
+        "SDK OAuth auto-flow cannot run inside an active asyncio event loop. "
+        "Provide runtime_options with access_token/Authorization, or set "
+        'oauth.mode to "disabled".'
+    )
+
+
+def _should_skip_oauth(
+    runtime_options: Optional[GopherAgentRuntimeOptions],
+    oauth: Optional[GopherAgentOAuthOptions],
+) -> bool:
+    if oauth is not None and oauth.mode == "disabled":
+        return True
+    if runtime_options is None:
+        return False
+    if runtime_options.access_token is not None:
+        return True
+    return any(name.lower() == "authorization" for name in runtime_options.headers)
 
 
 def _build_create_error_message() -> str:
