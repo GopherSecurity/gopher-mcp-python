@@ -193,3 +193,16 @@ def test_publish_workflow_removes_bundled_linux_openssl_after_copy() -> None:
     assert "-name 'libssl.so*'" in copy_step
     assert "-name 'libcrypto.so*'" in copy_step
     assert "-delete" in copy_step
+
+
+def test_publish_workflow_extracts_release_notes_from_versioned_changelog() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "publish-packages.yml").read_text()
+    release_notes_step = workflow[workflow.index("- name: Generate release notes") :]
+
+    assert 'awk -v version="$VERSION"' in release_notes_step
+    assert '"^## \\\\[\" version "\\\\]"' in release_notes_step
+    assert "sed '/^$/d' > changes.tmp" in release_notes_step
+    assert "cat changes.tmp >> RELEASE_NOTES.md" in release_notes_step
+    assert "No CHANGELOG.md entry found for ${VERSION}" in release_notes_step
+    assert "## \\[Unreleased\\]" not in release_notes_step
+    assert "wc -l < RELEASE_NOTES.md" not in release_notes_step
