@@ -7,7 +7,7 @@ This package contains the native gopher-mcp-python library for macOS on Intel.
 import os
 from pathlib import Path
 
-__version__ = "0.1.2"
+__version__ = "0.1.34"
 
 # Platform identifier
 PLATFORM = "darwin"
