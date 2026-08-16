@@ -83,10 +83,9 @@ def test_verify_examples_workflow_checks_linux_native_dependencies() -> None:
     assert "RPATH/RUNPATH without \\$ORIGIN" in workflow
     assert "ldd \"$sofile\"" in workflow
     assert "grep -Ev '^(libssl\\.so|libcrypto\\.so)'" in workflow
-    assert 'if [ "${{ github.event_name }}" = "pull_request" ]; then' in workflow
-    assert "OpenSSL libraries must remain system-provided in PR-built packages." in workflow
     assert "exit 1" in workflow
     assert "WARNING: OpenSSL libraries should remain system-provided" in workflow
+    assert "OpenSSL libraries must remain system-provided in PR-built packages." not in workflow
     assert "No Linux shared libraries found" in workflow
 
 
