@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gopher-mcp-python-native-darwin-x64"
-version = "0.1.2"
+version = "0.1.34"
 description = "Native library for gopher-mcp-python (macOS Intel)"
 readme = "README.md"
 license = {text = "Apache-2.0"}

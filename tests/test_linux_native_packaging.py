@@ -100,8 +100,9 @@ def test_verify_examples_live_checks_only_agent_response_body() -> None:
     assert "VERIFY_EXPECTED_ANSWER_TERMS" in script
     assert 'validate_expected_answer_terms "$answer_body"' in script
     assert "agent response contains an error" in script
-    assert 'VERIFY_LIVE_PROMPT="list my draft mails"' in workflow
-    assert 'VERIFY_EXPECTED_ANSWER="r-2553040815323886578"' in workflow
+    assert "unset GOPHER_SDK_TEST" in workflow
+    assert 'VERIFY_LIVE_PROMPT="Get my mail profile"' in workflow
+    assert 'VERIFY_EXPECTED_ANSWER="james.lu@gopher.security"' in workflow
     assert "Draft ID,Message ID,Thread ID" not in workflow
 
 
@@ -183,3 +184,13 @@ def test_publish_workflow_checks_linux_x64_dependencies() -> None:
     assert "ldd \"$sofile\"" in workflow
     assert "grep -Ev '^(libssl\\.so|libcrypto\\.so)'" in workflow
     assert "OpenSSL libraries must remain system-provided" in workflow
+
+
+def test_publish_workflow_removes_bundled_linux_openssl_after_copy() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "publish-packages.yml").read_text()
+    copy_step = workflow[workflow.index("- name: Copy binaries to package") :]
+
+    assert 'if [[ "${{ matrix.platform }}" == linux-* ]]; then' in copy_step
+    assert "-name 'libssl.so*'" in copy_step
+    assert "-name 'libcrypto.so*'" in copy_step
+    assert "-delete" in copy_step
