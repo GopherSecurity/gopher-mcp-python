@@ -143,11 +143,29 @@ def _handle_post(
     state: _CustomOAuthTestIdpState,
 ) -> None:
     parsed = urllib.parse.urlparse(handler.path)
-    if parsed.path != "/token":
-        handler.send_response(404)
-        handler.end_headers()
+    if parsed.path == "/register":
+        _json(
+            handler,
+            201,
+            {
+                "client_id": state.client_id,
+                "client_secret": state.client_secret,
+            },
+        )
         return
 
+    if parsed.path == "/token":
+        _handle_token_request(handler, state)
+        return
+
+    handler.send_response(404)
+    handler.end_headers()
+
+
+def _handle_token_request(
+    handler: BaseHTTPRequestHandler,
+    state: _CustomOAuthTestIdpState,
+) -> None:
     length = int(handler.headers.get("Content-Length", "0"))
     body = handler.rfile.read(length).decode("utf-8")
     params = urllib.parse.parse_qs(body)
