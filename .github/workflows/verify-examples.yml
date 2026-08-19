@@ -1,10 +1,10 @@
 name: Verify SDK Examples
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [iml_verify_auto]
+  schedule:
+    - cron: '17 10 * * 1'
   workflow_dispatch:
     inputs:
       mode:
@@ -66,9 +66,7 @@ jobs:
           python -m venv native-preflight
           source native-preflight/bin/activate
           python -m pip install --upgrade pip
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            python -m pip install -e . "gopher-mcp-python-native-${{ matrix.platform }}"
-          elif [ "$VERIFY_PYPI_VERSION" = "latest" ]; then
+          if [ "$VERIFY_PYPI_VERSION" = "latest" ]; then
             python -m pip install gopher-mcp-python gopher-mcp-python-native-${{ matrix.platform }}
           else
             python -m pip install "gopher-mcp-python==${VERIFY_PYPI_VERSION}" "gopher-mcp-python-native-${{ matrix.platform }}==${VERIFY_PYPI_VERSION}"
@@ -181,7 +179,6 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GOPHER_API_KEY: ${{ secrets.GOPHER_API_KEY }}
           GOPHER_MCP_URL: ${{ secrets.GOPHER_MCP_URL }}
-          SDK_INSTALL_SPEC: ${{ github.event_name == 'pull_request' && github.workspace || '' }}
         run: |
           unset GOPHER_SDK_TEST
           VERIFY_LIVE_PROMPT="Get my mail profile" \
