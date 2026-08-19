@@ -61,8 +61,10 @@ different from SDK correctness tests: they depend on provider availability,
 account security rules, valid refresh tokens, and live service configuration.
 
 Keep live smoke tests manual, scheduled, or otherwise separate from the stable
-pull-request gate. The API example workflow and docs live under
-`examples/api/`.
+pull-request gate. In this repository, `.github/workflows/oauth-verify.yml` is
+the pull-request OAuth gate, while `.github/workflows/verify-examples.yml` is
+reserved for scheduled, branch-triggered, or manually dispatched example smoke
+verification. The API example workflow and docs live under `examples/api/`.
 
 For a possible full native end-to-end extension, see
 [`oauth-auto-native-follow-up.md`](oauth-auto-native-follow-up.md).
