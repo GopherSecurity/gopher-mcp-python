@@ -63,3 +63,6 @@ account security rules, valid refresh tokens, and live service configuration.
 Keep live smoke tests manual, scheduled, or otherwise separate from the stable
 pull-request gate. The API example workflow and docs live under
 `examples/api/`.
+
+For a possible full native end-to-end extension, see
+[`oauth-auto-native-follow-up.md`](oauth-auto-native-follow-up.md).
