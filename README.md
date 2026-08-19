@@ -190,6 +190,10 @@ Result class with status and metadata.
 pytest
 ```
 
+For deterministic OAuth auto verification with a local custom IdP and local MCP
+server/gateway endpoints, see
+[`docs/oauth-auto-custom-idp.md`](docs/oauth-auto-custom-idp.md).
+
 ### Code Formatting
 
 This project uses Black for code formatting and Ruff for linting.
