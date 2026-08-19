@@ -72,6 +72,29 @@ def test_injects_refreshed_token_for_direct_mcp_server_endpoint(
     monkeypatch,
     capsys,
 ) -> None:
+    _expect_refreshed_token_injected_for_endpoint_name(
+        monkeypatch,
+        capsys,
+        endpoint_name="server",
+    )
+
+
+def test_injects_refreshed_token_for_mcp_gateway_endpoint(
+    monkeypatch,
+    capsys,
+) -> None:
+    _expect_refreshed_token_injected_for_endpoint_name(
+        monkeypatch,
+        capsys,
+        endpoint_name="gateway",
+    )
+
+
+def _expect_refreshed_token_injected_for_endpoint_name(
+    monkeypatch,
+    capsys,
+    endpoint_name: str,
+) -> None:
     idp = start_custom_oauth_test_idp()
     endpoints = start_custom_protected_mcp_endpoints(
         CustomProtectedMcpEndpointsOptions(
@@ -82,7 +105,7 @@ def test_injects_refreshed_token_for_direct_mcp_server_endpoint(
     try:
         _expect_refreshed_token_injected_for_endpoint(
             monkeypatch,
-            endpoint=endpoints.server,
+            endpoint=getattr(endpoints, endpoint_name),
         )
     finally:
         endpoints.close()
