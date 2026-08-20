@@ -23,6 +23,10 @@ def _verify_examples_workflow() -> str:
     return (ROOT / ".github" / "workflows" / "verify-examples.yml").read_text()
 
 
+def _oauth_verify_workflow() -> str:
+    return (ROOT / ".github" / "workflows" / "oauth-verify.yml").read_text()
+
+
 def _verify_examples_script() -> str:
     return (ROOT / "scripts" / "verify-examples.sh").read_text()
 
@@ -46,22 +50,28 @@ def test_linux_x64_uses_digest_pinned_ubuntu_builder_image() -> None:
     assert re.search(r"\subuntu:20\.04\s", build_script) is None
 
 
-def test_verify_examples_prs_install_checked_out_sdk() -> None:
+def test_oauth_verify_prs_install_checked_out_sdk() -> None:
+    workflow = _oauth_verify_workflow()
+
+    assert "pull_request:" in workflow
+    assert "branches: [main]" in workflow
+    assert 'python -m pip install -e ".[dev]"' in workflow
+    assert "scripts/test-oauth-custom-idp.sh" in workflow
+
+
+def test_verify_examples_workflow_stays_optional_for_live_smoke() -> None:
     workflow = _verify_examples_workflow()
 
     assert (
         "VERIFY_EXAMPLES_MODE: ${{ github.event_name == 'workflow_dispatch' "
         "&& inputs.mode || 'auto' }}"
     ) in workflow
-    assert 'if [ "${{ github.event_name }}" = "pull_request" ]; then' in workflow
-    assert (
-        'python -m pip install -e . "gopher-mcp-python-native-${{ matrix.platform }}"'
-        in workflow
-    )
-    assert (
-        "SDK_INSTALL_SPEC: ${{ github.event_name == 'pull_request' && "
-        "github.workspace || '' }}"
-    ) in workflow
+    assert "pull_request:" not in workflow
+    assert "schedule:" in workflow
+    assert "workflow_dispatch:" in workflow
+    assert "branches: [iml_verify_auto]" in workflow
+    assert 'if [ "${{ github.event_name }}" = "pull_request" ]; then' not in workflow
+    assert "SDK_INSTALL_SPEC:" not in workflow
 
 
 def test_verify_examples_workflow_bounds_pr_cost_and_runtime() -> None:
