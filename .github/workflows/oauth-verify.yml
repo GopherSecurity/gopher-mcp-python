@@ -1,6 +1,8 @@
 name: OAuth Verify
 
 on:
+  push:
+    branches: [main, feature/sdk-oauth-verify]
   pull_request:
     branches: [main]
   workflow_dispatch:
