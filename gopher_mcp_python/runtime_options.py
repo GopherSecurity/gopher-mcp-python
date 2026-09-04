@@ -252,9 +252,17 @@ def normalize_create_options(
         access_token = options.get("access_token")
         headers = options.get("headers")
         oauth = options.get("oauth")
+        has_elicitation = "elicitation" in options
         elicitation = options.get("elicitation")
         if access_token == "":
             access_token = None
+        if (
+            access_token is None
+            and (headers is None or len(headers) == 0)
+            and oauth is None
+            and not has_elicitation
+        ):
+            return None
         return GopherAgentCreateOptions(
             access_token=access_token,
             headers=headers,

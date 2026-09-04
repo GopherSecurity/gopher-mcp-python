@@ -206,13 +206,19 @@ class GopherAgentConfigBuilder:
         current_oauth = (
             self._runtime_options.oauth if self._runtime_options is not None else None
         )
-        self._runtime_options = normalize_create_options(
-            {
-                "access_token": access_token,
-                "headers": current_headers,
-                "oauth": current_oauth,
-            }
+        current_elicitation = (
+            self._runtime_options.elicitation
+            if self._runtime_options is not None
+            else None
         )
+        next_options = {
+            "access_token": access_token,
+            "headers": current_headers,
+            "oauth": current_oauth,
+        }
+        if current_elicitation is not None:
+            next_options["elicitation"] = current_elicitation
+        self._runtime_options = normalize_create_options(next_options)
         return self
 
     def headers(self, headers: Mapping[str, str]) -> "GopherAgentConfigBuilder":
@@ -233,13 +239,19 @@ class GopherAgentConfigBuilder:
         current_oauth = (
             self._runtime_options.oauth if self._runtime_options is not None else None
         )
-        self._runtime_options = normalize_create_options(
-            {
-                "access_token": current_token,
-                "headers": headers,
-                "oauth": current_oauth,
-            }
+        current_elicitation = (
+            self._runtime_options.elicitation
+            if self._runtime_options is not None
+            else None
         )
+        next_options = {
+            "access_token": current_token,
+            "headers": headers,
+            "oauth": current_oauth,
+        }
+        if current_elicitation is not None:
+            next_options["elicitation"] = current_elicitation
+        self._runtime_options = normalize_create_options(next_options)
         return self
 
     def build(self) -> GopherAgentConfig:
