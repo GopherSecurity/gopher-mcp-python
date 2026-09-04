@@ -145,10 +145,18 @@ class GopherAgentRuntimeOptions:
         self,
         access_token: Optional[str] = None,
         headers: Optional[Mapping[str, str]] = None,
+        elicitation: Optional[
+            Union[GopherAgentElicitationOptions, Mapping[str, Any]]
+        ] = None,
     ) -> None:
         normalized_access_token = _normalize_access_token(access_token)
         self._access_token = normalized_access_token
         self._headers = _normalize_headers(normalized_access_token, headers)
+        self._elicitation = (
+            normalize_elicitation_options(elicitation)
+            if elicitation is not None
+            else None
+        )
 
     @property
     def access_token(self) -> Optional[str]:
@@ -159,6 +167,11 @@ class GopherAgentRuntimeOptions:
     def headers(self) -> Dict[str, str]:
         """Get dynamic MCP runtime headers."""
         return dict(self._headers)
+
+    @property
+    def elicitation(self) -> Optional[GopherAgentElicitationOptions]:
+        """Get MCP elicitation options, if configured."""
+        return self._elicitation
 
 
 def normalize_runtime_options(
@@ -174,11 +187,16 @@ def normalize_runtime_options(
         return None
 
     if isinstance(options, (GopherAgentRuntimeOptions, GopherAgentCreateOptions)):
-        if options.access_token is None and len(options.headers) == 0:
+        if (
+            options.access_token is None
+            and len(options.headers) == 0
+            and options.elicitation is None
+        ):
             return None
         return GopherAgentRuntimeOptions(
             access_token=options.access_token,
             headers=options.headers,
+            elicitation=options.elicitation,
         )
 
     if isinstance(options, Mapping):
@@ -186,9 +204,18 @@ def normalize_runtime_options(
         headers = options.get("headers")
         if access_token == "":
             access_token = None
-        if access_token is None and (headers is None or len(headers) == 0):
+        elicitation = options.get("elicitation")
+        if (
+            access_token is None
+            and (headers is None or len(headers) == 0)
+            and elicitation is None
+        ):
             return None
-        return GopherAgentRuntimeOptions(access_token=access_token, headers=headers)
+        return GopherAgentRuntimeOptions(
+            access_token=access_token,
+            headers=headers,
+            elicitation=elicitation,
+        )
 
     raise ValueError(
         "runtime_options must be a GopherAgentRuntimeOptions instance or mapping"
@@ -218,6 +245,7 @@ def normalize_create_options(
         return GopherAgentCreateOptions(
             access_token=options.access_token,
             headers=options.headers,
+            elicitation=options.elicitation,
         )
 
     if isinstance(options, Mapping):
