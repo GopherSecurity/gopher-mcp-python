@@ -76,6 +76,12 @@ def _install_fake_library(monkeypatch):
     return fake
 
 
+def _assert_default_elicitation(options):
+    assert options is not None
+    assert options.elicitation is not None
+    assert options.elicitation.handler is None
+
+
 def test_create_with_url_resolves_oauth_token(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
     resolver_calls = []
@@ -122,13 +128,11 @@ def test_create_with_url_disabled_oauth_skips_resolver(monkeypatch) -> None:
         {"oauth": {"mode": "disabled"}},
     )
 
-    assert fake.calls[0] == (
-        "url",
-        "Provider",
-        "model",
-        "https://mcp.example.com/mcp",
-        None,
-    )
+    call = fake.calls[0]
+    assert call[:4] == ("url", "Provider", "model", "https://mcp.example.com/mcp")
+    assert call[4].access_token is None
+    assert call[4].headers == {}
+    _assert_default_elicitation(call[4])
     agent.dispose()
 
 
@@ -328,14 +332,17 @@ def test_create_with_gateway_id_disabled_oauth_uses_native_selector(
         {"oauth": {"mode": "disabled"}},
     )
 
-    assert fake.calls[0] == (
+    call = fake.calls[0]
+    assert call[:5] == (
         "gateway_id",
         "Provider",
         "model",
         "api-key",
         "gateway-id",
-        None,
     )
+    assert call[5].access_token is None
+    assert call[5].headers == {}
+    _assert_default_elicitation(call[5])
     agent.dispose()
 
 
