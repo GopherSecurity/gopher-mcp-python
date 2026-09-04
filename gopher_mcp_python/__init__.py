@@ -30,6 +30,8 @@ from gopher_mcp_python.config import (
     GopherAgentConfigBuilder,
 )
 from gopher_mcp_python.elicitation import (
+    GopherAgentElicitationAction,
+    GopherAgentElicitationHandler,
     GopherAgentElicitationOptions,
     GopherAgentElicitationRequest,
     GopherAgentElicitationResponse,
@@ -133,6 +135,8 @@ __all__ = [
     "GopherAgentConfig",
     "GopherAgentConfigBuilder",
     "GopherAgentCreateOptions",
+    "GopherAgentElicitationAction",
+    "GopherAgentElicitationHandler",
     "GopherAgentElicitationOptions",
     "GopherAgentElicitationRequest",
     "GopherAgentElicitationResponse",
