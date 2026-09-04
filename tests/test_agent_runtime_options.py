@@ -89,6 +89,12 @@ def _assert_normalized_options(options, expected_headers):
     assert options.headers == expected_headers
 
 
+def _assert_default_elicitation(options):
+    assert options is not None
+    assert options.elicitation is not None
+    assert options.elicitation.handler is None
+
+
 def test_create_passes_runtime_options_for_api_key_config(fake_library) -> None:
     config = (
         GopherAgentConfig.builder()
@@ -194,7 +200,10 @@ def test_direct_factory_normalizes_empty_runtime_options(fake_library) -> None:
     )
 
     call = fake_library.calls[0]
-    assert call == ("url", "Provider", "model", "http://127.0.0.1:5001/mcp", None)
+    assert call[:4] == ("url", "Provider", "model", "http://127.0.0.1:5001/mcp")
+    assert call[4].access_token is None
+    assert call[4].headers == {}
+    _assert_default_elicitation(call[4])
     agent.dispose()
 
 
