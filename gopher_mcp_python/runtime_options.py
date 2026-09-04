@@ -8,6 +8,11 @@ import cycle.
 
 from typing import Any, Dict, List, Mapping, Optional, Protocol, Union
 
+from gopher_mcp_python.elicitation import (
+    GopherAgentElicitationOptions,
+    normalize_elicitation_options,
+)
+
 RuntimeOptionsInput = Optional[
     Union["GopherAgentRuntimeOptions", "GopherAgentCreateOptions", Mapping[str, Any]]
 ]
@@ -97,11 +102,15 @@ class GopherAgentCreateOptions:
         access_token: Optional[str] = None,
         headers: Optional[Mapping[str, str]] = None,
         oauth: Optional[Union[GopherAgentOAuthOptions, Mapping[str, Any]]] = None,
+        elicitation: Optional[
+            Union[GopherAgentElicitationOptions, Mapping[str, Any]]
+        ] = None,
     ) -> None:
         runtime = GopherAgentRuntimeOptions(access_token=access_token, headers=headers)
         self._access_token = runtime.access_token
         self._headers = runtime.headers
         self._oauth = normalize_oauth_options(oauth)
+        self._elicitation = normalize_elicitation_options(elicitation)
 
     @property
     def access_token(self) -> Optional[str]:
@@ -117,6 +126,11 @@ class GopherAgentCreateOptions:
     def oauth(self) -> Optional[GopherAgentOAuthOptions]:
         """Get SDK-side OAuth options."""
         return self._oauth
+
+    @property
+    def elicitation(self) -> GopherAgentElicitationOptions:
+        """Get MCP elicitation options."""
+        return self._elicitation
 
 
 class GopherAgentRuntimeOptions:
@@ -193,6 +207,7 @@ def normalize_create_options(
             options.access_token is None
             and len(options.headers) == 0
             and options.oauth is None
+            and options.elicitation is None
         ):
             return None
         return options
@@ -209,18 +224,14 @@ def normalize_create_options(
         access_token = options.get("access_token")
         headers = options.get("headers")
         oauth = options.get("oauth")
+        elicitation = options.get("elicitation")
         if access_token == "":
             access_token = None
-        if access_token is None and (headers is None or len(headers) == 0):
-            runtime_empty = True
-        else:
-            runtime_empty = False
-        if runtime_empty and oauth is None:
-            return None
         return GopherAgentCreateOptions(
             access_token=access_token,
             headers=headers,
             oauth=oauth,
+            elicitation=elicitation,
         )
 
     raise ValueError(
