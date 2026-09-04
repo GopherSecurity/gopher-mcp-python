@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add automatic provider OAuth elicitation support for agent creation. URL-mode
+  MCP elicitation now opens or prints the authorization URL by default, accepts
+  after user confirmation, and retries the native tool call without requiring
+  example-level configuration.
+
+### Changed
+
+- Update the vendored `gopher-orch` native dependency to include the Streamable
+  HTTP retry fix for stalled inline provider OAuth elicitation.
 
 ## [0.1.34] - 2026-08-16
 
