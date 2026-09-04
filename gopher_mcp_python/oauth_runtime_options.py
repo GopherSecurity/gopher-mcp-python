@@ -26,4 +26,5 @@ def merge_oauth_token_into_runtime_options(
     return GopherAgentRuntimeOptions(
         access_token=token.access_token,
         headers=headers,
+        elicitation=normalized.elicitation if normalized is not None else None,
     )
