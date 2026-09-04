@@ -29,6 +29,11 @@ from gopher_mcp_python.config import (
     GopherAgentConfig,
     GopherAgentConfigBuilder,
 )
+from gopher_mcp_python.elicitation import (
+    GopherAgentElicitationOptions,
+    GopherAgentElicitationRequest,
+    GopherAgentElicitationResponse,
+)
 from gopher_mcp_python.runtime_options import (
     GopherAgentCreateOptions,
     GopherAgentOAuthOptions,
@@ -128,6 +133,9 @@ __all__ = [
     "GopherAgentConfig",
     "GopherAgentConfigBuilder",
     "GopherAgentCreateOptions",
+    "GopherAgentElicitationOptions",
+    "GopherAgentElicitationRequest",
+    "GopherAgentElicitationResponse",
     "GopherAgentOAuthOptions",
     "GopherAgentRuntimeOptions",
     "GopherAgentTokenRecord",
