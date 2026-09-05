@@ -7,7 +7,7 @@ This package contains the native gopher-mcp-python library for Windows on ARM64.
 import os
 from pathlib import Path
 
-__version__ = "0.1.34"
+__version__ = "0.1.38"
 
 # Platform identifier
 PLATFORM = "win32"
