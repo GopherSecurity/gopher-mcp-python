@@ -31,6 +31,9 @@ import asyncio
 import weakref
 from typing import Callable, Optional
 
+from gopher_mcp_python.gateway_elicitation_preflight import (
+    preflight_gateway_elicitation,
+)
 import gopher_mcp_python.oauth_resolver as oauth_resolver
 from gopher_mcp_python.config import GopherAgentConfig
 from gopher_mcp_python.runtime_options import (
@@ -429,6 +432,11 @@ class GopherAgent:
                     oauth=oauth,
                 )
             )
+        normalized_runtime_options = preflight_gateway_elicitation(
+            url,
+            normalized_runtime_options,
+            create_options,
+        )
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_url(
                 provider, model, url, normalized_runtime_options

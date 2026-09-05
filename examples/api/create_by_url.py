@@ -22,6 +22,7 @@ Configuration (env vars):
     GOPHER_ACCESS_TOKEN Optional. Bearer token for protected MCP runtime traffic.
     GOPHER_MCP_OAUTH Optional. Set to "disabled" to skip SDK OAuth discovery.
     GOPHER_MCP_OAUTH_SCOPES Optional. Space/comma separated OAuth scopes.
+    GOPHER_ORCH_LIBRARY_PATH Optional. Local native gopher-orch library directory.
     LLM_PROVIDER    Optional. Defaults to "AnthropicProvider".
     LLM_MODEL       Required. Model identifier the provider accepts.
     DEBUG           When set, ctypes prints library-resolution diagnostics.
@@ -53,7 +54,8 @@ def main() -> None:
     print(f"Usage: python3 {sys.argv[0]} [query1] [query2] ...")
     print(
         "Env:   GOPHER_MCP_URL GOPHER_ACCESS_TOKEN GOPHER_MCP_OAUTH "
-        "GOPHER_MCP_OAUTH_SCOPES LLM_PROVIDER LLM_MODEL DEBUG"
+        "GOPHER_MCP_OAUTH_SCOPES GOPHER_ORCH_LIBRARY_PATH "
+        "LLM_PROVIDER LLM_MODEL DEBUG"
     )
     print("")
 
@@ -65,6 +67,7 @@ def main() -> None:
     access_token = env_or("GOPHER_ACCESS_TOKEN", "")
     oauth_mode = env_or("GOPHER_MCP_OAUTH", "auto")
     oauth_scopes = parse_oauth_scopes(env_or("GOPHER_MCP_OAUTH_SCOPES", ""))
+    native_library_path = env_or("GOPHER_ORCH_LIBRARY_PATH", "")
 
     print(f"Provider: {provider}")
     model_label = f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
@@ -81,6 +84,14 @@ def main() -> None:
     )
     print(f"OAuth:    {oauth_mode}")
     print("Scopes:   " + (" ".join(oauth_scopes) if oauth_scopes else "<auto>"))
+    print(
+        "Native:   "
+        + (
+            native_library_path
+            if native_library_path != ""
+            else "<package/default resolution>"
+        )
+    )
     print(f"Queries:  {len(queries)}")
 
     if model == MODEL_PLACEHOLDER or url == URL_PLACEHOLDER:
