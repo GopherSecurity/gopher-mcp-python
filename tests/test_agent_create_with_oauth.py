@@ -76,6 +76,12 @@ def _install_fake_library(monkeypatch):
     return fake
 
 
+def _assert_default_elicitation(options):
+    assert options is not None
+    assert options.elicitation is not None
+    assert options.elicitation.handler is None
+
+
 def test_create_with_url_resolves_oauth_token(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
     resolver_calls = []
@@ -122,13 +128,11 @@ def test_create_with_url_disabled_oauth_skips_resolver(monkeypatch) -> None:
         {"oauth": {"mode": "disabled"}},
     )
 
-    assert fake.calls[0] == (
-        "url",
-        "Provider",
-        "model",
-        "https://mcp.example.com/mcp",
-        None,
-    )
+    call = fake.calls[0]
+    assert call[:4] == ("url", "Provider", "model", "https://mcp.example.com/mcp")
+    assert call[4].access_token is None
+    assert call[4].headers == {}
+    _assert_default_elicitation(call[4])
     agent.dispose()
 
 
@@ -154,6 +158,57 @@ def test_create_with_url_explicit_token_skips_resolver(monkeypatch) -> None:
     call = fake.calls[0]
     assert call[:4] == ("url", "Provider", "model", "https://mcp.example.com/mcp")
     assert call[4].access_token == "caller-token"
+    agent.dispose()
+
+
+def test_create_with_url_passes_gateway_preflight_session_to_native(
+    monkeypatch,
+) -> None:
+    fake = _install_fake_library(monkeypatch)
+    preflight_calls = []
+
+    async def resolver(*args, **kwargs):
+        raise AssertionError("resolver should not run")
+
+    def preflight(url, runtime_options, create_options):
+        preflight_calls.append((url, runtime_options, create_options))
+        return GopherAgentRuntimeOptions(
+            access_token=runtime_options.access_token,
+            headers={
+                **runtime_options.headers,
+                "Mcp-Session-Id": "session-1",
+            },
+            elicitation=runtime_options.elicitation,
+        )
+
+    monkeypatch.setattr(
+        agent_module.oauth_resolver,
+        "resolve_url_runtime_options_with_oauth",
+        resolver,
+    )
+    monkeypatch.setattr(agent_module, "preflight_gateway_elicitation", preflight)
+
+    agent = GopherAgent.create_with_url(
+        "Provider",
+        "model",
+        "https://mcp-test.gopher.security/v1/mcp/gateways/gw-1/mcp",
+        {"access_token": "caller-token"},
+    )
+
+    call = fake.calls[0]
+    assert call[:4] == (
+        "url",
+        "Provider",
+        "model",
+        "https://mcp-test.gopher.security/v1/mcp/gateways/gw-1/mcp",
+    )
+    assert call[4].headers == {
+        "Authorization": "Bearer caller-token",
+        "Mcp-Session-Id": "session-1",
+    }
+    assert preflight_calls[0][0] == (
+        "https://mcp-test.gopher.security/v1/mcp/gateways/gw-1/mcp"
+    )
     agent.dispose()
 
 
@@ -328,14 +383,17 @@ def test_create_with_gateway_id_disabled_oauth_uses_native_selector(
         {"oauth": {"mode": "disabled"}},
     )
 
-    assert fake.calls[0] == (
+    call = fake.calls[0]
+    assert call[:5] == (
         "gateway_id",
         "Provider",
         "model",
         "api-key",
         "gateway-id",
-        None,
     )
+    assert call[5].access_token is None
+    assert call[5].headers == {}
+    _assert_default_elicitation(call[5])
     agent.dispose()
 
 

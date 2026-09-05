@@ -37,7 +37,10 @@ def test_oauth_token_fills_empty_options() -> None:
 
 def test_existing_unrelated_headers_are_preserved() -> None:
     result = merge_oauth_token_into_runtime_options(
-        GopherAgentRuntimeOptions(headers={"X-Tenant": "tenant-a"}),
+        GopherAgentRuntimeOptions(
+            headers={"X-Tenant": "tenant-a"},
+            elicitation={"open_browser": False},
+        ),
         TOKEN,
     )
 
@@ -46,3 +49,5 @@ def test_existing_unrelated_headers_are_preserved() -> None:
         "Authorization": "Bearer oauth-token",
     }
     assert result.access_token == "oauth-token"
+    assert result.elicitation is not None
+    assert result.elicitation.open_browser is False

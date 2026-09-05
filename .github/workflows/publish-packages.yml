@@ -11,7 +11,7 @@ env:
   # Version is read from pyproject.toml - update with: python scripts/update_version.py <version>
   DRY_RUN: 'false'
   # gopher-orch version to download native binaries from (may differ from SDK version)
-  GOPHER_ORCH_VERSION: 'v0.1.34'
+  GOPHER_ORCH_VERSION: 'v0.1.38'
 
 jobs:
   download-binaries:

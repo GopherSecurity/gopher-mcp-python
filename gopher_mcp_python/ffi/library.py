@@ -6,11 +6,27 @@ import ctypes
 import os
 import re
 import sys
-from ctypes import c_char_p, c_void_p, c_int32, c_int64, c_size_t, POINTER, Structure
+from ctypes import (
+    CFUNCTYPE,
+    POINTER,
+    Structure,
+    c_char_p,
+    c_int32,
+    c_int64,
+    c_size_t,
+    c_uint64,
+    c_void_p,
+)
 from pathlib import Path
-from typing import Optional, Any, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from gopher_mcp_python.errors import AgentError
+from gopher_mcp_python.elicitation_runtime import (
+    ELICITATION_ACTION_CANCEL,
+    native_action_from_elicitation_action,
+    resolve_elicitation_action_sync,
+    to_elicitation_request,
+)
 from gopher_mcp_python.runtime_options import (
     GopherAgentRuntimeOptions,
     RuntimeOptionsInput,
@@ -19,6 +35,7 @@ from gopher_mcp_python.runtime_options import (
 
 # Type alias for opaque handle
 GopherOrchHandle = c_void_p
+MIN_ELICITATION_NATIVE_PACKAGE_VERSION = "0.1.35"
 
 
 class GopherOrchErrorInfo(Structure):
@@ -57,6 +74,38 @@ class GopherOrchHeader(Structure):
     ]
 
 
+class GopherOrchElicitationRequest(Structure):
+    """
+    Elicitation request structure matching C:
+    typedef struct {
+        const char* request_id_json;
+        const char* elicitation_id;
+        const char* mode;
+        const char* message;
+        const char* url;
+        const char* raw_json;
+        const char* raw_params_json;
+    } gopher_orch_elicitation_request_t;
+    """
+
+    _fields_ = [
+        ("request_id_json", c_char_p),
+        ("elicitation_id", c_char_p),
+        ("mode", c_char_p),
+        ("message", c_char_p),
+        ("url", c_char_p),
+        ("raw_json", c_char_p),
+        ("raw_params_json", c_char_p),
+    ]
+
+
+GopherOrchElicitationCallback = CFUNCTYPE(
+    c_int32,
+    POINTER(GopherOrchElicitationRequest),
+    c_void_p,
+)
+
+
 class GopherOrchAgentOptions(Structure):
     """
     Agent runtime options structure matching C:
@@ -66,6 +115,9 @@ class GopherOrchAgentOptions(Structure):
         gopher_orch_size_t header_count;
         const gopher_orch_server_agent_options_t* server_options;
         gopher_orch_size_t server_option_count;
+        gopher_orch_elicitation_callback_t elicitation_callback;
+        void* elicitation_user_data;
+        gopher_orch_duration_ms_t elicitation_timeout_ms;
     } gopher_orch_agent_options_t;
     """
 
@@ -75,14 +127,22 @@ class GopherOrchAgentOptions(Structure):
         ("header_count", c_size_t),
         ("server_options", c_void_p),
         ("server_option_count", c_size_t),
+        ("elicitation_callback", c_void_p),
+        ("elicitation_user_data", c_void_p),
+        ("elicitation_timeout_ms", c_uint64),
     ]
 
 
 class _AgentOptionsStorage:
     """Owns ctypes memory for a gopher_orch_agent_options_t call."""
 
-    def __init__(self, options: GopherAgentRuntimeOptions) -> None:
+    def __init__(
+        self,
+        options: GopherAgentRuntimeOptions,
+        supports_elicitation: bool,
+    ) -> None:
         self._bytes = []
+        self.elicitation_callback = None
 
         access_token = options.access_token
         if access_token is not None:
@@ -107,17 +167,44 @@ class _AgentOptionsStorage:
             self.header_array = None
             headers_ptr = None
 
+        elicitation = options.elicitation
+        if elicitation is not None:
+            if not supports_elicitation:
+                raise AgentError(
+                    "The loaded gopher-orch native library does not expose MCP "
+                    "elicitation callback support. Rebuild or update "
+                    "gopher-orch before using provider OAuth elicitation."
+                )
+            self.elicitation_callback = _create_elicitation_callback(elicitation)
+            elicitation_timeout_ms = elicitation.timeout_ms or 0
+        else:
+            elicitation_timeout_ms = 0
+        elicitation_callback_ptr = (
+            ctypes.cast(self.elicitation_callback, c_void_p)
+            if self.elicitation_callback is not None
+            else None
+        )
+
         self.options = GopherOrchAgentOptions(
             access_token_bytes,
             headers_ptr,
             self.header_count,
             None,
             0,
+            elicitation_callback_ptr,
+            None,
+            elicitation_timeout_ms,
         )
 
     @property
     def pointer(self):
         return ctypes.byref(self.options)
+
+
+class _RetainedAgentOptionsStorage:
+    def __init__(self, storage: _AgentOptionsStorage) -> None:
+        self.storage = storage
+        self.ref_count = 1
 
 
 class GopherOrchLibrary:
@@ -132,6 +219,9 @@ class GopherOrchLibrary:
 
     def __init__(self) -> None:
         self._load_errors = []
+        self._loaded_library_path: Optional[str] = None
+        self._loaded_native_package_version: Optional[str] = None
+        self._agent_option_storage: Dict[int, _RetainedAgentOptionsStorage] = {}
         self._load_library()
 
     @classmethod
@@ -177,6 +267,10 @@ class GopherOrchLibrary:
         if env_lib_file:
             try:
                 self._lib = ctypes.CDLL(env_lib_file)
+                self._loaded_library_path = env_lib_file
+                self._loaded_native_package_version = _native_version_from_path(
+                    env_lib_file
+                )
                 self._setup_functions()
                 self._available = True
                 return
@@ -200,6 +294,11 @@ class GopherOrchLibrary:
             if os.path.exists(lib_file):
                 try:
                     self._lib = ctypes.CDLL(lib_file)
+                    self._loaded_library_path = lib_file
+                    if self._loaded_native_package_version is None:
+                        self._loaded_native_package_version = _native_version_from_path(
+                            lib_file
+                        )
                     self._setup_functions()
                     self._available = True
                     return
@@ -213,6 +312,10 @@ class GopherOrchLibrary:
         # Try loading by name (system paths)
         try:
             self._lib = ctypes.CDLL(library_name)
+            self._loaded_library_path = library_name
+            self._loaded_native_package_version = _native_version_from_path(
+                library_name
+            )
             self._setup_functions()
             self._available = True
             return
@@ -239,23 +342,23 @@ class GopherOrchLibrary:
         if not os.path.isdir(candidate):
             return None
 
-        direct = os.path.join(candidate, library_name)
-        if os.path.exists(direct):
-            return direct
-
         matches = [
             name
             for name in os.listdir(candidate)
             if _library_version_key(name, library_name) is not None
         ]
-        if not matches:
-            return None
+        if matches:
+            matches.sort(
+                key=lambda name: _library_version_key(name, library_name),
+                reverse=True,
+            )
+            return os.path.join(candidate, matches[0])
 
-        matches.sort(
-            key=lambda name: _library_version_key(name, library_name),
-            reverse=True,
-        )
-        return os.path.join(candidate, matches[0])
+        direct = os.path.join(candidate, library_name)
+        if os.path.exists(direct):
+            return direct
+
+        return None
 
     def _record_load_error(self, message: str) -> None:
         self._load_errors.append(message)
@@ -274,6 +377,10 @@ class GopherOrchLibrary:
         self._bind_optional_agent_options_symbol(
             "gopher_orch_agent_create_by_json_with_options",
             [c_char_p, c_char_p, c_char_p, POINTER(GopherOrchAgentOptions)],
+        )
+        self._bind_optional_int_symbol(
+            "gopher_orch_agent_options_supports_elicitation",
+            [],
         )
 
         self._lib.gopher_orch_agent_create_by_api_key.argtypes = [
@@ -402,6 +509,16 @@ class GopherOrchLibrary:
         except AttributeError:
             pass
 
+    def _bind_optional_int_symbol(self, name: str, argtypes: list) -> None:
+        if self._lib is None:
+            return
+        try:
+            fn = getattr(self._lib, name)
+            fn.argtypes = argtypes
+            fn.restype = c_int32
+        except AttributeError:
+            pass
+
     def _get_library_name(self) -> str:
         if sys.platform == "darwin":
             return "libgopher-orch.dylib"
@@ -454,6 +571,7 @@ class GopherOrchLibrary:
         try:
             # Try to import the platform-specific package
             native_pkg = __import__(package_name)
+            self._loaded_native_package_version = getattr(native_pkg, "__version__", None)
             lib_path = native_pkg.get_lib_path()
             if lib_path.exists():
                 if self._debug:
@@ -540,12 +658,14 @@ class GopherOrchLibrary:
             )
             if fn is None:
                 raise AgentError(self._missing_options_symbol_message())
-            return fn(
+            handle = fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
                 server_json.encode("utf-8"),
                 options.pointer,
             )
+            self._retain_agent_option_storage(handle, options)
+            return handle
         return self._lib.gopher_orch_agent_create_by_json(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -569,12 +689,14 @@ class GopherOrchLibrary:
             )
             if fn is None:
                 raise AgentError(self._missing_options_symbol_message())
-            return fn(
+            handle = fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
                 api_key.encode("utf-8"),
                 options.pointer,
             )
+            self._retain_agent_option_storage(handle, options)
+            return handle
         return self._lib.gopher_orch_agent_create_by_api_key(
             provider.encode("utf-8"),
             model.encode("utf-8"),
@@ -604,13 +726,15 @@ class GopherOrchLibrary:
             )
             if fn is None:
                 raise AgentError(self._missing_options_symbol_message())
-            return fn(
+            handle = fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
                 api_key.encode("utf-8"),
                 server_id.encode("utf-8"),
                 options.pointer,
             )
+            self._retain_agent_option_storage(handle, options)
+            return handle
         fn = getattr(self._lib, "gopher_orch_agent_create_by_server_id", None)
         if fn is None:
             raise AgentError(_missing_routing_factory_message())
@@ -642,13 +766,15 @@ class GopherOrchLibrary:
             )
             if fn is None:
                 raise AgentError(self._missing_options_symbol_message())
-            return fn(
+            handle = fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
                 api_key.encode("utf-8"),
                 server_name.encode("utf-8"),
                 options.pointer,
             )
+            self._retain_agent_option_storage(handle, options)
+            return handle
         fn = getattr(self._lib, "gopher_orch_agent_create_by_server_name", None)
         if fn is None:
             raise AgentError(_missing_routing_factory_message())
@@ -682,13 +808,15 @@ class GopherOrchLibrary:
             )
             if fn is None:
                 raise AgentError(self._missing_options_symbol_message())
-            return fn(
+            handle = fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
                 api_key.encode("utf-8"),
                 gateway_id.encode("utf-8"),
                 options.pointer,
             )
+            self._retain_agent_option_storage(handle, options)
+            return handle
         fn = getattr(self._lib, "gopher_orch_agent_create_by_gateway_id", None)
         if fn is None:
             raise AgentError(_missing_routing_factory_message())
@@ -722,13 +850,15 @@ class GopherOrchLibrary:
             )
             if fn is None:
                 raise AgentError(self._missing_options_symbol_message())
-            return fn(
+            handle = fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
                 api_key.encode("utf-8"),
                 gateway_name.encode("utf-8"),
                 options.pointer,
             )
+            self._retain_agent_option_storage(handle, options)
+            return handle
         fn = getattr(self._lib, "gopher_orch_agent_create_by_gateway_name", None)
         if fn is None:
             raise AgentError(_missing_routing_factory_message())
@@ -759,12 +889,14 @@ class GopherOrchLibrary:
             fn = getattr(self._lib, "gopher_orch_agent_create_by_url_with_options", None)
             if fn is None:
                 raise AgentError(self._missing_options_symbol_message())
-            return fn(
+            handle = fn(
                 provider.encode("utf-8"),
                 model.encode("utf-8"),
                 url.encode("utf-8"),
                 options.pointer,
             )
+            self._retain_agent_option_storage(handle, options)
+            return handle
         fn = getattr(self._lib, "gopher_orch_agent_create_by_url", None)
         if fn is None:
             raise AgentError(_missing_routing_factory_message())
@@ -781,8 +913,65 @@ class GopherOrchLibrary:
         if options is None:
             return None
         # Native BuildAgentOptions deep-copies this struct into C++ strings/maps
-        # during creation, so this storage only needs call-duration lifetime.
-        return _AgentOptionsStorage(options)
+        # during creation. Elicitation callback storage is retained separately
+        # for the agent lifetime because native stores that function pointer.
+        return _AgentOptionsStorage(
+            options,
+            self._supports_elicitation_callback_options(),
+        )
+
+    def _supports_elicitation_callback_options(self) -> bool:
+        if self._lib is not None:
+            fn = getattr(
+                self._lib,
+                "gopher_orch_agent_options_supports_elicitation",
+                None,
+            )
+            if fn is not None:
+                return bool(fn())
+        return _version_at_least(
+            getattr(self, "_loaded_native_package_version", None),
+            MIN_ELICITATION_NATIVE_PACKAGE_VERSION,
+        )
+
+    def _retain_agent_option_storage(
+        self,
+        handle: Optional[GopherOrchHandle],
+        options: Optional[_AgentOptionsStorage],
+    ) -> None:
+        if handle is None or options is None or options.elicitation_callback is None:
+            return
+        storage = getattr(self, "_agent_option_storage", None)
+        if storage is None:
+            storage = {}
+            self._agent_option_storage = storage
+        key = _handle_key(handle)
+        if key is not None:
+            storage[key] = _RetainedAgentOptionsStorage(options)
+
+    def _add_ref_agent_option_storage(self, handle: GopherOrchHandle) -> None:
+        storage = getattr(self, "_agent_option_storage", None)
+        if storage is None:
+            return
+        key = _handle_key(handle)
+        if key is None:
+            return
+        retained = storage.get(key)
+        if retained is not None:
+            retained.ref_count += 1
+
+    def _release_agent_option_storage(self, handle: GopherOrchHandle) -> None:
+        storage = getattr(self, "_agent_option_storage", None)
+        if storage is None:
+            return
+        key = _handle_key(handle)
+        if key is not None:
+            retained = storage.get(key)
+            if retained is None:
+                return
+            retained.ref_count -= 1
+            if retained.ref_count <= 0:
+                storage.pop(key, None)
 
     def _missing_options_symbol_message(self) -> str:
         return (
@@ -806,11 +995,15 @@ class GopherOrchLibrary:
         """Add a reference to the agent."""
         if self._available and self._lib is not None:
             self._lib.gopher_orch_agent_add_ref(agent)
+            self._add_ref_agent_option_storage(agent)
 
     def agent_release(self, agent: GopherOrchHandle) -> None:
         """Release the agent."""
         if self._available and self._lib is not None:
-            self._lib.gopher_orch_agent_release(agent)
+            try:
+                self._lib.gopher_orch_agent_release(agent)
+            finally:
+                self._release_agent_option_storage(agent)
 
     # API functions
     def api_fetch_servers(self, api_key: str) -> Optional[str]:
@@ -887,6 +1080,78 @@ def _missing_routing_factory_message() -> str:
         "this build of libgopher-orch predates the routing factories; "
         "upgrade to a native gopher-orch library release that includes them"
     )
+
+
+def _create_elicitation_callback(options):
+    @GopherOrchElicitationCallback
+    def callback(request_ptr, user_data):
+        try:
+            if not request_ptr:
+                return ELICITATION_ACTION_CANCEL
+            request = request_ptr.contents
+            action = resolve_elicitation_action_sync(
+                options,
+                to_elicitation_request(
+                    {
+                        "request_id_json": _decode_optional_c_string(
+                            request.request_id_json
+                        ),
+                        "elicitation_id": _decode_optional_c_string(
+                            request.elicitation_id
+                        ),
+                        "mode": _decode_optional_c_string(request.mode),
+                        "message": _decode_optional_c_string(request.message),
+                        "url": _decode_optional_c_string(request.url),
+                        "raw_json": _decode_optional_c_string(request.raw_json),
+                        "raw_params_json": _decode_optional_c_string(
+                            request.raw_params_json
+                        ),
+                    }
+                ),
+            )
+            return native_action_from_elicitation_action(action)
+        except Exception as exc:
+            print(f"MCP elicitation handler failed: {exc}", file=sys.stderr)
+            return ELICITATION_ACTION_CANCEL
+
+    return callback
+
+
+def _decode_optional_c_string(value) -> Optional[str]:
+    if not value:
+        return None
+    return value.decode("utf-8")
+
+
+def _handle_key(handle: Any) -> Optional[int]:
+    if handle is None:
+        return None
+    if isinstance(handle, c_void_p):
+        return int(handle.value) if handle.value else None
+    try:
+        return int(handle)
+    except (TypeError, ValueError):
+        return None
+
+
+def _native_version_from_path(path: Optional[str]) -> Optional[str]:
+    if not path:
+        return None
+    name = os.path.basename(path)
+    parts = _parse_library_version(name)
+    return ".".join(str(part) for part in parts) if parts != (0,) else None
+
+
+def _version_at_least(
+    version: Optional[str],
+    minimum: str,
+) -> bool:
+    actual_parts = _parse_library_version(version or "")
+    minimum_parts = _parse_library_version(minimum)
+    length = max(len(actual_parts), len(minimum_parts))
+    actual = actual_parts + (0,) * (length - len(actual_parts))
+    required = minimum_parts + (0,) * (length - len(minimum_parts))
+    return actual >= required
 
 
 def _library_version_key(

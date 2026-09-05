@@ -9,6 +9,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.1.38] - 2026-09-05
+
+### Added
+
+- Add automatic provider OAuth elicitation support for agent creation. URL-mode
+  MCP elicitation now opens or prints the authorization URL by default, accepts
+  after user confirmation, and retries the native tool call without requiring
+  example-level configuration.
+
+### Changed
+
+- Update the vendored `gopher-orch` native dependency to include the Streamable
+  HTTP retry fix for stalled inline provider OAuth elicitation.
+
+### Changed
+
+- Pin `gopher-orch` native library to [v0.1.38](https://github.com/GopherSecurity/gopher-orch/releases/tag/v0.1.38).
+
+#### SDK changes since v0.1.34
+
+- Use PyPI package in URL example (#19)
+- Fix Python gateway elicitation preflight (#19)
+- Preserve elicitation in config builder (#19)
+- Preserve elicitation through OAuth resolution (#19)
+- Document automatic provider elicitation (#19)
+- Update native orch for elicitation retry (#19)
+- Enable default agent elicitation (#19)
+- Wire elicitation through FFI (#19)
+- Add elicitation API runtime (#19)
+- Update OAuth verification workflow tests (#17)
+- Make Gmail OAuth smoke tests optional (#17)
+- Document optional native OAuth follow-up (#17)
+- Document custom IdP OAuth verification (#17)
+- Run custom IdP OAuth tests in CI (#17)
+- Add custom IdP OAuth pytest script (#17)
+- Add custom IdP OAuth failure tests (#17)
+- Add gateway custom IdP OAuth auto test (#17)
+- Add direct custom IdP OAuth auto test (#17)
+- Add protected MCP endpoint harness (#17)
+- Add custom OAuth test IdP harness (#17)
+- Add generic OAuth test token helper (#17)
+- Fix release notes changelog extraction
+- Relax OpenSSL preflight for example verification
+- Use PyPI libs for create by URL example
+- Keep OAuth on existing factories (#15)
+- Fix hosted MCP OAuth fallback (#15)
+- Fix agent finalizer fallback (#15)
+- Fix OAuth parity coverage (#15)
+- Fix OAuth async agent factories (#15)
+- Fix OAuth helper modules (#15)
+- Fix OAuth create option types (#15)
+- Fix agent options ABI (#15)
+- Fix native owned string cleanup (#15)
+
+#### gopher-orch v0.1.38 highlights
+
+
+### Added
+### Changed
+- Improve gateway Docker build caching (https://github.com/GopherSecurity/gopher-orch/pull/186)
+- Make gateway Docker build jobs configurable (https://github.com/GopherSecurity/gopher-orch/pull/186)
+- Default gateway image builds to amd64 (https://github.com/GopherSecurity/gopher-orch/pull/186)
+- Restore gateway tools listChanged advertisement
+### Fixed
+- Fix gateway build against pinned MCP config
+
 ## [0.1.34] - 2026-08-16
 
 ### Changed
@@ -301,5 +367,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 [Unreleased]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...HEAD
-[0.1.34]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.34[0.1.30]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.30[0.1.23]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.23[0.1.21]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.21[0.1.16]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.16[0.1.15]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.15[0.1.14]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.14[0.1.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.2[0.1.1]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.1[0.1.0-20260227-124047]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0...v0.1.0-20260227-124047
+[0.1.38]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.38[0.1.34]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.34[0.1.30]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.30[0.1.23]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.23[0.1.21]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.21[0.1.16]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.16[0.1.15]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.15[0.1.14]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.14[0.1.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.2[0.1.1]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.1[0.1.0-20260227-124047]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0...v0.1.0-20260227-124047
 [0.1.0]: https://github.com/GopherSecurity/gopher-mcp-python/releases/tag/v0.1.0

@@ -29,6 +29,13 @@ from gopher_mcp_python.config import (
     GopherAgentConfig,
     GopherAgentConfigBuilder,
 )
+from gopher_mcp_python.elicitation import (
+    GopherAgentElicitationAction,
+    GopherAgentElicitationHandler,
+    GopherAgentElicitationOptions,
+    GopherAgentElicitationRequest,
+    GopherAgentElicitationResponse,
+)
 from gopher_mcp_python.runtime_options import (
     GopherAgentCreateOptions,
     GopherAgentOAuthOptions,
@@ -46,7 +53,7 @@ from gopher_mcp_python.errors import (
 from gopher_mcp_python.server_config import ServerConfig, ServerConfigRoute
 from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
-__version__ = "0.1.34"
+__version__ = "0.1.38"
 
 _AUTH_EXPORTS = {
     "GopherAuth",
@@ -128,6 +135,11 @@ __all__ = [
     "GopherAgentConfig",
     "GopherAgentConfigBuilder",
     "GopherAgentCreateOptions",
+    "GopherAgentElicitationAction",
+    "GopherAgentElicitationHandler",
+    "GopherAgentElicitationOptions",
+    "GopherAgentElicitationRequest",
+    "GopherAgentElicitationResponse",
     "GopherAgentOAuthOptions",
     "GopherAgentRuntimeOptions",
     "GopherAgentTokenRecord",

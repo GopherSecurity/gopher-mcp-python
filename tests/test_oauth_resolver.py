@@ -81,10 +81,15 @@ async def _test_one_oauth_server_returns_token_options() -> None:
 
     result = await resolve_runtime_options_with_oauth(
         urls=["https://mcp.example.com/mcp"],
+        runtime_options=GopherAgentRuntimeOptions(
+            elicitation={"open_browser": False}
+        ),
     )
 
     assert result is not None
     assert result.access_token == "token"
+    assert result.elicitation is not None
+    assert result.elicitation.open_browser is False
 
 
 def test_synthetic_gopher_challenge_builds_resource_metadata() -> None:
