@@ -57,13 +57,26 @@ def test_resolves_environment_library_directory(tmp_path):
     )
 
 
-def test_prefers_unversioned_library_in_directory(tmp_path):
-    """Directory overrides prefer the canonical unversioned library name."""
+def test_prefers_highest_versioned_library_in_directory(tmp_path):
+    """Directory overrides prefer the newest concrete library when present."""
     lib = object.__new__(GopherOrchLibrary)
     unversioned = tmp_path / "libgopher-orch.so"
+    old = tmp_path / "libgopher-orch.so.0.1.2"
     versioned = tmp_path / "libgopher-orch.so.0.1.30"
     unversioned.write_bytes(b"")
+    old.write_bytes(b"")
     versioned.write_bytes(b"")
+
+    assert lib._resolve_library_path(str(tmp_path), "libgopher-orch.so") == str(
+        versioned
+    )
+
+
+def test_resolves_unversioned_library_in_directory_without_versioned_file(tmp_path):
+    """Directory overrides still support only the canonical library name."""
+    lib = object.__new__(GopherOrchLibrary)
+    unversioned = tmp_path / "libgopher-orch.so"
+    unversioned.write_bytes(b"")
 
     assert lib._resolve_library_path(str(tmp_path), "libgopher-orch.so") == str(
         unversioned

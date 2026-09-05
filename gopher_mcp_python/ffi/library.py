@@ -342,23 +342,23 @@ class GopherOrchLibrary:
         if not os.path.isdir(candidate):
             return None
 
-        direct = os.path.join(candidate, library_name)
-        if os.path.exists(direct):
-            return direct
-
         matches = [
             name
             for name in os.listdir(candidate)
             if _library_version_key(name, library_name) is not None
         ]
-        if not matches:
-            return None
+        if matches:
+            matches.sort(
+                key=lambda name: _library_version_key(name, library_name),
+                reverse=True,
+            )
+            return os.path.join(candidate, matches[0])
 
-        matches.sort(
-            key=lambda name: _library_version_key(name, library_name),
-            reverse=True,
-        )
-        return os.path.join(candidate, matches[0])
+        direct = os.path.join(candidate, library_name)
+        if os.path.exists(direct):
+            return direct
+
+        return None
 
     def _record_load_error(self, message: str) -> None:
         self._load_errors.append(message)
