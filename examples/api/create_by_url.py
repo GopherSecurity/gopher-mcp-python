@@ -27,6 +27,7 @@ Configuration (env vars):
     DEBUG           When set, ctypes prints library-resolution diagnostics.
 
 Usage:
+    PYTHONPATH=../.. python3 create_by_url.py             # local checkout
     python3 create_by_url.py                              # built-in query
     python3 create_by_url.py "query one" "query two" ...  # supplied queries
 """
@@ -50,6 +51,8 @@ def env_or(name: str, fallback: str) -> str:
 
 def main() -> None:
     print("=== GopherAgent.create_with_url example ===")
+    sdk_label = os.environ.get("GOPHER_MCP_PYTHON_SDK_LABEL", "installed package")
+    print(f"SDK:   {sdk_label}")
     print(f"Usage: python3 {sys.argv[0]} [query1] [query2] ...")
     print(
         "Env:   GOPHER_MCP_URL GOPHER_ACCESS_TOKEN GOPHER_MCP_OAUTH "

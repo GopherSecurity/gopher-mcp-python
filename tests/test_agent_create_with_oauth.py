@@ -4,6 +4,9 @@ import pytest
 
 import gopher_mcp_python.agent as agent_module
 from gopher_mcp_python import AgentError, GopherAgent
+from gopher_mcp_python.gateway_elicitation_preflight import (
+    GatewayElicitationPreflightResult,
+)
 from gopher_mcp_python.runtime_options import GopherAgentRuntimeOptions
 
 
@@ -161,7 +164,7 @@ def test_create_with_url_explicit_token_skips_resolver(monkeypatch) -> None:
     agent.dispose()
 
 
-def test_create_with_url_passes_gateway_preflight_session_to_native(
+def test_create_with_url_passes_preflight_session_to_native(
     monkeypatch,
 ) -> None:
     fake = _install_fake_library(monkeypatch)
@@ -172,13 +175,10 @@ def test_create_with_url_passes_gateway_preflight_session_to_native(
 
     def preflight(url, runtime_options, create_options):
         preflight_calls.append((url, runtime_options, create_options))
-        return GopherAgentRuntimeOptions(
-            access_token=runtime_options.access_token,
-            headers={
-                **runtime_options.headers,
-                "Mcp-Session-Id": "session-1",
-            },
-            elicitation=runtime_options.elicitation,
+        return GatewayElicitationPreflightResult(
+            runtime_options,
+            True,
+            "session-1",
         )
 
     monkeypatch.setattr(
@@ -186,7 +186,9 @@ def test_create_with_url_passes_gateway_preflight_session_to_native(
         "resolve_url_runtime_options_with_oauth",
         resolver,
     )
-    monkeypatch.setattr(agent_module, "preflight_gateway_elicitation", preflight)
+    monkeypatch.setattr(
+        agent_module, "preflight_gateway_elicitation_with_status", preflight
+    )
 
     agent = GopherAgent.create_with_url(
         "Provider",
@@ -204,7 +206,8 @@ def test_create_with_url_passes_gateway_preflight_session_to_native(
     )
     assert call[4].headers == {
         "Authorization": "Bearer caller-token",
-        "Mcp-Session-Id": "session-1",
+        "X-Gopher-Internal-Preflight-Mcp-Session-Id": "session-1",
+        "X-Gopher-Internal-Skip-Discovery-Elicitation": "1",
     }
     assert preflight_calls[0][0] == (
         "https://mcp-test.gopher.security/v1/mcp/gateways/gw-1/mcp"

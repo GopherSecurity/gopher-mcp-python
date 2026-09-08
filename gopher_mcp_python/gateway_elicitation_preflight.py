@@ -1,8 +1,8 @@
-"""Gateway URL elicitation preflight for direct create_with_url flows."""
+"""MCP URL elicitation preflight for direct create_with_url flows."""
 
+from dataclasses import dataclass
 import json
 import os
-import re
 import socket
 import time
 from typing import Callable, Dict, Optional
@@ -18,11 +18,17 @@ from gopher_mcp_python.runtime_options import (
     GopherAgentRuntimeOptions,
 )
 
-GATEWAY_PATH_RE = re.compile(r"^/v1/mcp/gateways/[^/]+/mcp/?$")
 MCP_PROTOCOL_VERSION = "2025-11-25"
 DEFAULT_PREFLIGHT_TIMEOUT_MS = 5000
 
 UrlOpen = Callable[..., object]
+
+
+@dataclass(frozen=True)
+class GatewayElicitationPreflightResult:
+    runtime_options: Optional[GopherAgentRuntimeOptions]
+    handled: bool
+    session: Optional[str] = None
 
 
 def preflight_gateway_elicitation(
@@ -31,15 +37,27 @@ def preflight_gateway_elicitation(
     create_options: Optional[GopherAgentCreateOptions],
     opener: UrlOpen = urlopen,
 ) -> Optional[GopherAgentRuntimeOptions]:
-    """Handle gateway second-step URL elicitation before native tool calls."""
-    if not _is_gopher_gateway_mcp_url(url):
-        return runtime_options
+    """Handle URL elicitation before native tool calls."""
+    return preflight_gateway_elicitation_with_status(
+        url, runtime_options, create_options, opener
+    ).runtime_options
+
+
+def preflight_gateway_elicitation_with_status(
+    url: str,
+    runtime_options: Optional[GopherAgentRuntimeOptions],
+    create_options: Optional[GopherAgentCreateOptions],
+    opener: UrlOpen = urlopen,
+) -> GatewayElicitationPreflightResult:
+    """Handle URL elicitation and report whether preflight accepted it."""
+    if not _is_http_mcp_url(url):
+        return GatewayElicitationPreflightResult(runtime_options, False)
     if create_options is None or create_options.elicitation is None:
-        return runtime_options
+        return GatewayElicitationPreflightResult(runtime_options, False)
 
     authorization = _authorization_header_value(runtime_options)
     if authorization is None:
-        return runtime_options
+        return GatewayElicitationPreflightResult(runtime_options, False)
 
     timeout_ms = (
         create_options.elicitation.timeout_ms
@@ -48,30 +66,34 @@ def preflight_gateway_elicitation(
     )
     timeout_ms = max(0, int(timeout_ms))
     if timeout_ms == 0:
-        return runtime_options
+        return GatewayElicitationPreflightResult(runtime_options, False)
 
-    session = _initialize_gateway_session(url, authorization, opener)
-    if session is None:
-        return runtime_options
+    try:
+        session = _initialize_gateway_session(url, authorization, opener)
+        if session is None:
+            return GatewayElicitationPreflightResult(runtime_options, False)
 
-    _notify_initialized(url, authorization, session, opener)
-    _list_tools(url, authorization, session, opener)
-    _handle_gateway_event_stream(
-        url, authorization, session, create_options, timeout_ms, opener
-    )
-    return _with_gateway_session_header(runtime_options, session)
+        _notify_initialized(url, authorization, session, opener)
+        _list_tools(url, authorization, session, opener)
+        handled = _handle_gateway_event_stream(
+            url, authorization, session, create_options, timeout_ms, opener
+        )
+        return GatewayElicitationPreflightResult(
+            runtime_options,
+            handled,
+            session if handled else None,
+        )
+    except Exception as exc:
+        _log_debug("elicitation preflight skipped", {"error": str(exc)})
+        return GatewayElicitationPreflightResult(runtime_options, False)
 
 
-def _is_gopher_gateway_mcp_url(value: str) -> bool:
+def _is_http_mcp_url(value: str) -> bool:
     try:
         parsed = urlparse(value)
     except Exception:
         return False
-    return (
-        parsed.hostname is not None
-        and parsed.hostname.endswith(".gopher.security")
-        and GATEWAY_PATH_RE.match(parsed.path) is not None
-    )
+    return parsed.scheme in ("http", "https") and parsed.netloc != ""
 
 
 def _authorization_header_value(
@@ -116,7 +138,7 @@ def _initialize_gateway_session(
     )
     session = _response_header(response, "mcp-session-id")
     _log_debug(
-        "gateway elicitation preflight initialized",
+        "elicitation preflight initialized",
         {"session_present": session is not None},
     )
     return session
@@ -159,7 +181,7 @@ def _handle_gateway_event_stream(
     create_options: GopherAgentCreateOptions,
     timeout_ms: int,
     opener: UrlOpen,
-) -> None:
+) -> bool:
     request = Request(
         url,
         method="GET",
@@ -174,12 +196,12 @@ def _handle_gateway_event_stream(
         response = opener(request, timeout=timeout_ms / 1000.0)
         event = _read_first_sse_event(response, timeout_ms)
     except (OSError, TimeoutError, socket.timeout) as exc:
-        _log_debug("gateway elicitation preflight skipped", {"error": str(exc)})
-        return
+        _log_debug("elicitation preflight skipped", {"error": str(exc)})
+        return False
 
     parsed = _parse_elicitation_event(event)
     if parsed is None:
-        return
+        return False
 
     action = resolve_elicitation_action_sync(
         create_options.elicitation,
@@ -197,9 +219,10 @@ def _handle_gateway_event_stream(
         opener,
     )
     _log_debug(
-        "gateway elicitation preflight answered",
+        "elicitation preflight answered",
         {"action": action, "session": session},
     )
+    return action == "accept"
 
 
 def _post_json(
@@ -287,19 +310,6 @@ def _response_header(response: object, name: str) -> Optional[str]:
         value = headers.get(name)
         return value if isinstance(value, str) and value else None
     return None
-
-
-def _with_gateway_session_header(
-    options: Optional[GopherAgentRuntimeOptions],
-    session: str,
-) -> GopherAgentRuntimeOptions:
-    headers = dict(options.headers) if options is not None else {}
-    headers["Mcp-Session-Id"] = session
-    return GopherAgentRuntimeOptions(
-        access_token=options.access_token if options is not None else None,
-        headers=headers,
-        elicitation=options.elicitation if options is not None else None,
-    )
 
 
 def _string_field(value: Dict[str, object], field: str) -> Optional[str]:
