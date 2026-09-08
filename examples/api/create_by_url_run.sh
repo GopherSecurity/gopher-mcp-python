@@ -1,10 +1,7 @@
 #!/bin/bash
 
 # Run the Python SDK example for GopherAgent.create_with_url
-# against the PyPI-published gopher-mcp-python package.
-#
-# Set SDK_VERSION to pin to a specific release; otherwise the latest
-# published version is installed.
+# against the latest PyPI-published gopher-mcp-python package.
 
 set -e
 

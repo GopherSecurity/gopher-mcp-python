@@ -175,6 +175,42 @@ Result class with status and metadata.
 - `result.is_error()` - Check if error
 - `result.is_timeout()` - Check if timeout
 
+### Provider OAuth Elicitation
+
+Provider OAuth requested during a tool call is handled automatically by default.
+For URL-mode elicitation, the SDK opens the authorization URL when possible,
+prints it as a fallback, waits for the user to finish the browser flow, and then
+lets the native agent retry the tool call.
+
+No example-level elicitation configuration is required:
+
+```python
+agent = GopherAgent.create_with_url(provider, model, mcp_url)
+```
+
+Use `GopherAgentCreateOptions` only when you need a custom synchronous handler
+or want to disable browser opening while still printing the URL:
+
+```python
+from gopher_mcp_python import GopherAgentCreateOptions
+
+agent = GopherAgent.create_with_url(
+    provider,
+    model,
+    mcp_url,
+    GopherAgentCreateOptions(
+        elicitation={
+            "open_browser": False,
+            "handler": lambda request: "accept",
+        },
+    ),
+)
+```
+
+First-step MCP server OAuth is controlled separately by the `oauth` create
+option. Setting `oauth={"mode": "disabled"}` skips SDK OAuth discovery for the
+MCP endpoint but still leaves provider elicitation enabled.
+
 ### Exceptions
 
 - `AgentError` - Base exception for agent errors

@@ -31,9 +31,13 @@ import asyncio
 import weakref
 from typing import Callable, Optional
 
+from gopher_mcp_python.gateway_elicitation_preflight import (
+    preflight_gateway_elicitation_with_status,
+)
 import gopher_mcp_python.oauth_resolver as oauth_resolver
 from gopher_mcp_python.config import GopherAgentConfig
 from gopher_mcp_python.runtime_options import (
+    GopherAgentCreateOptions,
     GopherAgentOAuthOptions,
     GopherAgentRuntimeOptions,
     RuntimeOptionsInput,
@@ -47,6 +51,8 @@ from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
 _initialized = False
 _cleanup_handler_registered = False
+_SKIP_DISCOVERY_ELICITATION_HEADER = "X-Gopher-Internal-Skip-Discovery-Elicitation"
+_PREFLIGHT_MCP_SESSION_HEADER = "X-Gopher-Internal-Preflight-Mcp-Session-Id"
 
 
 class GopherAgent:
@@ -159,7 +165,7 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        create_options = normalize_create_options(runtime_options)
+        create_options = _normalize_create_options_for_agent(runtime_options)
         runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
         if _should_skip_oauth(runtime_options, oauth):
@@ -197,7 +203,7 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        create_options = normalize_create_options(runtime_options)
+        create_options = _normalize_create_options_for_agent(runtime_options)
         runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
         if _should_skip_oauth(runtime_options, oauth):
@@ -246,7 +252,7 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        create_options = normalize_create_options(runtime_options)
+        create_options = _normalize_create_options_for_agent(runtime_options)
         normalized_runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
         if _should_skip_oauth(normalized_runtime_options, oauth):
@@ -289,7 +295,7 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        create_options = normalize_create_options(runtime_options)
+        create_options = _normalize_create_options_for_agent(runtime_options)
         normalized_runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
         if _should_skip_oauth(normalized_runtime_options, oauth):
@@ -332,7 +338,7 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        create_options = normalize_create_options(runtime_options)
+        create_options = _normalize_create_options_for_agent(runtime_options)
         normalized_runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
         if _should_skip_oauth(normalized_runtime_options, oauth):
@@ -375,7 +381,7 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        create_options = normalize_create_options(runtime_options)
+        create_options = _normalize_create_options_for_agent(runtime_options)
         normalized_runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
         if _should_skip_oauth(normalized_runtime_options, oauth):
@@ -417,7 +423,7 @@ class GopherAgent:
         Returns:
             GopherAgent instance
         """
-        create_options = normalize_create_options(runtime_options)
+        create_options = _normalize_create_options_for_agent(runtime_options)
         normalized_runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
         if url != "" and not _should_skip_oauth(normalized_runtime_options, oauth):
@@ -428,6 +434,16 @@ class GopherAgent:
                     oauth=oauth,
                 )
             )
+        preflight = preflight_gateway_elicitation_with_status(
+            url,
+            normalized_runtime_options,
+            create_options,
+        )
+        normalized_runtime_options = _mark_discovery_elicitation_preflighted(
+            preflight.runtime_options,
+            preflight.handled,
+            preflight.session,
+        )
         return GopherAgent._create_from_ffi(
             lambda lib: lib.agent_create_by_url(
                 provider, model, url, normalized_runtime_options
@@ -605,6 +621,13 @@ def _run_oauth_coroutine(create_coroutine):
     )
 
 
+def _normalize_create_options_for_agent(
+    runtime_options: RuntimeOptionsInput,
+) -> GopherAgentCreateOptions:
+    create_options = normalize_create_options(runtime_options)
+    return create_options if create_options is not None else GopherAgentCreateOptions()
+
+
 def _should_skip_oauth(
     runtime_options: Optional[GopherAgentRuntimeOptions],
     oauth: Optional[GopherAgentOAuthOptions],
@@ -616,6 +639,24 @@ def _should_skip_oauth(
     if runtime_options.access_token is not None:
         return True
     return any(name.lower() == "authorization" for name in runtime_options.headers)
+
+
+def _mark_discovery_elicitation_preflighted(
+    runtime_options: Optional[GopherAgentRuntimeOptions],
+    handled: bool,
+    session: Optional[str],
+) -> Optional[GopherAgentRuntimeOptions]:
+    if not handled:
+        return runtime_options
+    headers = dict(runtime_options.headers) if runtime_options is not None else {}
+    headers[_SKIP_DISCOVERY_ELICITATION_HEADER] = "1"
+    if session:
+        headers[_PREFLIGHT_MCP_SESSION_HEADER] = session
+    return GopherAgentRuntimeOptions(
+        access_token=runtime_options.access_token if runtime_options else None,
+        headers=headers,
+        elicitation=runtime_options.elicitation if runtime_options else None,
+    )
 
 
 def _build_create_error_message() -> str:

@@ -241,6 +241,7 @@ def _merge_runtime_options(
         {
             "access_token": token_options.access_token or base.access_token,
             "headers": headers,
+            "elicitation": base.elicitation or token_options.elicitation,
         }
     )
 

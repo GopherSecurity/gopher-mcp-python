@@ -264,6 +264,27 @@ class TestGopherAgentConfig:
         assert config.runtime_options.oauth is not None
         assert config.runtime_options.oauth.mode == "disabled"
 
+    def test_builder_preserves_elicitation_when_setting_headers(self):
+        """Test builder header helpers do not drop elicitation options."""
+
+        def handler(_request):
+            return "accept"
+
+        config = (
+            GopherAgentConfig.builder()
+            .provider("AnthropicProvider")
+            .model("claude-3-haiku-20240307")
+            .api_key("test-key")
+            .runtime_options({"elicitation": {"handler": handler}})
+            .headers({"X-Test": "one"})
+            .build()
+        )
+
+        assert config.runtime_options is not None
+        assert config.runtime_options.headers == {"X-Test": "one"}
+        assert config.runtime_options.elicitation is not None
+        assert config.runtime_options.elicitation.handler is handler
+
     def test_should_reject_invalid_oauth_mode(self):
         """Test OAuth mode validation."""
         with pytest.raises(ValueError, match="oauth mode"):
