@@ -5,6 +5,7 @@ import json
 from gopher_mcp_python import elicitation_runtime
 from gopher_mcp_python.gateway_elicitation_preflight import (
     preflight_gateway_elicitation,
+    preflight_gateway_elicitation_with_status,
 )
 from gopher_mcp_python.runtime_options import (
     GopherAgentCreateOptions,
@@ -52,7 +53,7 @@ def test_answers_gateway_url_elicitation_before_native_tool_calls() -> None:
     assert result is not None
     assert result.access_token == "gateway-token"
     assert result.headers["Authorization"] == "Bearer gateway-token"
-    assert result.headers["Mcp-Session-Id"] == "session-1"
+    assert "Mcp-Session-Id" not in result.headers
     assert len(opener.requests) == 5
     assert json.loads(opener.requests[0].data.decode("utf-8"))["method"] == (
         "initialize"
@@ -72,12 +73,87 @@ def test_answers_gateway_url_elicitation_before_native_tool_calls() -> None:
     }
 
 
-def test_does_nothing_for_non_gateway_urls() -> None:
+def test_also_preflights_server_urls() -> None:
+    elicitation_runtime.set_elicitation_input_for_test(lambda timeout_ms: "\n")
+    opener = FakeOpener(
+        [
+            FakeResponse(headers={"mcp-session-id": "session-1"}),
+            FakeResponse(),
+            FakeResponse(body=b'{"tools":[]}'),
+            FakeResponse(
+                lines=[
+                    b"event: message\n",
+                    (
+                        b'data: {"jsonrpc":"2.0","id":"server_elicitation_1",'
+                        b'"method":"elicitation/create","params":'
+                        b'{"elicitationId":"provider-auth","message":"Connect",'
+                        b'"mode":"url","url":"https://accounts.google.com/o/oauth2'
+                        b'/v2/auth?state=s"}}\n'
+                    ),
+                    b"\n",
+                ]
+            ),
+            FakeResponse(),
+        ]
+    )
+
+    result = preflight_gateway_elicitation(
+        "https://mcp.gopher.security/v1/mcp/servers/server-1/mcp",
+        GopherAgentRuntimeOptions(access_token="server-token"),
+        GopherAgentCreateOptions(elicitation={"open_browser": False}),
+        opener=opener,
+    )
+
+    assert result is not None
+    assert result.access_token == "server-token"
+    assert result.headers["Authorization"] == "Bearer server-token"
+    assert "Mcp-Session-Id" not in result.headers
+    assert len(opener.requests) == 5
+
+
+def test_reports_accepted_preflight_session() -> None:
+    elicitation_runtime.set_elicitation_input_for_test(lambda timeout_ms: "\n")
+    opener = FakeOpener(
+        [
+            FakeResponse(headers={"mcp-session-id": "session-1"}),
+            FakeResponse(),
+            FakeResponse(body=b'{"tools":[]}'),
+            FakeResponse(
+                lines=[
+                    b"event: message\n",
+                    (
+                        b'data: {"jsonrpc":"2.0","id":"server_elicitation_1",'
+                        b'"method":"elicitation/create","params":'
+                        b'{"elicitationId":"provider-auth","message":"Connect",'
+                        b'"mode":"url","url":"https://accounts.google.com/o/oauth2'
+                        b'/v2/auth?state=s"}}\n'
+                    ),
+                    b"\n",
+                ]
+            ),
+            FakeResponse(),
+        ]
+    )
+
+    result = preflight_gateway_elicitation_with_status(
+        "https://mcp.gopher.security/v1/mcp/servers/server-1/mcp",
+        GopherAgentRuntimeOptions(access_token="server-token"),
+        GopherAgentCreateOptions(elicitation={"open_browser": False}),
+        opener=opener,
+    )
+
+    assert result.handled is True
+    assert result.session == "session-1"
+    assert result.runtime_options is not None
+    assert "Mcp-Session-Id" not in result.runtime_options.headers
+
+
+def test_does_nothing_for_non_http_urls() -> None:
     opener = FakeOpener([])
     runtime_options = GopherAgentRuntimeOptions(access_token="token")
 
     result = preflight_gateway_elicitation(
-        "https://mcp.example.com/mcp",
+        "stdio://mcp.example.com/mcp",
         runtime_options,
         GopherAgentCreateOptions(),
         opener=opener,
