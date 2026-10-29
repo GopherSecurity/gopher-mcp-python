@@ -1135,9 +1135,10 @@ def _handle_key(handle: Any) -> Optional[int]:
 
 
 def _native_version_from_path(path: Optional[str]) -> Optional[str]:
+    """Read the concrete library's version through any unversioned symlink."""
     if not path:
         return None
-    name = os.path.basename(path)
+    name = os.path.basename(os.path.realpath(path))
     parts = _parse_library_version(name)
     return ".".join(str(part) for part in parts) if parts != (0,) else None
 
