@@ -161,6 +161,35 @@ def test_build_agent_options_requires_elicitation_support() -> None:
         lib._build_agent_options({"elicitation": {}})
 
 
+@pytest.mark.parametrize(
+    "library_name,versioned_name",
+    [
+        ("libgopher-orch.dylib", "libgopher-orch.0.1.39.dylib"),
+        ("libgopher-orch.so", "libgopher-orch.so.0.1.39"),
+    ],
+)
+def test_symlinked_library_keeps_elicitation_support(
+    monkeypatch, tmp_path, library_name, versioned_name
+) -> None:
+    """Libraries without a capability symbol need the symlink target's version."""
+    versioned = tmp_path / versioned_name
+    versioned.write_bytes(b"")
+    alias = tmp_path / library_name
+    alias.symlink_to(versioned.name)
+    monkeypatch.setenv("GOPHER_MCP_PYTHON_LIBRARY_PATH", str(alias))
+    monkeypatch.setattr(ctypes, "CDLL", lambda path: object())
+    monkeypatch.setattr(GopherOrchLibrary, "_setup_functions", lambda self: None)
+
+    library = GopherOrchLibrary()
+    storage = library._build_agent_options(
+        {"elicitation": {"handler": lambda request: "cancel"}}
+    )
+
+    assert library._loaded_native_package_version == "0.1.39"
+    assert storage is not None
+    assert storage.elicitation_callback is not None
+
+
 def test_build_agent_options_maps_elicitation_callback(monkeypatch) -> None:
     lib = object.__new__(GopherOrchLibrary)
     lib._lib = None
