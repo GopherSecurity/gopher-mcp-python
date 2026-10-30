@@ -12,6 +12,39 @@ from gopher_mcp_python.oauth_token_exchange import (
 )
 
 
+@pytest.mark.parametrize("refresh", [False, True])
+@pytest.mark.parametrize(
+    "resource",
+    [None, "https://mcp.example/servers/123", "https://mcp.example/gateways/123/mcp"],
+)
+def test_token_request_resource_is_preserved(refresh, resource):
+    captured = {}
+
+    def handle(handler):
+        length = int(handler.headers.get("Content-Length", "0"))
+        captured.update(urllib.parse.parse_qs(handler.rfile.read(length).decode()))
+        _json(handler, 200, {"access_token": "access", "token_type": "Bearer"})
+
+    server = _start_server(handle)
+    try:
+        common = {
+            "token_endpoint": f"{server.url}/token",
+            "client_id": "cid",
+            "resource": resource,
+        }
+        if refresh:
+            refresh_oauth_token(refresh_token="refresh", **common)
+        else:
+            exchange_oauth_code_for_token(
+                code="code", redirect_uri="http://127.0.0.1/callback",
+                code_verifier="verifier", **common,
+            )
+    finally:
+        server.close()
+
+    assert captured.get("resource") == ([resource] if resource is not None else None)
+
+
 def test_exchange_code_returns_token_record() -> None:
     captured = {}
 

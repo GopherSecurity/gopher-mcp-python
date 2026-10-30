@@ -288,6 +288,11 @@ Use this result for both client registration and the authorization request,
 omitting the scope field when the result is empty. This helper performs no
 network requests or browser operations.
 
+Automatic OAuth preserves the protected-resource metadata's `resource` identifier
+through authorization, code exchange, and token refresh. It can differ from the
+MCP connection URL. Applications using `exchange_oauth_code_for_token` or
+`refresh_oauth_token` directly can pass it with the `resource` keyword argument.
+
 ## Environment Variables
 
 - `GOPHER_MCP_PYTHON_LIBRARY_PATH` - Custom path to native library
