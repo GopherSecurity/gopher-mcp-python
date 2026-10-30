@@ -113,12 +113,14 @@ def probe_mcp_oauth_challenge(url: str, timeout: float = 10.0) -> McpOAuthChalle
                 f"oauth_metadata_missing: MCP OAuth challenge for {url} "
                 "is missing resource_metadata"
             )
+        scope = parse_www_authenticate_param(www_authenticate, "scope")
         return McpOAuthChallenge(
             url=url,
             requires_oauth=True,
             http_status=exc.code,
             www_authenticate=www_authenticate,
             resource_metadata_url=resource_metadata_url,
+            scopes=scope.split() if scope is not None else None,
         )
     except urllib.error.URLError as exc:
         raise RuntimeError(
