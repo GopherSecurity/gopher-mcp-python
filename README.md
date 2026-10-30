@@ -293,6 +293,29 @@ through authorization, code exchange, and token refresh. It can differ from the
 MCP connection URL. Applications using `exchange_oauth_code_for_token` or
 `refresh_oauth_token` directly can pass it with the `resource` keyword argument.
 
+Applications with a guarded or asynchronous HTTP client can prepare the same
+code-exchange request without letting the SDK send it:
+
+```python
+from gopher_mcp_python.oauth_token_exchange import build_oauth_code_exchange_request
+
+request = build_oauth_code_exchange_request(
+    code=code,
+    redirect_uri=redirect_uri,
+    code_verifier=code_verifier,
+    token_endpoint=token_endpoint,
+    client_id=client_id,
+    resource=resource,
+    client_secret=client_secret,
+    token_endpoint_auth_method=token_endpoint_auth_method,
+)
+# Send request.data as form data to request.token_endpoint, with request.headers,
+# using your application's HTTP client and URL validation.
+```
+
+The built-in exchange helper uses this builder too. Public clients and
+`client_secret_post`/`client_secret_basic` authentication are supported.
+
 ## Environment Variables
 
 - `GOPHER_MCP_PYTHON_LIBRARY_PATH` - Custom path to native library
