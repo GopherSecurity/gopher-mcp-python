@@ -266,6 +266,28 @@ ruff check --fix .
 ./build.sh --clean
 ```
 
+## OAuth scope selection
+
+Automatic OAuth uses the challenge's `scope` when present, otherwise explicit
+`oauth.scopes`, then the protected resource's `scopes_supported`. If none are
+available, the request omits `scope`. The authorization server's realm-wide scope
+list is never used as a default. An explicit empty list means omit `scope`.
+
+Web applications managing their own redirects can reuse the same policy:
+
+```python
+from gopher_mcp_python import select_oauth_scopes
+
+scopes = select_oauth_scopes(
+    challenge_scopes=challenge_scopes,  # None if absent; [] if explicitly empty
+    resource_scopes=resource_scopes,
+)
+```
+
+Use this result for both client registration and the authorization request,
+omitting the scope field when the result is empty. This helper performs no
+network requests or browser operations.
+
 ## Environment Variables
 
 - `GOPHER_MCP_PYTHON_LIBRARY_PATH` - Custom path to native library

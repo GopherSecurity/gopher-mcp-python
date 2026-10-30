@@ -39,6 +39,7 @@ def test_includes_all_required_params() -> None:
     assert search["state"] == ["state-123"]
     assert search["code_challenge"] == ["challenge-123"]
     assert search["code_challenge_method"] == ["S256"]
+    assert "scope" not in search
 
 
 def test_scope_defaults_from_options_first() -> None:
