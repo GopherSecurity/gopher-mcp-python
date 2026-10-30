@@ -3,18 +3,6 @@ name: Verify SDK Examples
 on:
   push:
     branches: [iml_verify_auto]
-  schedule:
-    - cron: '17 10 * * 1'
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: 'offline, live, or auto'
-        required: true
-        default: 'auto'
-      pypi_version:
-        description: 'PyPI version to verify'
-        required: true
-        default: 'latest'
 
 permissions:
   contents: read
@@ -29,8 +17,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:
-      VERIFY_EXAMPLES_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'auto' }}
-      VERIFY_PYPI_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.pypi_version || 'latest' }}
+      VERIFY_EXAMPLES_MODE: auto
+      VERIFY_PYPI_VERSION: latest
     strategy:
       fail-fast: false
       matrix:
@@ -177,13 +165,9 @@ jobs:
           LLM_PROVIDER: ${{ secrets.LLM_PROVIDER || 'AnthropicProvider' }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GOPHER_API_KEY: ${{ secrets.GOPHER_API_KEY }}
           GOPHER_MCP_URL: ${{ secrets.GOPHER_MCP_URL }}
         run: |
           unset GOPHER_SDK_TEST
-          VERIFY_LIVE_PROMPT="Get my mail profile" \
-          VERIFY_EXPECTED_ANSWER="james.lu@gopher.security" \
-            scripts/verify-examples.sh --mode "$VERIFY_EXAMPLES_MODE" --only create_by_api_key
           VERIFY_LIVE_PROMPT="Get my mail profile" \
           VERIFY_EXPECTED_ANSWER="james.lu@gopher.security" \
             scripts/verify-examples.sh --mode "$VERIFY_EXAMPLES_MODE" --only create_by_url

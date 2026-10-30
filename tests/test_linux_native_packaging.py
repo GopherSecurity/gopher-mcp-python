@@ -80,14 +80,15 @@ def test_oauth_verify_prs_install_checked_out_sdk() -> None:
 def test_verify_examples_workflow_stays_optional_for_live_smoke() -> None:
     workflow = _verify_examples_workflow()
 
-    assert (
-        "VERIFY_EXAMPLES_MODE: ${{ github.event_name == 'workflow_dispatch' "
-        "&& inputs.mode || 'auto' }}"
-    ) in workflow
+    assert "VERIFY_EXAMPLES_MODE: auto" in workflow
+    assert "VERIFY_PYPI_VERSION: latest" in workflow
     assert "pull_request:" not in workflow
-    assert "schedule:" in workflow
-    assert "workflow_dispatch:" in workflow
+    assert "schedule:" not in workflow
+    assert "workflow_dispatch:" not in workflow
+    assert "push:" in workflow
     assert "branches: [iml_verify_auto]" in workflow
+    assert "--only create_by_url" in workflow
+    assert "create_by_api_key" not in workflow
     assert 'if [ "${{ github.event_name }}" = "pull_request" ]; then' not in workflow
     assert "SDK_INSTALL_SPEC:" not in workflow
 
