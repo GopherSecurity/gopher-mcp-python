@@ -19,8 +19,10 @@ def exchange_oauth_code_for_token(
     client_secret: Optional[str] = None,
     now_ms: Optional[float] = None,
     timeout: float = 10.0,
+    *,
+    resource: Optional[str] = None,
 ) -> GopherAgentTokenRecord:
-    """Exchange an OAuth authorization code for tokens."""
+    """Exchange a code for tokens, preserving the advertised OAuth resource."""
     params = {
         "grant_type": "authorization_code",
         "code": code,
@@ -31,6 +33,8 @@ def exchange_oauth_code_for_token(
         params["client_secret"] = client_secret
     if code_verifier:
         params["code_verifier"] = code_verifier
+    if resource is not None:
+        params["resource"] = resource
     return _token_request(token_endpoint, params, now_ms, timeout)
 
 
@@ -41,8 +45,10 @@ def refresh_oauth_token(
     client_secret: Optional[str] = None,
     now_ms: Optional[float] = None,
     timeout: float = 10.0,
+    *,
+    resource: Optional[str] = None,
 ) -> GopherAgentTokenRecord:
-    """Refresh an OAuth access token."""
+    """Refresh a token for the same advertised OAuth resource."""
     params = {
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
@@ -50,6 +56,8 @@ def refresh_oauth_token(
     }
     if client_secret is not None:
         params["client_secret"] = client_secret
+    if resource is not None:
+        params["resource"] = resource
     return _token_request(token_endpoint, params, now_ms, timeout)
 
 

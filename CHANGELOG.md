@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Use OAuth challenge and resource scopes instead of realm-wide defaults, keeping
   registration, authorization, and token-cache scopes consistent.
+- Preserve the advertised OAuth resource during authorization-code exchange and
+  token refresh to avoid missing or incorrect resource targets.
 
 ### Added
 

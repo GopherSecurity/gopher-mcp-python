@@ -103,7 +103,7 @@ async def _default_acquire_token(
             store=store,
             key=cache_key,
             refresh_token=lambda refresh: _refresh_token(
-                refresh, authorization_metadata, client
+                refresh, authorization_metadata, client, resource_metadata.resource
             ),
             acquire_token=lambda: _run_authorization_code_flow(
                 oauth=oauth,
@@ -288,6 +288,7 @@ async def _run_authorization_code_flow(
         token_endpoint=authorization_metadata.token_endpoint,
         client_id=client.client_id,
         client_secret=client.client_secret,
+        resource=resource_metadata.resource,
     )
 
 
@@ -295,12 +296,14 @@ async def _refresh_token(
     refresh_token: str,
     authorization_metadata: OAuthAuthorizationServerMetadata,
     client: OAuthRegisteredClient,
+    resource: str,
 ) -> GopherAgentTokenRecord:
     return refresh_oauth_token(
         refresh_token=refresh_token,
         token_endpoint=authorization_metadata.token_endpoint,
         client_id=client.client_id,
         client_secret=client.client_secret,
+        resource=resource,
     )
 
 
