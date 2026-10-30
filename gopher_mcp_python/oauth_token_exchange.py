@@ -1,13 +1,62 @@
 """OAuth token exchange helpers."""
 
+import base64
 import json
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 from typing import Dict, Optional
 
 from gopher_mcp_python.runtime_options import GopherAgentTokenRecord
+
+
+@dataclass
+class OAuthCodeExchangeRequest:
+    """Token request data for applications providing their own HTTP transport."""
+
+    token_endpoint: str
+    data: Dict[str, str]
+    headers: Dict[str, str]
+
+
+def build_oauth_code_exchange_request(
+    *,
+    code: str,
+    redirect_uri: str,
+    code_verifier: str,
+    token_endpoint: str,
+    client_id: str,
+    client_secret: Optional[str] = None,
+    resource: Optional[str] = None,
+    token_endpoint_auth_method: Optional[str] = None,
+) -> OAuthCodeExchangeRequest:
+    """Prepare a code exchange without sending any network requests.
+
+    The advertised resource is preserved verbatim. Client authentication defaults
+    to posting an available secret; client_secret_basic uses an HTTP header.
+    """
+    params = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": redirect_uri,
+        "client_id": client_id,
+    }
+    headers: Dict[str, str] = {}
+    if client_secret is not None:
+        if token_endpoint_auth_method == "client_secret_basic":
+            credentials = base64.b64encode(
+                f"{client_id}:{client_secret}".encode("utf-8")
+            ).decode("ascii")
+            headers["Authorization"] = f"Basic {credentials}"
+        else:
+            params["client_secret"] = client_secret
+    if code_verifier:
+        params["code_verifier"] = code_verifier
+    if resource is not None:
+        params["resource"] = resource
+    return OAuthCodeExchangeRequest(token_endpoint, params, headers)
 
 
 def exchange_oauth_code_for_token(
@@ -21,21 +70,22 @@ def exchange_oauth_code_for_token(
     timeout: float = 10.0,
     *,
     resource: Optional[str] = None,
+    token_endpoint_auth_method: Optional[str] = None,
 ) -> GopherAgentTokenRecord:
     """Exchange a code for tokens, preserving the advertised OAuth resource."""
-    params = {
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": redirect_uri,
-        "client_id": client_id,
-    }
-    if client_secret is not None:
-        params["client_secret"] = client_secret
-    if code_verifier:
-        params["code_verifier"] = code_verifier
-    if resource is not None:
-        params["resource"] = resource
-    return _token_request(token_endpoint, params, now_ms, timeout)
+    request = build_oauth_code_exchange_request(
+        code=code,
+        redirect_uri=redirect_uri,
+        code_verifier=code_verifier,
+        token_endpoint=token_endpoint,
+        client_id=client_id,
+        client_secret=client_secret,
+        resource=resource,
+        token_endpoint_auth_method=token_endpoint_auth_method,
+    )
+    return _token_request(
+        request.token_endpoint, request.data, now_ms, timeout, request.headers
+    )
 
 
 def refresh_oauth_token(
@@ -66,13 +116,17 @@ def _token_request(
     params: Dict[str, str],
     now_ms: Optional[float],
     timeout: float,
+    headers: Optional[Dict[str, str]] = None,
 ) -> GopherAgentTokenRecord:
     encoded = urllib.parse.urlencode(params).encode("utf-8")
     request = urllib.request.Request(
         token_endpoint,
         data=encoded,
         method="POST",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            **(headers or {}),
+        },
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
