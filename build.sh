@@ -295,6 +295,7 @@ build_linux_x64_docker() {
     echo -e "${YELLOW}  Building Docker image from Ubuntu 20.04...${NC}"
     docker build \
         --platform linux/amd64 \
+        --target builder \
         --build-arg "UBUNTU_20_04_IMAGE=${UBUNTU_20_04_IMAGE}" \
         -t gopher-orch-python:linux-x64-ubuntu20 \
         -f "${LINUX_X64_DOCKERFILE}" \
@@ -340,12 +341,21 @@ verify_linux_x64_docker_output() {
     fi
 
     if [ -x "${TARGET_NATIVE_DIR}/bin/verify_orch" ]; then
+        # Build this even when native compilation was skipped by the source
+        # cache. The bare Ubuntu image does not include the OpenSSL runtime.
+        docker build \
+            --platform linux/amd64 \
+            --target runtime \
+            --build-arg "UBUNTU_20_04_IMAGE=${UBUNTU_20_04_IMAGE}" \
+            -t gopher-orch-python:linux-x64-ubuntu20-runtime \
+            -f "${LINUX_X64_DOCKERFILE}" \
+            "${SCRIPT_DIR}"
         echo -e "${YELLOW}  Verifying Linux artifact inside Ubuntu 20.04...${NC}"
         docker run --rm \
             --platform linux/amd64 \
-            -v "${TARGET_NATIVE_DIR}:/work" \
+            -v "${TARGET_NATIVE_DIR}:/work:ro" \
             -w /work/lib \
-            "${UBUNTU_20_04_IMAGE}" \
+            gopher-orch-python:linux-x64-ubuntu20-runtime \
             sh -c 'LD_LIBRARY_PATH=/work/lib /work/bin/verify_orch'
     fi
 }
