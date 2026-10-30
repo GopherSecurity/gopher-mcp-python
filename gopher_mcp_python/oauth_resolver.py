@@ -19,6 +19,7 @@ from gopher_mcp_python.oauth_discovery import (
 )
 from gopher_mcp_python.oauth_loopback import create_oauth_loopback_callback_server
 from gopher_mcp_python.oauth_pkce import create_code_challenge, create_code_verifier
+from gopher_mcp_python.oauth_scopes import select_oauth_scopes
 from gopher_mcp_python.oauth_registration import (
     OAuthRegisteredClient,
     register_oauth_client,
@@ -76,7 +77,11 @@ async def _default_acquire_token(
             authorization_metadata,
             registration_endpoint=challenge.registration_endpoint,
         )
-    scopes = _select_scopes(oauth, resource_metadata, authorization_metadata)
+    scopes = select_oauth_scopes(
+        scopes=oauth.scopes,
+        challenge_scopes=challenge.scopes,
+        resource_scopes=resource_metadata.scopes_supported,
+    )
     state = create_code_verifier()
     loopback = await create_oauth_loopback_callback_server(state=state)
 
@@ -108,6 +113,7 @@ async def _default_acquire_token(
                 redirect_uri=loopback.redirect_uri,
                 wait_for_callback=loopback.wait_for_callback,
                 state=state,
+                scopes=scopes,
             ),
         )
         _log_oauth_debug("resolved access token claims", _decode_jwt_claims(token.access_token))
@@ -254,6 +260,7 @@ async def _run_authorization_code_flow(
     redirect_uri: str,
     wait_for_callback,
     state: str,
+    scopes: List[str],
 ) -> GopherAgentTokenRecord:
     code_verifier = create_code_verifier()
     code_challenge = create_code_challenge(code_verifier)
@@ -263,7 +270,7 @@ async def _run_authorization_code_flow(
         redirect_uri=redirect_uri,
         state=state,
         code_challenge=code_challenge,
-        scopes=oauth.scopes,
+        scopes=scopes,
         resource_metadata=resource_metadata,
     )
     opened = open_authorization_url(
@@ -327,18 +334,6 @@ def _resolve_resource_metadata_for_challenge(
         scopes_supported=list(challenge.scopes or []),
         raw_json="{}",
     )
-
-
-def _select_scopes(
-    oauth: GopherAgentOAuthOptions,
-    resource_metadata: OAuthProtectedResourceMetadata,
-    authorization_metadata: OAuthAuthorizationServerMetadata,
-) -> List[str]:
-    if oauth.scopes:
-        return oauth.scopes
-    if resource_metadata.scopes_supported:
-        return resource_metadata.scopes_supported
-    return authorization_metadata.scopes_supported
 
 
 def _decode_jwt_claims(token: str) -> Dict[str, Any]:
