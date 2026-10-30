@@ -8,19 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.1.40.2] - 2026-10-30
+
 ### Fixed
 
-- Use OAuth challenge and resource scopes instead of realm-wide defaults, keeping
-  registration, authorization, and token-cache scopes consistent.
-- Preserve the advertised OAuth resource during authorization-code exchange and
-  token refresh to avoid missing or incorrect resource targets.
+- Honor MCP challenge scopes and avoid realm-wide scope defaults. Keep selected
+  scopes consistent across client registration, authorization, and token caching.
+- Preserve the advertised OAuth resource during code exchange and token refresh
+  to avoid missing or incorrect targets (`invalid_target`).
 
 ### Added
 
-- Export `select_oauth_scopes` for applications that manage their own OAuth flow.
-- Add `build_oauth_code_exchange_request` so web applications can reuse SDK
-  resource and client-authentication handling with their own HTTP transport.
-
+- Export `select_oauth_scopes` so applications can reuse the SDK's scope policy.
+- Add `build_oauth_code_exchange_request` for applications using their own HTTP
+  transport, supporting resource binding, public clients, `client_secret_post`,
+  and `client_secret_basic` authentication.
 
 ## [0.1.40] - 2026-10-30
 
@@ -476,5 +479,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 [Unreleased]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...HEAD
-[0.1.40]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.40[0.1.39]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.39[0.1.38]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.38[0.1.34]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.34[0.1.30]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.30[0.1.23]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.23[0.1.21]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.21[0.1.16]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.16[0.1.15]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.15[0.1.14]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.14[0.1.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.2[0.1.1]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.1[0.1.0-20260227-124047]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0...v0.1.0-20260227-124047
+[0.1.40.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.40.2[0.1.40]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.40[0.1.39]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.39[0.1.38]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.38[0.1.34]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.34[0.1.30]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.30[0.1.23]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.23[0.1.21]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.21[0.1.16]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.16[0.1.15]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.15[0.1.14]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.14[0.1.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.2[0.1.1]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.1[0.1.0-20260227-124047]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0...v0.1.0-20260227-124047
 [0.1.0]: https://github.com/GopherSecurity/gopher-mcp-python/releases/tag/v0.1.0
