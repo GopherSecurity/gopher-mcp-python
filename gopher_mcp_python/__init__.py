@@ -54,7 +54,7 @@ from gopher_mcp_python.server_config import ServerConfig, ServerConfigRoute
 from gopher_mcp_python.oauth_scopes import select_oauth_scopes
 from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
-__version__ = "0.1.39"
+__version__ = "0.1.40.2"
 
 _AUTH_EXPORTS = {
     "GopherAuth",

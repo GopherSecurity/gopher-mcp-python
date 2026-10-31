@@ -50,6 +50,24 @@ def test_linux_x64_uses_digest_pinned_ubuntu_builder_image() -> None:
     assert re.search(r"\subuntu:20\.04\s", build_script) is None
 
 
+def test_linux_verification_installs_system_openssl_even_for_cached_builds() -> None:
+    dockerfile = _linux_builder_dockerfile()
+    build_script = _root_build_script()
+    runtime_stage = dockerfile.split("FROM ${UBUNTU_20_04_IMAGE} AS runtime", 1)[1]
+    verify_function = build_script.split("verify_linux_x64_docker_output() {", 1)[1].split(
+        "\n}\n", 1
+    )[0]
+
+    assert "libssl1.1" in runtime_stage
+    assert "libstdc++6" in runtime_stage
+    assert "libssl-dev" not in runtime_stage
+    assert "--target builder" in build_script
+    assert "--target runtime" in verify_function
+    assert verify_function.index("docker build") < verify_function.index("docker run")
+    assert "gopher-orch-python:linux-x64-ubuntu20-runtime" in verify_function
+    assert '"${UBUNTU_20_04_IMAGE}" \\\n            sh -c' not in verify_function
+
+
 def test_oauth_verify_prs_install_checked_out_sdk() -> None:
     workflow = _oauth_verify_workflow()
 
