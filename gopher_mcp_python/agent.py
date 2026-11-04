@@ -28,6 +28,7 @@ Example with context manager:
 
 import atexit
 import asyncio
+import threading
 import weakref
 from typing import Callable, Optional
 
@@ -51,6 +52,7 @@ from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
 
 _initialized = False
 _cleanup_handler_registered = False
+_initialization_lock = threading.RLock()
 _SKIP_DISCOVERY_ELICITATION_HEADER = "X-Gopher-Internal-Skip-Discovery-Elicitation"
 _PREFLIGHT_MCP_SESSION_HEADER = "X-Gopher-Internal-Preflight-Mcp-Session-Id"
 
@@ -60,15 +62,24 @@ class GopherAgent:
     Main agent class for interacting with the gopher-mcp-python native library.
     """
 
-    def __init__(self, handle: GopherOrchHandle) -> None:
+    def __init__(
+        self, handle: GopherOrchHandle, library: Optional[GopherOrchLibrary] = None
+    ) -> None:
         """
         Initialize a GopherAgent with a native handle.
 
         Note: Use create() factory method instead of direct instantiation.
         """
         self._handle = handle
+        self._library = (
+            library if library is not None else GopherOrchLibrary.get_instance()
+        )
+        self._lifecycle_lock = threading.Lock()
+        self._running = False
         self._disposed = False
-        self._finalizer = weakref.finalize(self, _release_handle_best_effort, handle)
+        self._finalizer = weakref.finalize(
+            self, _release_handle_best_effort, handle, self._library
+        )
 
     def __enter__(self) -> "GopherAgent":
         """Context manager entry."""
@@ -90,18 +101,17 @@ class GopherAgent:
             AgentError: if initialization fails
         """
         global _initialized
-        if _initialized:
-            return
-
-        lib = GopherOrchLibrary.get_instance()
-        if lib is None:
-            load_error = GopherOrchLibrary.get_load_error_message()
-            raise AgentError(
-                f"Failed to load gopher-mcp-python native library.\n{load_error}"
-            )
-
-        _initialized = True
-        _setup_cleanup_handler()
+        with _initialization_lock:
+            if _initialized:
+                return
+            lib = GopherOrchLibrary.get_instance()
+            if lib is None:
+                load_error = GopherOrchLibrary.get_load_error_message()
+                raise AgentError(
+                    f"Failed to load gopher-mcp-python native library.\n{load_error}"
+                )
+            _setup_cleanup_handler()
+            _initialized = True
 
     @staticmethod
     def shutdown() -> None:
@@ -111,12 +121,14 @@ class GopherAgent:
         Called automatically on process exit, but can be called manually.
         """
         global _initialized
-        _initialized = False
+        with _initialization_lock:
+            _initialized = False
 
     @staticmethod
     def is_initialized() -> bool:
         """Check if the library is initialized."""
-        return _initialized
+        with _initialization_lock:
+            return _initialized
 
     @staticmethod
     def create(config: GopherAgentConfig) -> "GopherAgent":
@@ -461,8 +473,7 @@ class GopherAgent:
         callable, and translates a null handle return into AgentError using
         the same last_error / clear_error contract as create().
         """
-        if not _initialized:
-            GopherAgent.init()
+        GopherAgent.init()
 
         lib = GopherOrchLibrary.get_instance()
         if lib is None:
@@ -481,7 +492,7 @@ class GopherAgent:
             lib.clear_error()
             raise AgentError(error or _build_create_error_message())
 
-        return GopherAgent(handle)
+        return GopherAgent(handle, lib)
 
     def run(self, query: str, timeout_ms: int = 60000) -> str:
         """
@@ -497,14 +508,16 @@ class GopherAgent:
         Raises:
             AgentError: if the query fails
         """
-        self._ensure_not_disposed()
-
-        lib = GopherOrchLibrary.get_instance()
-        if lib is None:
-            load_error = GopherOrchLibrary.get_load_error_message()
-            raise AgentError(f"Native library not available.\n{load_error}")
-
+        with self._lifecycle_lock:
+            self._ensure_not_disposed()
+            if self._running:
+                raise AgentError("Agent is already running a query")
+            self._running = True
         try:
+            lib = self._library
+            if lib is None:
+                load_error = GopherOrchLibrary.get_load_error_message()
+                raise AgentError(f"Native library not available.\n{load_error}")
             response = lib.agent_run(self._handle, query, timeout_ms)
             if response is None:
                 error = lib.get_last_error_message()
@@ -515,6 +528,12 @@ class GopherAgent:
             raise
         except Exception as e:
             raise AgentError(f"Query execution failed: {e}")
+        finally:
+            with self._lifecycle_lock:
+                self._running = False
+                release = self._disposed
+            if release:
+                self._finalizer()
 
     def run_detailed(self, query: str, timeout_ms: int = 60000) -> AgentResult:
         """
@@ -546,19 +565,22 @@ class GopherAgent:
         """
         Dispose of the agent and free native resources deterministically.
 
-        A best-effort finalizer also releases forgotten agents during garbage
-        collection, but callers should prefer dispose() or a with block.
+        Stop accepting queries immediately. If a query is active, its exit
+        releases native resources. This method never waits for callbacks.
+        A best-effort finalizer also releases forgotten agents.
         """
-        if self._disposed:
-            return
-
-        self._disposed = True
-        if self._finalizer.alive:
+        with self._lifecycle_lock:
+            if self._disposed:
+                return
+            self._disposed = True
+            release = not self._running
+        if release:
             self._finalizer()
 
     def is_disposed(self) -> bool:
         """Check if agent is disposed."""
-        return self._disposed
+        with self._lifecycle_lock:
+            return self._disposed
 
     def _ensure_not_disposed(self) -> None:
         """Ensure agent has not been disposed."""
@@ -569,16 +591,17 @@ class GopherAgent:
 def _setup_cleanup_handler() -> None:
     """Register cleanup handler for process exit."""
     global _cleanup_handler_registered
-    if _cleanup_handler_registered:
-        return
+    with _initialization_lock:
+        if _cleanup_handler_registered:
+            return
+        atexit.register(GopherAgent.shutdown)
+        _cleanup_handler_registered = True
 
-    _cleanup_handler_registered = True
-    atexit.register(GopherAgent.shutdown)
 
-
-def _release_handle_best_effort(handle: GopherOrchHandle) -> None:
+def _release_handle_best_effort(
+    handle: GopherOrchHandle, lib: Optional[GopherOrchLibrary]
+) -> None:
     try:
-        lib = GopherOrchLibrary.get_instance()
         if lib is not None and handle is not None:
             lib.agent_release(handle)
     except Exception:
