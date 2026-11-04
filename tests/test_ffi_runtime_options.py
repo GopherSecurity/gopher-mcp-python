@@ -3,6 +3,8 @@ Tests for dynamic MCP runtime options at the ctypes FFI boundary.
 """
 
 import ctypes
+import gc
+import weakref
 
 import pytest
 
@@ -278,3 +280,47 @@ def test_agent_create_by_url_retains_and_releases_elicitation_options() -> None:
 
     assert releases == [789]
     assert lib._agent_option_storage == {}
+
+
+def test_inflight_native_call_keeps_callback_storage_after_owner_release():
+    class Native:
+        def gopher_orch_agent_run(self, handle, query, timeout):
+            lib.agent_release(handle)
+            gc.collect()
+            assert handle not in lib._agent_option_storage
+            assert retained_ref() is not None
+            request = GopherOrchElicitationRequest(
+                None, None, b"url", None, None, None, None
+            )
+            return retained_ref().storage.elicitation_callback(
+                ctypes.byref(request), None
+            )
+
+        def gopher_orch_agent_release(self, handle):
+            assert retained_ref() is not None
+
+    lib = _new_library(Native())
+    lib._loaded_native_package_version = "0.1.40"
+    lib._retain_agent_option_storage(
+        789, lib._build_agent_options({"elicitation": {"handler": lambda r: "accept"}})
+    )
+    retained_ref = weakref.ref(lib._agent_option_storage[789])
+    lib._decode_owned_c_string = lambda result: result
+    assert lib.agent_run(789, "question", 1000) == 1
+    gc.collect()
+    assert retained_ref() is None
+
+
+def test_releasing_old_handle_does_not_remove_reused_address_storage():
+    class Native:
+        def gopher_orch_agent_release(self, handle):
+            lib._retain_agent_option_storage(handle, options)
+
+    lib = _new_library(Native())
+    lib._loaded_native_package_version = "0.1.40"
+    options = lib._build_agent_options({"elicitation": {"handler": lambda r: "accept"}})
+    lib._retain_agent_option_storage(789, options)
+    old = lib._agent_option_storage[789]
+    lib.agent_release(789)
+    assert lib._agent_option_storage[789] is not old
+    assert lib._agent_option_storage[789].ref_count == 1
