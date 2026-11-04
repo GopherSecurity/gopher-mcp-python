@@ -6,6 +6,7 @@ import ctypes
 import os
 import re
 import sys
+import threading
 from ctypes import (
     CFUNCTYPE,
     POINTER,
@@ -213,6 +214,8 @@ class GopherOrchLibrary:
     """
 
     _instance: Optional["GopherOrchLibrary"] = None
+    _instance_lock = threading.Lock()
+    _storage_lock = threading.Lock()
     _lib: Optional[ctypes.CDLL] = None
     _available: bool = False
     _debug: bool = False
@@ -229,9 +232,10 @@ class GopherOrchLibrary:
         """
         Get the library instance, loading it if necessary.
         """
-        if cls._instance is None:
-            cls._instance = GopherOrchLibrary()
-        return cls._instance if cls._instance._available else None
+        with cls._instance_lock:
+            if cls._instance is None:
+                cls._instance = cls()
+            return cls._instance if cls._instance._available else None
 
     @classmethod
     def is_available(cls) -> bool:
@@ -941,37 +945,31 @@ class GopherOrchLibrary:
     ) -> None:
         if handle is None or options is None or options.elicitation_callback is None:
             return
-        storage = getattr(self, "_agent_option_storage", None)
-        if storage is None:
-            storage = {}
-            self._agent_option_storage = storage
-        key = _handle_key(handle)
-        if key is not None:
-            storage[key] = _RetainedAgentOptionsStorage(options)
+        with self._storage_lock:
+            storage = getattr(self, "_agent_option_storage", None)
+            if storage is None:
+                storage = {}
+                self._agent_option_storage = storage
+            key = _handle_key(handle)
+            if key is not None:
+                storage[key] = _RetainedAgentOptionsStorage(options)
 
     def _add_ref_agent_option_storage(self, handle: GopherOrchHandle) -> None:
-        storage = getattr(self, "_agent_option_storage", None)
-        if storage is None:
-            return
-        key = _handle_key(handle)
-        if key is None:
-            return
-        retained = storage.get(key)
-        if retained is not None:
-            retained.ref_count += 1
+        with self._storage_lock:
+            storage = getattr(self, "_agent_option_storage", {})
+            retained = storage.get(_handle_key(handle))
+            if retained is not None:
+                retained.ref_count += 1
 
     def _release_agent_option_storage(self, handle: GopherOrchHandle) -> None:
-        storage = getattr(self, "_agent_option_storage", None)
-        if storage is None:
-            return
-        key = _handle_key(handle)
-        if key is not None:
+        with self._storage_lock:
+            storage = getattr(self, "_agent_option_storage", {})
+            key = _handle_key(handle)
             retained = storage.get(key)
-            if retained is None:
-                return
-            retained.ref_count -= 1
-            if retained.ref_count <= 0:
-                storage.pop(key, None)
+            if retained is not None:
+                retained.ref_count -= 1
+                if retained.ref_count <= 0:
+                    storage.pop(key, None)
 
     def _missing_options_symbol_message(self) -> str:
         return (
