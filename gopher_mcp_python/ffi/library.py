@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import threading
+from contextlib import contextmanager
 from ctypes import (
     CFUNCTYPE,
     POINTER,
@@ -961,14 +962,25 @@ class GopherOrchLibrary:
             if retained is not None:
                 retained.ref_count += 1
 
-    def _release_agent_option_storage(self, handle: GopherOrchHandle) -> None:
+    @contextmanager
+    def _pin_agent_option_storage(self, handle: GopherOrchHandle):
+        # Keep callbacks alive through native execution/destruction even when
+        # another owner releases its reference. Never hold the lock in C code.
+        with self._storage_lock:
+            retained = getattr(self, "_agent_option_storage", {}).get(
+                _handle_key(handle)
+            )
+        yield retained
+
+    def _release_agent_option_storage(
+        self, handle: GopherOrchHandle, retained: Optional[_RetainedAgentOptionsStorage]
+    ) -> None:
         with self._storage_lock:
             storage = getattr(self, "_agent_option_storage", {})
             key = _handle_key(handle)
-            retained = storage.get(key)
             if retained is not None:
                 retained.ref_count -= 1
-                if retained.ref_count <= 0:
+                if retained.ref_count <= 0 and storage.get(key) is retained:
                     storage.pop(key, None)
 
     def _missing_options_symbol_message(self) -> str:
@@ -984,10 +996,11 @@ class GopherOrchLibrary:
         """Run a query against the agent."""
         if not self._available or self._lib is None:
             return None
-        result = self._lib.gopher_orch_agent_run(
-            agent, query.encode("utf-8"), timeout_ms
-        )
-        return self._decode_owned_c_string(result)
+        with self._pin_agent_option_storage(agent):
+            result = self._lib.gopher_orch_agent_run(
+                agent, query.encode("utf-8"), timeout_ms
+            )
+            return self._decode_owned_c_string(result)
 
     def agent_add_ref(self, agent: GopherOrchHandle) -> None:
         """Add a reference to the agent."""
@@ -998,10 +1011,11 @@ class GopherOrchLibrary:
     def agent_release(self, agent: GopherOrchHandle) -> None:
         """Release the agent."""
         if self._available and self._lib is not None:
-            try:
-                self._lib.gopher_orch_agent_release(agent)
-            finally:
-                self._release_agent_option_storage(agent)
+            with self._pin_agent_option_storage(agent) as retained:
+                try:
+                    self._lib.gopher_orch_agent_release(agent)
+                finally:
+                    self._release_agent_option_storage(agent, retained)
 
     # API functions
     def api_fetch_servers(self, api_key: str) -> Optional[str]:
