@@ -48,7 +48,15 @@ class GopherAgentTokenRecord:
 
 
 class GopherAgentTokenStore(Protocol):
-    """Async token store protocol used by SDK OAuth auto-flow."""
+    """Async token store protocol used by SDK OAuth auto-flow.
+
+    Shared resolutions are coordinated per store instance/key within a process.
+    Implement optional async compare_and_set(key, expected, token) -> bool for
+    atomic publication when the store also has external writers; token=None
+    conditionally deletes a rejected token. Custom stores
+    must support their calling event loops and threads; process-wide or remote
+    coordination remains the store implementation's responsibility.
+    """
 
     async def get(self, key: str) -> Optional[GopherAgentTokenRecord]:
         """Return a cached token record for key, if any."""
