@@ -1,11 +1,11 @@
 # Threading and ownership
 
-This document describes the source implementation in this checkout. Installing
-an older published SDK or native wheel does not provide these changes.
+This document describes the Python implementation in this checkout. Installing
+an older published Python SDK does not provide these changes.
 
-The Python wrapper coordinates agent and auth-object lifetimes. Native agent
-operations also retain a handle for their duration when using a native library
-built with the handle-lifetime fix at `gopher-orch` commit `db6dcb79`.
+The Python wrappers coordinate agent and auth-object lifetimes while using the
+existing compatible native library. These protections do not require changes
+to `gopher-orch` or newly built native binaries.
 
 These are specific lifecycle guarantees, rather than a claim that every native
 component, third-party provider, user callback, or application is memory-safe.
@@ -182,35 +182,28 @@ On refresh failure, a newer valid token is reused. Conditional publication
 does not overwrite a changed record; if no valid current token can be reused,
 resolution raises a cache-change error and the application can retry.
 
-## Native requirements and validation
+## Scope and validation
 
-The SDK pins native source commit `db6dcb79`. Rebuild the native library with
-`./build.sh` before relying on its native handle leases. Publishing a Python
-wheel alone does not update installed native wheels. Publish the native source
-commit and rebuilt platform artifacts alongside a release that includes this
-fix so consumers can fetch and use the pinned revision.
+Agent lifetime protection is enforced by `GopherAgent`: native release is
+deferred until its active query finishes. Auth wrappers similarly hold their
+own guards during native execution and result cleanup. Updating the Python
+package is sufficient for these wrapper protections; no native source update
+or native rebuild is part of this change.
 
-Native agent FFI lookup retains an operation reference under the handle
-registry lock. Final release removes the handle from the registry before
-destruction, and destruction occurs outside that lock. Execution and trace
-callback registration hold scoped references; overlapping native agent runs
-are rejected. Direct FFI users must still balance their owned references and
-avoid using a pointer after relinquishing ownership. Other low-level FFI object
-APIs have not all been certified for arbitrary concurrent use.
+These rules apply when operations and cleanup go through the supported Python
+agent and auth objects. Direct calls through ctypes, the internal
+`GopherOrchLibrary` FFI wrapper, another language SDK, or the native C API bypass
+the agent's Python lifecycle guard. Concurrent raw-handle operations require
+their own coordination. Do not create multiple independent owners for one
+native reference or use a pointer after its owner releases it. Protecting
+arbitrary native FFI callers would require a separate native-library change.
 
 Python regressions cover agent admission and deferred disposal, initialization,
 callback retention, token refresh and cancellation, auth owner destruction,
 and native allocation cleanup. The full Python suite completed with
 **486 passed, 1 skipped** for this implementation.
 
-Run the native handle registry's standalone tests with:
-
-```bash
-scripts/test-native-handle-lifetime.sh address
-scripts/test-native-handle-lifetime.sh thread
-```
-
-Both sanitizer runs passed for the actual native handle implementation. The
-changed agent FFI translation unit also passed a syntax compilation with the
-configured native build flags. These checks cover the handle implementation;
-they are not a sanitizer audit of the entire native SDK or its dependencies.
+These Python tests include controlled concurrency and allocation-ownership
+checks and tests against the existing native library. They are not a sanitizer
+audit of the native SDK or its dependencies, and do not prove that arbitrary
+native code is memory-safe.
