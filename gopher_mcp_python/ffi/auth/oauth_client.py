@@ -5,6 +5,9 @@ Provides token exchange, refresh, RFC 8693 token exchange, and
 RFC 7591 dynamic client registration via the native C API.
 """
 
+from ._lifecycle import NativeHandleOwner, native_constructor, native_operation
+from ._memory import read_owned_string
+
 from ctypes import POINTER, byref, c_char_p, c_int64, c_void_p
 from dataclasses import dataclass
 from typing import List, Optional
@@ -39,9 +42,12 @@ class RegistrationResponse:
     error: Optional[str] = None
 
 
-class GopherOAuthClient:
+class GopherOAuthClient(NativeHandleOwner):
     """OAuth HTTP client for token operations via native C API."""
 
+    _destroy_function = "oauth_client_destroy"
+
+    @native_constructor
     def __init__(
         self,
         token_endpoint: str,
@@ -69,72 +75,75 @@ class GopherOAuthClient:
             raise RuntimeError(f"Failed to create OAuth client: error {result}")
         self._destroyed = False
 
+    def _token_request(self, name, *args):
+        funcs = get_auth_functions()
+        function = funcs.get(name)
+        if not function:
+            return TokenResponse(access_token="", error="ffi_error", success=False)
+        response = c_void_p()
+        try:
+            status = function(self._handle, *args, byref(response))
+            if status != GopherAuthError.SUCCESS or not response:
+                return TokenResponse(access_token="", error="ffi_error", success=False)
+            owned = response
+            response = c_void_p()
+            return self._read_token_response(owned)
+        finally:
+            destroy = funcs.get("token_response_destroy")
+            if response and destroy:
+                destroy(response)
+
     def _read_token_response(self, resp_handle: c_void_p) -> TokenResponse:
         funcs = get_auth_functions()
-        success = funcs.get("token_response_is_success")
-        is_ok = success(resp_handle) if success else False
+        try:
+            success = funcs.get("token_response_is_success")
+            is_ok = success(resp_handle) if success else False
+            expires = c_int64(0)
+            getter = funcs.get("token_response_get_expires_in")
+            if getter:
+                getter(resp_handle, byref(expires))
+            return TokenResponse(
+                access_token=read_owned_string(
+                    funcs, "token_response_get_access_token", resp_handle, default=""
+                ),
+                refresh_token=read_owned_string(
+                    funcs, "token_response_get_refresh_token", resp_handle
+                ),
+                token_type=read_owned_string(
+                    funcs,
+                    "token_response_get_token_type",
+                    resp_handle,
+                    default="Bearer",
+                ),
+                expires_in=expires.value,
+                error=(
+                    read_owned_string(funcs, "token_response_get_error", resp_handle)
+                    if not is_ok
+                    else None
+                ),
+                success=is_ok,
+            )
+        finally:
+            destroy = funcs.get("token_response_destroy")
+            if destroy:
+                destroy(resp_handle)
 
-        at_out = c_char_p()
-        funcs.get("token_response_get_access_token", lambda *a: None)(
-            resp_handle, byref(at_out)
-        )
-        rt_out = c_char_p()
-        funcs.get("token_response_get_refresh_token", lambda *a: None)(
-            resp_handle, byref(rt_out)
-        )
-        exp_out = c_int64(0)
-        funcs.get("token_response_get_expires_in", lambda *a: None)(
-            resp_handle, byref(exp_out)
-        )
-        err_out = c_char_p()
-        funcs.get("token_response_get_error", lambda *a: None)(
-            resp_handle, byref(err_out)
-        )
-
-        funcs.get("token_response_destroy", lambda *a: None)(resp_handle)
-
-        return TokenResponse(
-            access_token=at_out.value.decode("utf-8") if at_out.value else "",
-            refresh_token=rt_out.value.decode("utf-8") if rt_out.value else None,
-            expires_in=exp_out.value,
-            error=(
-                err_out.value.decode("utf-8") if err_out.value and not is_ok else None
-            ),
-            success=is_ok,
-        )
-
+    @native_operation
     def exchange_code(
         self, code: str, redirect_uri: str, code_verifier: Optional[str] = None
     ) -> TokenResponse:
-        self._ensure_not_destroyed()
-        funcs = get_auth_functions()
-        fn = funcs.get("oauth_exchange_code")
-        if not fn:
-            return TokenResponse(access_token="", error="ffi_error", success=False)
-        resp = c_void_p()
-        err = fn(
-            self._handle,
+        return self._token_request(
+            "oauth_exchange_code",
             code.encode("utf-8"),
             redirect_uri.encode("utf-8"),
             code_verifier.encode("utf-8") if code_verifier else None,
-            byref(resp),
         )
-        if err != GopherAuthError.SUCCESS or not resp:
-            return TokenResponse(access_token="", error="ffi_error", success=False)
-        return self._read_token_response(resp)
 
+    @native_operation
     def refresh_token(self, refresh_token: str) -> TokenResponse:
-        self._ensure_not_destroyed()
-        funcs = get_auth_functions()
-        fn = funcs.get("oauth_refresh_token")
-        if not fn:
-            return TokenResponse(access_token="", error="ffi_error", success=False)
-        resp = c_void_p()
-        err = fn(self._handle, refresh_token.encode("utf-8"), byref(resp))
-        if err != GopherAuthError.SUCCESS or not resp:
-            return TokenResponse(access_token="", error="ffi_error", success=False)
-        return self._read_token_response(resp)
+        return self._token_request("oauth_refresh_token", refresh_token.encode("utf-8"))
 
+    @native_operation
     def token_exchange(
         self,
         subject_token: str,
@@ -142,24 +151,15 @@ class GopherOAuthClient:
         audience: Optional[str] = None,
         scope: Optional[str] = None,
     ) -> TokenResponse:
-        self._ensure_not_destroyed()
-        funcs = get_auth_functions()
-        fn = funcs.get("oauth_token_exchange")
-        if not fn:
-            return TokenResponse(access_token="", error="ffi_error", success=False)
-        resp = c_void_p()
-        err = fn(
-            self._handle,
+        return self._token_request(
+            "oauth_token_exchange",
             subject_token.encode("utf-8"),
             requested_issuer.encode("utf-8"),
             audience.encode("utf-8") if audience else None,
             scope.encode("utf-8") if scope else None,
-            byref(resp),
         )
-        if err != GopherAuthError.SUCCESS or not resp:
-            return TokenResponse(access_token="", error="ffi_error", success=False)
-        return self._read_token_response(resp)
 
+    @native_operation
     def register_client(
         self,
         registration_endpoint: str,
@@ -167,7 +167,6 @@ class GopherOAuthClient:
         redirect_uris: List[str],
         scopes: Optional[str] = None,
     ) -> RegistrationResponse:
-        self._ensure_not_destroyed()
         funcs = get_auth_functions()
         fn = funcs.get("oauth_register_client")
         if not fn:
@@ -175,51 +174,53 @@ class GopherOAuthClient:
         count = len(redirect_uris)
         uris_arr = (c_char_p * count)(*(u.encode("utf-8") for u in redirect_uris))
         resp = c_void_p()
-        err = fn(
-            self._handle,
-            registration_endpoint.encode("utf-8"),
-            client_name.encode("utf-8"),
-            uris_arr,
-            count,
-            scopes.encode("utf-8") if scopes else b"openid",
-            byref(resp),
-        )
-        if err != GopherAuthError.SUCCESS or not resp:
-            return RegistrationResponse(client_id="", error="ffi_error", success=False)
+        try:
+            err = fn(
+                self._handle,
+                registration_endpoint.encode("utf-8"),
+                client_name.encode("utf-8"),
+                uris_arr,
+                count,
+                scopes.encode("utf-8") if scopes else b"openid",
+                byref(resp),
+            )
+            if err != GopherAuthError.SUCCESS or not resp:
+                return RegistrationResponse(
+                    client_id="", error="ffi_error", success=False
+                )
+            is_ok = funcs.get("registration_response_is_success", lambda *a: False)(
+                resp
+            )
+            return RegistrationResponse(
+                client_id=read_owned_string(
+                    funcs, "registration_response_get_client_id", resp, default=""
+                ),
+                client_secret=read_owned_string(
+                    funcs, "registration_response_get_client_secret", resp
+                ),
+                error=(
+                    read_owned_string(funcs, "registration_response_get_error", resp)
+                    if not is_ok
+                    else None
+                ),
+                success=is_ok,
+            )
+        finally:
+            destroy = funcs.get("registration_response_destroy")
+            if resp and destroy:
+                destroy(resp)
 
-        is_ok = funcs.get("registration_response_is_success", lambda *a: False)(resp)
-        cid_out = c_char_p()
-        funcs.get("registration_response_get_client_id", lambda *a: None)(
-            resp, byref(cid_out)
-        )
-        cs_out = c_char_p()
-        funcs.get("registration_response_get_client_secret", lambda *a: None)(
-            resp, byref(cs_out)
-        )
-        funcs.get("registration_response_destroy", lambda *a: None)(resp)
-
-        return RegistrationResponse(
-            client_id=cid_out.value.decode("utf-8") if cid_out.value else "",
-            client_secret=cs_out.value.decode("utf-8") if cs_out.value else None,
-            success=is_ok,
-        )
-
+    @native_operation
     def get_handle(self) -> c_void_p:
         self._ensure_not_destroyed()
         return self._handle
 
     def destroy(self) -> None:
-        if self._destroyed:
-            return
-        funcs = get_auth_functions()
-        d = funcs.get("oauth_client_destroy")
-        if d and self._handle:
-            d(self._handle)
-        self._handle = None
-        self._destroyed = True
+        """Wait for active calls and release the handle exactly once."""
+        self._destroy_handle()
 
     def is_destroyed(self) -> bool:
-        return self._destroyed
+        return self._is_handle_destroyed()
 
     def __enter__(self) -> "GopherOAuthClient":
         return self

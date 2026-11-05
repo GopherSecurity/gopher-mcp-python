@@ -12,6 +12,11 @@ import ctypes
 import os
 import platform
 import sys
+import threading
+from functools import wraps
+
+from ._lifecycle import native_operation
+from ._memory import read_owned_string
 from ctypes import (
     POINTER,
     Structure,
@@ -25,6 +30,18 @@ from ctypes import (
 )
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+
+_load_lock = threading.RLock()
+
+
+def _serialized_load(function):
+    @wraps(function)
+    def guarded(*args, **kwargs):
+        with _load_lock:
+            return function(*args, **kwargs)
+
+    return guarded
+
 
 # Track if library is loaded
 _lib: Optional[ctypes.CDLL] = None
@@ -174,6 +191,7 @@ def _get_search_paths() -> List[str]:
     return paths
 
 
+@_serialized_load
 def load_library() -> bool:
     """
     Load the gopher-orch native library.
@@ -239,6 +257,7 @@ def load_library() -> bool:
     return False
 
 
+@_serialized_load
 def is_library_loaded() -> bool:
     """
     Check if the library is loaded and available.
@@ -249,6 +268,7 @@ def is_library_loaded() -> bool:
     return _lib_available
 
 
+@_serialized_load
 def get_library() -> Optional[ctypes.CDLL]:
     """
     Get the loaded library instance.
@@ -468,6 +488,7 @@ _FUNCTION_SPECS = [
 ]
 
 
+@_serialized_load
 def _setup_functions() -> bool:
     """
     Setup FFI function bindings for all gopher_auth_* functions.
@@ -548,6 +569,7 @@ def _get_function(name: str) -> Optional[Any]:
         return None
 
 
+@_serialized_load
 def is_auth_available() -> bool:
     """
     Check if auth functions are available in the loaded library.
@@ -561,6 +583,7 @@ def is_auth_available() -> bool:
     return _auth_functions_available
 
 
+@_serialized_load
 def get_auth_functions() -> Dict[str, Any]:
     """
     Get dictionary of all auth function references.
@@ -712,6 +735,7 @@ def get_auth_functions() -> Dict[str, Any]:
 # ============================================================================
 
 
+@native_operation
 def gopher_auth_validate_idp(exchange_idps_csv: str, requested_issuer: str) -> bool:
     """Check if IDP alias is in the comma-separated whitelist."""
     funcs = get_auth_functions()
@@ -723,6 +747,7 @@ def gopher_auth_validate_idp(exchange_idps_csv: str, requested_issuer: str) -> b
     return out.value
 
 
+@native_operation
 def gopher_auth_validate_all_scopes(scopes: str, required_scopes: str) -> bool:
     """Check if ALL required scopes are present (AND logic)."""
     funcs = get_auth_functions()
@@ -734,6 +759,7 @@ def gopher_auth_validate_all_scopes(scopes: str, required_scopes: str) -> bool:
     return out.value
 
 
+@native_operation
 def gopher_auth_validate_any_scopes(scopes: str, required_scopes: str) -> bool:
     """Check if ANY required scope is present (OR logic)."""
     funcs = get_auth_functions()
@@ -745,50 +771,40 @@ def gopher_auth_validate_any_scopes(scopes: str, required_scopes: str) -> bool:
     return out.value
 
 
+@native_operation
 def gopher_auth_url_encode(input_str: str) -> str:
     """RFC 3986 percent-encode a string."""
-    funcs = get_auth_functions()
-    fn = funcs.get("url_encode")
-    if not fn:
-        return ""
-    out = c_char_p()
-    fn(input_str.encode("utf-8"), byref(out))
-    return out.value.decode("utf-8") if out.value else ""
+    return read_owned_string(
+        get_auth_functions(), "url_encode", input_str.encode("utf-8"), default=""
+    )
 
 
+@native_operation
 def gopher_auth_url_decode(input_str: str) -> str:
     """Decode a percent-encoded string."""
-    funcs = get_auth_functions()
-    fn = funcs.get("url_decode")
-    if not fn:
-        return ""
-    out = c_char_p()
-    fn(input_str.encode("utf-8"), byref(out))
-    return out.value.decode("utf-8") if out.value else ""
+    return read_owned_string(
+        get_auth_functions(), "url_decode", input_str.encode("utf-8"), default=""
+    )
 
 
+@native_operation
 def gopher_auth_build_protected_resource_metadata(
     resource_url: str, auth_server_url: str, scopes: Optional[str] = None
 ) -> dict:
     """Build RFC 9728 Protected Resource Metadata."""
     import json
 
-    funcs = get_auth_functions()
-    fn = funcs.get("metadata_build_protected_resource")
-    if not fn:
-        return {}
-    out = c_char_p()
-    fn(
+    value = read_owned_string(
+        get_auth_functions(),
+        "metadata_build_protected_resource",
         resource_url.encode("utf-8"),
         auth_server_url.encode("utf-8"),
         scopes.encode("utf-8") if scopes else None,
-        byref(out),
     )
-    if out.value:
-        return json.loads(out.value.decode("utf-8"))
-    return {}
+    return json.loads(value) if value else {}
 
 
+@native_operation
 def gopher_auth_build_oauth_server_metadata(
     issuer: str,
     auth_endpoint: str,
@@ -800,25 +816,20 @@ def gopher_auth_build_oauth_server_metadata(
     """Build RFC 8414 Authorization Server Metadata."""
     import json
 
-    funcs = get_auth_functions()
-    fn = funcs.get("metadata_build_oauth_server")
-    if not fn:
-        return {}
-    out = c_char_p()
-    fn(
+    value = read_owned_string(
+        get_auth_functions(),
+        "metadata_build_oauth_server",
         issuer.encode("utf-8"),
         auth_endpoint.encode("utf-8"),
         token_endpoint.encode("utf-8"),
         registration_endpoint.encode("utf-8") if registration_endpoint else None,
         jwks_uri.encode("utf-8") if jwks_uri else None,
         scopes.encode("utf-8") if scopes else None,
-        byref(out),
     )
-    if out.value:
-        return json.loads(out.value.decode("utf-8"))
-    return {}
+    return json.loads(value) if value else {}
 
 
+@native_operation
 def gopher_auth_build_oidc_discovery_metadata(
     issuer: str,
     auth_endpoint: str,
@@ -832,12 +843,9 @@ def gopher_auth_build_oidc_discovery_metadata(
     """Build OpenID Connect Discovery Metadata."""
     import json
 
-    funcs = get_auth_functions()
-    fn = funcs.get("metadata_build_oidc_discovery")
-    if not fn:
-        return {}
-    out = c_char_p()
-    fn(
+    value = read_owned_string(
+        get_auth_functions(),
+        "metadata_build_oidc_discovery",
         issuer.encode("utf-8"),
         auth_endpoint.encode("utf-8"),
         token_endpoint.encode("utf-8"),
@@ -846,41 +854,29 @@ def gopher_auth_build_oidc_discovery_metadata(
         scopes.encode("utf-8") if scopes else None,
         userinfo_endpoint.encode("utf-8") if userinfo_endpoint else None,
         end_session_endpoint.encode("utf-8") if end_session_endpoint else None,
-        byref(out),
     )
-    if out.value:
-        return json.loads(out.value.decode("utf-8"))
-    return {}
+    return json.loads(value) if value else {}
 
 
+@native_operation
 def gopher_auth_extract_bearer_token(http_data: str) -> Optional[str]:
     """Extract bearer token from raw HTTP request data."""
-    funcs = get_auth_functions()
-    fn = funcs.get("http_extract_bearer_token")
-    if not fn:
-        return None
-    out = c_char_p()
-    fn(http_data.encode("utf-8"), byref(out))
-    return out.value.decode("utf-8") if out.value else None
+    return read_owned_string(
+        get_auth_functions(), "http_extract_bearer_token", http_data.encode("utf-8")
+    )
 
 
+@native_operation
 def gopher_auth_extract_method(http_data: str) -> Optional[str]:
     """Extract HTTP method from request line."""
-    funcs = get_auth_functions()
-    fn = funcs.get("http_extract_method")
-    if not fn:
-        return None
-    out = c_char_p()
-    fn(http_data.encode("utf-8"), byref(out))
-    return out.value.decode("utf-8") if out.value else None
+    return read_owned_string(
+        get_auth_functions(), "http_extract_method", http_data.encode("utf-8")
+    )
 
 
+@native_operation
 def gopher_auth_extract_path(http_data: str) -> Optional[str]:
     """Extract path from HTTP request line (without query string)."""
-    funcs = get_auth_functions()
-    fn = funcs.get("http_extract_path")
-    if not fn:
-        return None
-    out = c_char_p()
-    fn(http_data.encode("utf-8"), byref(out))
-    return out.value.decode("utf-8") if out.value else None
+    return read_owned_string(
+        get_auth_functions(), "http_extract_path", http_data.encode("utf-8")
+    )

@@ -5,6 +5,8 @@ Provides a fluent API for configuring JWT token validation options
 such as required scopes, audience, and clock skew tolerance.
 """
 
+from ._lifecycle import NativeHandleOwner, native_constructor, native_operation
+
 from ctypes import byref, c_void_p
 from typing import List, Optional, TYPE_CHECKING
 
@@ -17,7 +19,7 @@ from gopher_mcp_python.ffi.auth.loader import (
 from gopher_mcp_python.ffi.auth.types import GopherAuthError
 
 
-class GopherValidationOptions:
+class GopherValidationOptions(NativeHandleOwner):
     """
     Configuration options for JWT token validation.
 
@@ -42,6 +44,9 @@ class GopherValidationOptions:
         options = gopher_create_validation_options(clock_skew=60)
     """
 
+    _destroy_function = "options_destroy"
+
+    @native_constructor
     def __init__(self) -> None:
         """
         Create a new ValidationOptions instance.
@@ -71,6 +76,7 @@ class GopherValidationOptions:
 
         self._handle = handle
 
+    @native_operation
     def set_scopes(self, scopes: List[str]) -> "GopherValidationOptions":
         """
         Set the required scopes for token validation.
@@ -97,6 +103,7 @@ class GopherValidationOptions:
 
         return self
 
+    @native_operation
     def set_audience(self, audience: str) -> "GopherValidationOptions":
         """
         Set the required audience for token validation.
@@ -121,6 +128,7 @@ class GopherValidationOptions:
 
         return self
 
+    @native_operation
     def set_clock_skew(self, seconds: int) -> "GopherValidationOptions":
         """
         Set the clock skew tolerance for token expiration checks.
@@ -145,6 +153,7 @@ class GopherValidationOptions:
 
         return self
 
+    @native_operation
     def get_handle(self) -> c_void_p:
         """
         Get the native handle for this options instance.
@@ -159,30 +168,11 @@ class GopherValidationOptions:
         return self._handle
 
     def destroy(self) -> None:
-        """
-        Destroy the native options handle and release resources.
-
-        This method is idempotent - calling it multiple times is safe.
-        """
-        if self._destroyed or self._handle is None:
-            return
-
-        funcs = get_auth_functions()
-        options_destroy = funcs.get("options_destroy")
-        if options_destroy is not None:
-            options_destroy(self._handle)
-
-        self._handle = None
-        self._destroyed = True
+        """Wait for active calls and release the handle exactly once."""
+        self._destroy_handle()
 
     def is_destroyed(self) -> bool:
-        """
-        Check if this options instance has been destroyed.
-
-        Returns:
-            True if destroyed, False otherwise.
-        """
-        return self._destroyed
+        return self._is_handle_destroyed()
 
     def _ensure_not_destroyed(self) -> None:
         """
@@ -200,10 +190,6 @@ class GopherValidationOptions:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit context manager and destroy resources."""
-        self.destroy()
-
-    def __del__(self) -> None:
-        """Destructor - ensure resources are released."""
         self.destroy()
 
 

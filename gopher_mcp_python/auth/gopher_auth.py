@@ -5,6 +5,10 @@ Provides OAuth 2.0 / JWT authentication via native FFI bindings.
 Matches the JS SDK's GopherAuth class API surface.
 """
 
+import threading
+
+from gopher_mcp_python.ffi.auth._lifecycle import synchronized
+
 from typing import Any, Dict, List, Optional
 
 from gopher_mcp_python.ffi.auth.auth_client import (
@@ -43,6 +47,7 @@ class GopherAuth:
         config: Optional[Dict[str, Any]] = None,
         auth_disabled: bool = False,
     ) -> None:
+        self._lifecycle_lock = threading.RLock()
         self._config_path = config_path
         self._config_dict = config
         self._auth_disabled = auth_disabled
@@ -52,6 +57,7 @@ class GopherAuth:
         self._session_manager: Optional[GopherSessionManager] = None
         self._initialized = False
 
+    @synchronized
     def initialize(self) -> None:
         """Initialize the auth module. Must be called before any other method."""
         if self._initialized:
@@ -111,6 +117,7 @@ class GopherAuth:
         self._session_manager = GopherSessionManager(300)
         self._initialized = True
 
+    @synchronized
     def shutdown(self) -> None:
         """Shutdown and release all native resources."""
         if self._session_manager:
@@ -129,6 +136,7 @@ class GopherAuth:
             gopher_shutdown_auth_library()
         self._initialized = False
 
+    @synchronized
     def validate_token(
         self,
         token: str,
@@ -158,6 +166,7 @@ class GopherAuth:
 
         return payload
 
+    @synchronized
     def has_scope(self, payload: TokenPayload, scope: str) -> bool:
         ctx = GopherAuthContext(
             user_id=payload.subject,
@@ -168,6 +177,7 @@ class GopherAuth:
         )
         return has_scope(ctx, scope)
 
+    @synchronized
     def has_all_scopes(self, payload: TokenPayload, scopes: List[str]) -> bool:
         ctx = GopherAuthContext(
             user_id=payload.subject,
@@ -178,6 +188,7 @@ class GopherAuth:
         )
         return has_all_scopes(ctx, scopes)
 
+    @synchronized
     def has_any_scope(self, payload: TokenPayload, scopes: List[str]) -> bool:
         ctx = GopherAuthContext(
             user_id=payload.subject,
@@ -188,6 +199,7 @@ class GopherAuth:
         )
         return has_any_scope(ctx, scopes)
 
+    @synchronized
     def exchange_token(
         self,
         subject_token: str,
@@ -209,6 +221,7 @@ class GopherAuth:
             )
         return result
 
+    @synchronized
     def get_protected_resource_metadata(self) -> dict:
         server_url = self._config.get_string("server_url") if self._config else ""
         scopes = self._config.get_string("allowed_scopes") if self._config else ""
@@ -216,6 +229,7 @@ class GopherAuth:
             f"{server_url}/mcp", server_url, scopes or None
         )
 
+    @synchronized
     def get_www_authenticate_header(
         self,
         error: str = "",
@@ -230,14 +244,17 @@ class GopherAuth:
             or "Bearer"
         )
 
+    @synchronized
     def get_token_endpoint(self) -> str:
         return self._config.get_string("token_endpoint") if self._config else ""
 
     @property
+    @synchronized
     def native_config(self) -> Optional[GopherAuthConfig]:
         return self._config
 
     @property
+    @synchronized
     def is_disabled(self) -> bool:
         return self._auth_disabled
 

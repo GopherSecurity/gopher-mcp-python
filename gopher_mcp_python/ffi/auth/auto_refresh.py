@@ -2,6 +2,9 @@
 Auto-Refresh - Combines session lookup, token refresh, and re-validation.
 """
 
+from ._lifecycle import native_operation
+from ._memory import owned_string
+
 from ctypes import POINTER, byref, c_char_p
 from dataclasses import dataclass
 from typing import Optional
@@ -26,6 +29,7 @@ class AutoRefreshResult:
     error_message: Optional[str] = None
 
 
+@native_operation
 def gopher_auth_auto_refresh(
     auth_client: GopherAuthClient,
     oauth_client: GopherOAuthClient,
@@ -46,44 +50,32 @@ def gopher_auth_auto_refresh(
             error_code=GopherAuthError.NOT_INITIALIZED,
             error_message="Auto-refresh function not available",
         )
-
-    token_out = c_char_p()
-    result_out = GopherAuthValidationResult()
-
-    err = fn(
-        auth_client.get_handle(),
-        oauth_client.get_handle(),
-        session_manager.get_handle(),
-        session_id.encode("utf-8"),
-        byref(token_out),
-        byref(result_out),
-    )
-
-    if err != GopherAuthError.SUCCESS:
-        return AutoRefreshResult(
-            valid=False,
-            error_code=err,
-            error_message=(
-                result_out.error_message.decode("utf-8")
-                if result_out.error_message
-                else f"Error code {err}"
-            ),
+    with owned_string(funcs) as token_out:
+        result_out = GopherAuthValidationResult()
+        err = fn(
+            auth_client.get_handle(),
+            oauth_client.get_handle(),
+            session_manager.get_handle(),
+            session_id.encode("utf-8"),
+            byref(token_out),
+            byref(result_out),
         )
-
-    new_token = None
-    if token_out.value:
-        new_token = token_out.value.decode("utf-8")
-        free = funcs.get("free_string")
-        if free:
-            free(token_out)
-
-    return AutoRefreshResult(
-        valid=result_out.valid,
-        new_access_token=new_token,
-        error_code=result_out.error_code,
-        error_message=(
+        message = (
             result_out.error_message.decode("utf-8")
             if result_out.error_message
             else None
-        ),
-    )
+        )
+        if err != GopherAuthError.SUCCESS:
+            return AutoRefreshResult(
+                valid=False,
+                error_code=err,
+                error_message=message or f"Error code {err}",
+            )
+        return AutoRefreshResult(
+            valid=result_out.valid,
+            new_access_token=(
+                token_out.value.decode("utf-8") if token_out.value else None
+            ),
+            error_code=result_out.error_code,
+            error_message=message,
+        )
