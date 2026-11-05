@@ -155,7 +155,7 @@ cleanup until that query exits. Use independent agents for parallel queries.
 
 See [Threading and ownership](docs/threading-and-ownership.md) for callback
 behavior, auth-wrapper synchronization, OAuth token-store coordination, native
-build requirements, and concurrency validation.
+FFI boundaries, and concurrency validation.
 
 ### GopherAgentConfig
 
