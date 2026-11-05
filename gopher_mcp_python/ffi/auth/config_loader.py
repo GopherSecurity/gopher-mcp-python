@@ -7,6 +7,9 @@ ConfigLoader which handles INI parsing, Keycloak endpoint derivation,
 and validation.
 """
 
+from ._lifecycle import NativeHandleOwner, native_constructor, native_operation
+from ._memory import read_owned_string
+
 from ctypes import POINTER, byref, c_bool, c_char_p, c_int, c_void_p
 from typing import Dict, List, Optional
 
@@ -18,14 +21,18 @@ from gopher_mcp_python.ffi.auth.loader import (
 from gopher_mcp_python.ffi.auth.types import GopherAuthError
 
 
-class GopherAuthConfig:
+class GopherAuthConfig(NativeHandleOwner):
     """Auth server configuration loaded via native ConfigLoader."""
 
+    _destroy_function = "config_destroy"
+
+    @native_constructor
     def __init__(self, handle: c_void_p) -> None:
         self._handle = handle
         self._destroyed = False
 
     @staticmethod
+    @native_operation
     def load_file(filepath: str) -> "GopherAuthConfig":
         """
         Load configuration from an INI-style config file.
@@ -42,41 +49,14 @@ class GopherAuthConfig:
         Raises:
             RuntimeError: If file not found or validation fails.
         """
-        if not is_auth_available():
-            load_library()
-
-        funcs = get_auth_functions()
-        create = funcs.get("config_create")
-        load = funcs.get("config_load_file")
-        validate = funcs.get("config_validate")
-
-        if not create or not load or not validate:
-            raise RuntimeError("Config functions not available")
-
-        handle = c_void_p()
-        result = create(byref(handle))
-        if result != GopherAuthError.SUCCESS:
-            raise RuntimeError("Failed to create config handle")
-
-        result = load(handle, filepath.encode("utf-8"))
-        if result != GopherAuthError.SUCCESS:
-            funcs["config_destroy"](handle)
-            raise RuntimeError(f"Failed to load config file: {filepath}")
-
-        result = validate(handle)
-        if result != GopherAuthError.SUCCESS:
-            # Check if auth is disabled (validation is skipped)
-            get_bool = funcs.get("config_get_bool")
-            if get_bool:
-                disabled = c_bool(False)
-                get_bool(handle, b"auth_disabled", byref(disabled))
-                if not disabled.value:
-                    funcs["config_destroy"](handle)
-                    raise RuntimeError("Configuration validation failed")
-
-        return GopherAuthConfig(handle)
+        return _load_config(
+            "config_load_file",
+            (filepath.encode("utf-8"),),
+            f"Failed to load config file: {filepath}",
+        )
 
     @staticmethod
+    @native_operation
     def load_env() -> "GopherAuthConfig":
         """
         Load configuration from environment variables.
@@ -84,28 +64,16 @@ class GopherAuthConfig:
         Returns:
             GopherAuthConfig instance.
         """
-        if not is_auth_available():
-            load_library()
-
-        funcs = get_auth_functions()
-        create = funcs.get("config_create")
-        load_env = funcs.get("config_load_env")
-        validate = funcs.get("config_validate")
-
-        if not create or not load_env or not validate:
-            raise RuntimeError("Config functions not available")
-
-        handle = c_void_p()
-        result = create(byref(handle))
-        if result != GopherAuthError.SUCCESS:
-            raise RuntimeError("Failed to create config handle")
-
-        load_env(handle)
-        validate(handle)
-
-        return GopherAuthConfig(handle)
+        # Environment loading historically permits incomplete configuration.
+        return _load_config(
+            "config_load_env",
+            (),
+            "Failed to load config from environment",
+            require_valid=False,
+        )
 
     @staticmethod
+    @native_operation
     def load_from_pairs(pairs: Dict[str, str]) -> "GopherAuthConfig":
         """
         Load configuration from inline key-value pairs.
@@ -116,68 +84,29 @@ class GopherAuthConfig:
         Returns:
             GopherAuthConfig instance.
         """
-        if not is_auth_available():
-            load_library()
+        count = len(pairs)
+        keys = (c_char_p * count)(*(key.encode("utf-8") for key in pairs))
+        values = (c_char_p * count)(
+            *(value.encode("utf-8") for value in pairs.values())
+        )
+        return _load_config(
+            "config_load_from_pairs",
+            (keys, values, count),
+            "Failed to load config from pairs",
+        )
 
-        funcs = get_auth_functions()
-        create = funcs.get("config_create")
-        load_pairs = funcs.get("config_load_from_pairs")
-        validate = funcs.get("config_validate")
-
-        if not create or not load_pairs or not validate:
-            raise RuntimeError("Config functions not available")
-
-        handle = c_void_p()
-        result = create(byref(handle))
-        if result != GopherAuthError.SUCCESS:
-            raise RuntimeError("Failed to create config handle")
-
-        keys = list(pairs.keys())
-        values = [pairs[k] for k in keys]
-        count = len(keys)
-
-        # Build ctypes arrays
-        keys_arr = (c_char_p * count)(*(k.encode("utf-8") for k in keys))
-        values_arr = (c_char_p * count)(*(v.encode("utf-8") for v in values))
-
-        result = load_pairs(handle, keys_arr, values_arr, count)
-        if result != GopherAuthError.SUCCESS:
-            funcs["config_destroy"](handle)
-            raise RuntimeError("Failed to load config from pairs")
-
-        result = validate(handle)
-        if result != GopherAuthError.SUCCESS:
-            get_bool = funcs.get("config_get_bool")
-            if get_bool:
-                disabled = c_bool(False)
-                get_bool(handle, b"auth_disabled", byref(disabled))
-                if not disabled.value:
-                    funcs["config_destroy"](handle)
-                    raise RuntimeError("Configuration validation failed")
-
-        return GopherAuthConfig(handle)
-
+    @native_operation
     def get_string(self, key: str) -> str:
         """Get a string configuration value."""
-        self._ensure_not_destroyed()
-        funcs = get_auth_functions()
-        getter = funcs.get("config_get_string")
-        if not getter:
-            return ""
+        return read_owned_string(
+            get_auth_functions(),
+            "config_get_string",
+            self._handle,
+            key.encode("utf-8"),
+            default="",
+        )
 
-        value_out = c_char_p()
-        result = getter(self._handle, key.encode("utf-8"), byref(value_out))
-        if result != GopherAuthError.SUCCESS:
-            return ""
-
-        if value_out.value:
-            val = value_out.value.decode("utf-8")
-            free_string = funcs.get("free_string")
-            if free_string:
-                free_string(value_out)
-            return val
-        return ""
-
+    @native_operation
     def get_int(self, key: str) -> int:
         """Get an integer configuration value."""
         self._ensure_not_destroyed()
@@ -190,6 +119,7 @@ class GopherAuthConfig:
         getter(self._handle, key.encode("utf-8"), byref(value_out))
         return value_out.value
 
+    @native_operation
     def get_bool(self, key: str) -> bool:
         """Get a boolean configuration value."""
         self._ensure_not_destroyed()
@@ -202,47 +132,26 @@ class GopherAuthConfig:
         getter(self._handle, key.encode("utf-8"), byref(value_out))
         return value_out.value
 
+    @native_operation
     def get_exchange_idps(self) -> List[str]:
         """Get exchange IDPs as a list (splits CSV from C API)."""
-        self._ensure_not_destroyed()
-        funcs = get_auth_functions()
-        getter = funcs.get("config_get_exchange_idps")
-        if not getter:
-            return []
+        csv = read_owned_string(
+            get_auth_functions(), "config_get_exchange_idps", self._handle, default=""
+        )
+        return [value.strip() for value in csv.split(",") if value.strip()]
 
-        value_out = c_char_p()
-        result = getter(self._handle, byref(value_out))
-        if result != GopherAuthError.SUCCESS or not value_out.value:
-            return []
-
-        csv = value_out.value.decode("utf-8")
-        free_string = funcs.get("free_string")
-        if free_string:
-            free_string(value_out)
-
-        if not csv.strip():
-            return []
-        return [s.strip() for s in csv.split(",") if s.strip()]
-
+    @native_operation
     def get_handle(self) -> c_void_p:
         """Get the native config handle (for internal use)."""
         self._ensure_not_destroyed()
         return self._handle
 
     def destroy(self) -> None:
-        """Destroy the config and release resources. Idempotent."""
-        if self._destroyed or not self._handle:
-            return
-        funcs = get_auth_functions()
-        destroy = funcs.get("config_destroy")
-        if destroy:
-            destroy(self._handle)
-        self._handle = None
-        self._destroyed = True
+        """Wait for active calls and release the handle exactly once."""
+        self._destroy_handle()
 
     def is_destroyed(self) -> bool:
-        """Check if the config has been destroyed."""
-        return self._destroyed
+        return self._is_handle_destroyed()
 
     def __enter__(self) -> "GopherAuthConfig":
         return self
@@ -253,3 +162,35 @@ class GopherAuthConfig:
     def _ensure_not_destroyed(self) -> None:
         if self._destroyed:
             raise RuntimeError("GopherAuthConfig has been destroyed")
+
+
+def _load_config(name, args, message, require_valid=True):
+    if not is_auth_available():
+        load_library()
+    funcs = get_auth_functions()
+    create = funcs.get("config_create")
+    load = funcs.get(name)
+    validate = funcs.get("config_validate")
+    if not create or not load or not validate:
+        raise RuntimeError("Config functions not available")
+    handle = c_void_p()
+    transferred = False
+    try:
+        if create(byref(handle)) != GopherAuthError.SUCCESS:
+            raise RuntimeError("Failed to create config handle")
+        if load(handle, *args) != GopherAuthError.SUCCESS:
+            raise RuntimeError(message)
+        if validate(handle) != GopherAuthError.SUCCESS and require_valid:
+            disabled = c_bool(False)
+            get_bool = funcs.get("config_get_bool")
+            if get_bool:
+                get_bool(handle, b"auth_disabled", byref(disabled))
+            if not disabled.value:
+                raise RuntimeError("Configuration validation failed")
+        config = GopherAuthConfig(handle)
+        transferred = True
+        return config
+    finally:
+        destroy = funcs.get("config_destroy")
+        if handle and not transferred and destroy:
+            destroy(handle)

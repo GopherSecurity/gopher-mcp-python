@@ -5,6 +5,15 @@ Provides high-level API for validating JWT tokens and extracting
 payload information using the gopher-auth native library.
 """
 
+from ._lifecycle import (
+    NativeHandleOwner,
+    native_constructor,
+    native_operation,
+    library_state,
+    can_shutdown,
+)
+from ._memory import read_owned_string
+
 from ctypes import byref, c_char_p, c_int64, c_void_p
 from typing import List, Optional, Tuple
 
@@ -29,6 +38,7 @@ from gopher_mcp_python.ffi.auth.validation_options import GopherValidationOption
 _auth_initialized: bool = False
 
 
+@library_state
 def gopher_init_auth_library() -> bool:
     """
     Initialize the auth library.
@@ -62,6 +72,7 @@ def gopher_init_auth_library() -> bool:
     return False
 
 
+@library_state
 def gopher_shutdown_auth_library() -> bool:
     """
     Shutdown the auth library and release resources.
@@ -70,6 +81,9 @@ def gopher_shutdown_auth_library() -> bool:
         True if shutdown successful, False otherwise.
     """
     global _auth_initialized
+
+    if not can_shutdown():
+        return False
 
     if not _auth_initialized:
         return True
@@ -87,6 +101,7 @@ def gopher_shutdown_auth_library() -> bool:
     return False
 
 
+@native_operation
 def gopher_get_auth_library_version() -> Optional[str]:
     """
     Get the auth library version string.
@@ -108,6 +123,7 @@ def gopher_get_auth_library_version() -> Optional[str]:
     return None
 
 
+@library_state
 def gopher_is_auth_library_initialized() -> bool:
     """
     Check if the auth library has been initialized.
@@ -123,6 +139,7 @@ def gopher_is_auth_library_initialized() -> bool:
 # ============================================================================
 
 
+@native_operation
 def gopher_generate_www_authenticate_header(
     realm: str,
     error: str = "",
@@ -141,34 +158,16 @@ def gopher_generate_www_authenticate_header(
     """
     if not load_library():
         return None
-
-    funcs = get_auth_functions()
-    generate_func = funcs.get("generate_www_authenticate")
-    if generate_func is None:
-        return None
-
-    header_out = c_char_p()
-    result = generate_func(
+    return read_owned_string(
+        get_auth_functions(),
+        "generate_www_authenticate",
         realm.encode("utf-8"),
         error.encode("utf-8"),
         description.encode("utf-8"),
-        byref(header_out),
     )
 
-    if result != GopherAuthError.SUCCESS:
-        return None
 
-    if header_out.value:
-        header = header_out.value.decode("utf-8")
-        # Free the allocated string
-        free_string = funcs.get("free_string")
-        if free_string:
-            free_string(header_out)
-        return header
-
-    return None
-
-
+@native_operation
 def gopher_generate_www_authenticate_header_v2(
     realm: str,
     resource_metadata_url: str,
@@ -191,35 +190,15 @@ def gopher_generate_www_authenticate_header_v2(
     """
     if not load_library():
         return None
-
-    funcs = get_auth_functions()
-    generate_func = funcs.get("generate_www_authenticate_v2")
-    if generate_func is None:
-        return None
-
-    scopes_str = " ".join(scopes)
-    header_out = c_char_p()
-    result = generate_func(
+    return read_owned_string(
+        get_auth_functions(),
+        "generate_www_authenticate_v2",
         realm.encode("utf-8"),
         resource_metadata_url.encode("utf-8"),
-        scopes_str.encode("utf-8"),
+        " ".join(scopes).encode("utf-8"),
         error.encode("utf-8"),
         error_description.encode("utf-8"),
-        byref(header_out),
     )
-
-    if result != GopherAuthError.SUCCESS:
-        return None
-
-    if header_out.value:
-        header = header_out.value.decode("utf-8")
-        # Free the allocated string
-        free_string = funcs.get("free_string")
-        if free_string:
-            free_string(header_out)
-        return header
-
-    return None
 
 
 # ============================================================================
@@ -227,7 +206,7 @@ def gopher_generate_www_authenticate_header_v2(
 # ============================================================================
 
 
-class GopherAuthClient:
+class GopherAuthClient(NativeHandleOwner):
     """
     JWT token validation client.
 
@@ -250,6 +229,9 @@ class GopherAuthClient:
             client.destroy()
     """
 
+    _destroy_function = "client_destroy"
+
+    @native_constructor
     def __init__(self, jwks_uri: str, issuer: str) -> None:
         """
         Create a new AuthClient instance.
@@ -294,6 +276,7 @@ class GopherAuthClient:
 
         self._handle = handle
 
+    @native_operation
     def set_option(self, key: str, value: str) -> bool:
         """
         Set a client option.
@@ -323,6 +306,7 @@ class GopherAuthClient:
 
         return result == GopherAuthError.SUCCESS
 
+    @native_operation
     def validate_token(
         self,
         token: str,
@@ -379,6 +363,7 @@ class GopherAuthClient:
             error_message=error_message,
         )
 
+    @native_operation
     def extract_payload(self, token: str) -> Optional[TokenPayload]:
         """
         Extract payload from a JWT token without validation.
@@ -460,26 +445,7 @@ class GopherAuthClient:
         Returns:
             The string value, or None if unavailable.
         """
-        funcs = get_auth_functions()
-        getter = funcs.get(func_name)
-        if getter is None:
-            return None
-
-        value_out = c_char_p()
-        result = getter(payload_handle, byref(value_out))
-
-        if result != GopherAuthError.SUCCESS:
-            return None
-
-        if value_out.value:
-            value = value_out.value.decode("utf-8")
-            # Free the allocated string
-            free_string = funcs.get("free_string")
-            if free_string:
-                free_string(value_out)
-            return value
-
-        return None
+        return read_owned_string(get_auth_functions(), func_name, payload_handle)
 
     def _get_payload_claim(
         self,
@@ -496,30 +462,14 @@ class GopherAuthClient:
         Returns:
             The claim value, or None if not present.
         """
-        funcs = get_auth_functions()
-        get_claim = funcs.get("payload_get_claim")
-        if get_claim is None:
-            return None
-
-        value_out = c_char_p()
-        result = get_claim(
+        return read_owned_string(
+            get_auth_functions(),
+            "payload_get_claim",
             payload_handle,
             claim_name.encode("utf-8"),
-            byref(value_out),
         )
 
-        if result != GopherAuthError.SUCCESS:
-            return None
-
-        if value_out.value:
-            value = value_out.value.decode("utf-8")
-            free_string = funcs.get("free_string")
-            if free_string:
-                free_string(value_out)
-            return value
-
-        return None
-
+    @native_operation
     def validate_and_extract(
         self,
         token: str,
@@ -547,35 +497,17 @@ class GopherAuthClient:
         return result, payload
 
     def destroy(self) -> None:
-        """
-        Destroy the client and release resources.
+        """Wait for active calls and release the handle exactly once."""
+        self._destroy_handle()
 
-        This method is idempotent - calling it multiple times is safe.
-        """
-        if self._destroyed or self._handle is None:
-            return
-
-        funcs = get_auth_functions()
-        client_destroy = funcs.get("client_destroy")
-        if client_destroy is not None:
-            client_destroy(self._handle)
-
-        self._handle = None
-        self._destroyed = True
-
+    @native_operation
     def get_handle(self) -> c_void_p:
         """Get the native handle (for internal use by auto-refresh)."""
         self._ensure_not_destroyed()
         return self._handle
 
     def is_destroyed(self) -> bool:
-        """
-        Check if this client has been destroyed.
-
-        Returns:
-            True if destroyed, False otherwise.
-        """
-        return self._destroyed
+        return self._is_handle_destroyed()
 
     def _ensure_not_destroyed(self) -> None:
         """
@@ -593,8 +525,4 @@ class GopherAuthClient:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit context manager and destroy resources."""
-        self.destroy()
-
-    def __del__(self) -> None:
-        """Destructor - ensure resources are released."""
         self.destroy()
