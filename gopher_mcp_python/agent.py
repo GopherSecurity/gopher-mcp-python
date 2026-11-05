@@ -116,9 +116,10 @@ class GopherAgent:
     @staticmethod
     def shutdown() -> None:
         """
-        Shutdown the gopher-mcp-python library.
+        Reset SDK initialization bookkeeping without disposing existing agents.
 
-        Called automatically on process exit, but can be called manually.
+        The native library remains loaded. Called automatically on process exit,
+        but can be called manually; callers still own their live agents.
         """
         global _initialized
         with _initialization_lock:
@@ -497,6 +498,10 @@ class GopherAgent:
     def run(self, query: str, timeout_ms: int = 60000) -> str:
         """
         Run a query against the agent.
+
+        Only one query may be active on an agent; overlapping calls raise
+        AgentError. Disposal during execution defers cleanup until this call
+        exits and does not cancel the query.
 
         Args:
             query: The user query to process

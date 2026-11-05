@@ -142,7 +142,7 @@ class GopherAuthConfig(NativeHandleOwner):
 
     @native_operation
     def get_handle(self) -> c_void_p:
-        """Get the native config handle (for internal use)."""
+        """Return a borrowed pointer; use borrow_handle() for external calls."""
         self._ensure_not_destroyed()
         return self._handle
 

@@ -88,7 +88,8 @@ async def resolve_oauth_token_from_store(
     """Share one token resolution per store/key across process-local callers.
 
     Cancelling a waiter does not cancel the shared request. The request runs
-    on its initiating event loop; closing that loop cancels it for all waiters.
+    on its initiating event loop; cancelling its producer during orderly loop
+    shutdown cancels it for all waiters.
     Custom stores must support the threads/loops from which they are used.
     """
     flight_key = (id(store), key)
