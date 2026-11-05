@@ -78,7 +78,8 @@ def gopher_shutdown_auth_library() -> bool:
     Shutdown the auth library and release resources.
 
     Returns:
-        True if shutdown successful, False otherwise.
+        True if shutdown successful. Returns False while SDK auth objects or
+        operations remain active, or if native shutdown fails.
     """
     global _auth_initialized
 
@@ -502,7 +503,7 @@ class GopherAuthClient(NativeHandleOwner):
 
     @native_operation
     def get_handle(self) -> c_void_p:
-        """Get the native handle (for internal use by auto-refresh)."""
+        """Return a borrowed pointer; use borrow_handle() for external calls."""
         self._ensure_not_destroyed()
         return self._handle
 

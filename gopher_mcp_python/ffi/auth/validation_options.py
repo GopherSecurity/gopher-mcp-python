@@ -158,6 +158,9 @@ class GopherValidationOptions(NativeHandleOwner):
         """
         Get the native handle for this options instance.
 
+        The pointer is borrowed. Use borrow_handle() to protect its lifetime
+        throughout an external native operation.
+
         Returns:
             The ctypes void pointer handle.
 

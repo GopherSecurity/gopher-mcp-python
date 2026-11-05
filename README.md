@@ -136,7 +136,7 @@ Main class for interacting with the gopher-mcp-python native library.
 #### Static Methods
 
 - `GopherAgent.init()` - Initialize the library (called automatically)
-- `GopherAgent.shutdown()` - Shutdown the library
+- `GopherAgent.shutdown()` - Reset SDK initialization state; existing agents remain owned by their callers
 - `GopherAgent.is_initialized()` - Check if library is initialized
 - `GopherAgent.create(config)` - Create an agent with configuration
 - `GopherAgent.create_with_api_key(provider, model, api_key)` - Convenience method
@@ -146,8 +146,16 @@ Main class for interacting with the gopher-mcp-python native library.
 
 - `agent.run(query, timeout_ms=60000)` - Run a query and get response string
 - `agent.run_detailed(query, timeout_ms=60000)` - Run a query and get AgentResult
-- `agent.dispose()` - Release resources
+- `agent.dispose()` - Stop accepting queries and release resources after any active query finishes
 - `agent.is_disposed()` - Check if agent is disposed
+
+An agent accepts one active query at a time; overlapping `run()` calls raise
+`AgentError`. Disposal during a query returns immediately and defers native
+cleanup until that query exits. Use independent agents for parallel queries.
+
+See [Threading and ownership](docs/threading-and-ownership.md) for callback
+behavior, auth-wrapper synchronization, OAuth token-store coordination, native
+build requirements, and concurrency validation.
 
 ### GopherAgentConfig
 
