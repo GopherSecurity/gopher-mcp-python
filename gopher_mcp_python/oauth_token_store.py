@@ -89,7 +89,8 @@ async def resolve_oauth_token_from_store(
 
     Cancelling a waiter does not cancel the shared request. The request runs
     on its initiating event loop; cancelling its producer during orderly loop
-    shutdown cancels it for all waiters.
+    shutdown reports a retryable RuntimeError to callers still awaiting it.
+    A caller's own task cancellation remains CancelledError.
     Custom stores must support the threads/loops from which they are used.
     """
     flight_key = (id(store), key)
@@ -124,7 +125,9 @@ def _finish_token_flight(key, flight, task) -> None:
         if _flights.get(key) is flight:
             del _flights[key]
     if task.cancelled():
-        flight.result.cancel()
+        flight.result.set_exception(
+            RuntimeError("OAuth token resolution was interrupted; retry")
+        )
     elif task.exception() is not None:
         flight.result.set_exception(task.exception())
     else:
