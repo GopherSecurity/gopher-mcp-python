@@ -253,30 +253,37 @@ def test_forgotten_auth_objects_release_handles(functions, kind):
     assert len(destroyed) == 1
 
 
-def test_high_level_shutdown_waits_for_compound_validation(functions):
+def test_high_level_shutdown_waits_for_compound_validation(functions, monkeypatch):
     from gopher_mcp_python.auth.gopher_auth import GopherAuth
-    from gopher_mcp_python.ffi.auth.types import TokenPayload, ValidationResult
+    from gopher_mcp_python.ffi.auth.types import TokenPayload
 
     funcs, destroyed = functions
     entered, finish, shutting_down = (threading.Event() for _ in range(3))
 
-    class Client:
-        def validate_token(self, token):
-            entered.set()
-            assert finish.wait(5)
-            assert not destroyed
-            return ValidationResult(valid=True, error_code=0)
+    def validate(handle, token, options, output):
+        entered.set()
+        assert finish.wait(5)
+        assert not destroyed
+        ctypes.cast(
+            output, ctypes.POINTER(GopherAuthValidationResult)
+        ).contents.valid = True
+        return 0
 
-        def extract_payload(self, token):
-            assert not destroyed
-            return TokenPayload(subject="subject", scopes="read")
+    funcs["validate_token"] = validate
+    client = make_owner("client")
 
-        def destroy(self):
-            destroyed.append("client")
+    def extract_payload(token):
+        # Shutdown may be waiting, but an admitted compound validation can
+        # finish its nested read operations before the client is destroyed.
+        assert client.get_handle()
+        assert not destroyed
+        return TokenPayload(subject="subject", scopes="read")
+
+    monkeypatch.setattr(client, "extract_payload", extract_payload)
 
     auth = GopherAuth(auth_disabled=True)
     auth.initialize()
-    auth._auth_client = Client()
+    auth._auth_client = client
 
     def shutdown():
         shutting_down.set()
@@ -293,7 +300,7 @@ def test_high_level_shutdown_waits_for_compound_validation(functions):
             finish.set()
         validation.result(5)
         cleanup.result(5)
-    assert destroyed == ["client"]
+    assert len(destroyed) == 1
 
 
 def test_independent_auth_objects_can_execute_concurrently(functions):
@@ -318,3 +325,176 @@ def test_independent_auth_objects_can_execute_concurrently(functions):
             first.destroy()
             second.destroy()
         active.result(5)
+
+
+def test_same_client_and_options_validate_concurrently_until_last_call_exits(functions):
+    funcs, destroyed = functions
+    entered = threading.Barrier(3)
+    finish = {token: threading.Event() for token in (b"first", b"second")}
+
+    def validate(handle, token, options, output):
+        entered.wait(5)
+        assert finish[token].wait(5)
+        assert not destroyed
+        ctypes.cast(
+            output, ctypes.POINTER(GopherAuthValidationResult)
+        ).contents.valid = True
+        return 0
+
+    funcs["validate_token"] = validate
+    client, options = make_owner("client"), make_owner("options")
+    try:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            first = pool.submit(client.validate_token, "first", options)
+            second = pool.submit(client.validate_token, "second", options)
+            try:
+                # Both calls must reach native execution before either returns.
+                entered.wait(5)
+                cleanups = [pool.submit(owner.destroy) for owner in (client, options)]
+                for owner in (client, options):
+                    with owner._operation_condition:
+                        assert owner._operation_condition.wait_for(
+                            lambda: owner._closing, timeout=5
+                        )
+                with pytest.raises(RuntimeError, match="destroyed"):
+                    client.validate_token("late", options)
+                finish[b"first"].set()
+                assert first.result(5).valid
+                assert not destroyed
+                assert all(not cleanup.done() for cleanup in cleanups)
+            finally:
+                for event in finish.values():
+                    event.set()
+            assert second.result(5).valid
+            for cleanup in cleanups:
+                cleanup.result(5)
+    finally:
+        client.destroy()
+        options.destroy()
+    assert len(destroyed) == 2
+
+
+def test_high_level_validations_overlap_on_one_auth_instance(functions, monkeypatch):
+    from gopher_mcp_python.auth.gopher_auth import GopherAuth
+    from gopher_mcp_python.ffi.auth.types import TokenPayload
+
+    funcs, destroyed = functions
+    entered, finish = threading.Barrier(3), threading.Event()
+
+    def validate(handle, token, options, output):
+        entered.wait(5)
+        assert finish.wait(5)
+        ctypes.cast(
+            output, ctypes.POINTER(GopherAuthValidationResult)
+        ).contents.valid = True
+        return 0
+
+    funcs["validate_token"] = validate
+    client = make_owner("client")
+    monkeypatch.setattr(
+        client,
+        "extract_payload",
+        lambda token: TokenPayload(subject=token, scopes="read"),
+    )
+    auth = GopherAuth(auth_disabled=True)
+    auth.initialize()
+    auth._auth_client = client
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = [
+                pool.submit(auth.validate_token, token, ["read"])
+                for token in ("first", "second")
+            ]
+            try:
+                entered.wait(5)
+            finally:
+                finish.set()
+            assert {result.result(5).subject for result in results} == {
+                "first",
+                "second",
+            }
+    finally:
+        auth.shutdown()
+    assert len(destroyed) == 1
+
+
+@pytest.mark.parametrize(
+    "kind,function,method,args",
+    [
+        ("client", "client_set_option", "set_option", ("cache_duration", "10")),
+        ("options", "options_set_scopes", "set_scopes", (["read"],)),
+    ],
+)
+def test_mutation_waits_for_shared_validation(functions, kind, function, method, args):
+    funcs, destroyed = functions
+    entered, finish, changing, changed = (threading.Event() for _ in range(4))
+
+    def validate(handle, token, options, output):
+        entered.set()
+        assert finish.wait(5)
+        assert not changed.is_set()
+        return 0
+
+    funcs["validate_token"] = validate
+    funcs[function] = lambda *args: changed.set() or 0
+    client, options = make_owner("client"), make_owner("options")
+    owner = client if kind == "client" else options
+
+    def mutate():
+        changing.set()
+        return getattr(owner, method)(*args)
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            validation = pool.submit(client.validate_token, "token", options)
+            try:
+                assert entered.wait(5)
+                mutation = pool.submit(mutate)
+                assert changing.wait(5)
+                assert not changed.is_set()
+                assert not mutation.done()
+            finally:
+                finish.set()
+            validation.result(5)
+            mutation.result(5)
+        assert changed.is_set()
+    finally:
+        client.destroy()
+        options.destroy()
+
+
+def test_one_oauth_client_still_serializes_curl_operations(functions):
+    funcs, destroyed = functions
+    entered, finish, second_started = (threading.Event() for _ in range(3))
+    calls = []
+
+    def refresh(handle, token, output):
+        calls.append(token)
+        if token == b"first":
+            entered.set()
+            assert finish.wait(5)
+        return 1
+
+    funcs["oauth_refresh_token"] = refresh
+    client = make_owner("oauth")
+
+    def second():
+        second_started.set()
+        return client.refresh_token("second")
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(client.refresh_token, "first")
+            try:
+                assert entered.wait(5)
+                following = pool.submit(second)
+                assert second_started.wait(5)
+                assert calls == [b"first"]
+                assert not following.done()
+            finally:
+                finish.set()
+            first.result(5)
+            following.result(5)
+        assert calls == [b"first", b"second"]
+    finally:
+        client.destroy()

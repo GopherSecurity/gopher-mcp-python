@@ -5,7 +5,12 @@ Provides a fluent API for configuring JWT token validation options
 such as required scopes, audience, and clock skew tolerance.
 """
 
-from ._lifecycle import NativeHandleOwner, native_constructor, native_operation
+from ._lifecycle import (
+    NativeHandleOwner,
+    native_constructor,
+    native_operation,
+    concurrent_native_operation,
+)
 
 from ctypes import byref, c_void_p
 from typing import List, Optional, TYPE_CHECKING
@@ -45,6 +50,7 @@ class GopherValidationOptions(NativeHandleOwner):
     """
 
     _destroy_function = "options_destroy"
+    _concurrent_reads = True
 
     @native_constructor
     def __init__(self) -> None:
@@ -153,7 +159,7 @@ class GopherValidationOptions(NativeHandleOwner):
 
         return self
 
-    @native_operation
+    @concurrent_native_operation
     def get_handle(self) -> c_void_p:
         """
         Get the native handle for this options instance.
