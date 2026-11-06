@@ -1,6 +1,7 @@
 """Auth allocation cleanup, including failure and invalid UTF-8 paths."""
 
 import ctypes
+from types import SimpleNamespace
 
 import pytest
 
@@ -136,5 +137,81 @@ def test_oauth_response_frees_copied_strings_and_response(
             else:
                 assert response.access_token == "access"
                 assert response.refresh_token == "refresh"
+    assert responses == [456]
+    allocations.check()
+
+
+@pytest.mark.parametrize("registration", [False, True])
+@pytest.mark.parametrize("getter_available", [False, True])
+def test_oauth_getters_use_loader_bindings_and_preserve_optional_fallbacks(
+    monkeypatch, registration, getter_available
+):
+    allocations = Allocations()
+    responses = []
+
+    def create(output, *args):
+        ctypes.cast(output, ctypes.POINTER(ctypes.c_void_p)).contents.value = 123
+        return 0
+
+    def response(*args):
+        ctypes.cast(args[-1], ctypes.POINTER(ctypes.c_void_p)).contents.value = 456
+        return 0
+
+    exports = {
+        "gopher_auth_init": lambda: 0,
+        "gopher_auth_oauth_client_create": create,
+        "gopher_auth_oauth_client_destroy": lambda handle: 0,
+        "gopher_auth_oauth_refresh_token": response,
+        "gopher_auth_token_response_is_success": lambda handle: True,
+        "gopher_auth_token_response_get_access_token": allocations.getter(b"access"),
+        "gopher_auth_token_response_destroy": lambda handle: responses.append(
+            handle.value
+        ),
+        "gopher_auth_oauth_register_client": response,
+        "gopher_auth_registration_response_is_success": lambda handle: False,
+        "gopher_auth_registration_response_destroy": lambda handle: responses.append(
+            handle.value
+        ),
+        "gopher_auth_free_string": lambda pointer: allocations.free(pointer),
+    }
+    if getter_available:
+        exports.update(
+            {
+                "gopher_auth_token_response_get_token_type": allocations.getter(
+                    b"DPoP"
+                ),
+                "gopher_auth_registration_response_get_error": allocations.getter(
+                    b"invalid_redirect_uri"
+                ),
+            }
+        )
+    # Exercise the actual signature setup and export map, rather than supplying
+    # a hand-built get_auth_functions() result that could hide missing entries.
+    monkeypatch.setattr(loader, "_lib", SimpleNamespace(**exports))
+    monkeypatch.setattr(loader, "_lib_available", True)
+    monkeypatch.setattr(loader, "_functions_setup", False)
+    monkeypatch.setattr(loader, "_auth_functions_available", False)
+    funcs = loader.get_auth_functions()
+    for key in ("token_response_get_token_type", "registration_response_get_error"):
+        if getter_available:
+            assert funcs[key].argtypes == [
+                ctypes.c_void_p,
+                ctypes.POINTER(ctypes.c_char_p),
+            ]
+            assert funcs[key].restype is ctypes.c_int32
+        else:
+            assert funcs[key] is None
+
+    with oauth_client.GopherOAuthClient("endpoint", "client") as client:
+        if registration:
+            result = client.register_client("endpoint", "name", ["redirect"])
+            assert not result.success
+            assert result.error == (
+                "invalid_redirect_uri" if getter_available else None
+            )
+        else:
+            result = client.refresh_token("refresh")
+            assert result.success
+            assert result.token_type == ("DPoP" if getter_available else "Bearer")
     assert responses == [456]
     allocations.check()

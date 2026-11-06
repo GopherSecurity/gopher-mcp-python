@@ -379,6 +379,11 @@ _FUNCTION_SPECS = [
         c_int32,
     ),
     (
+        "gopher_auth_token_response_get_token_type",
+        [c_void_p, POINTER(c_char_p)],
+        c_int32,
+    ),
+    (
         "gopher_auth_token_response_get_expires_in",
         [c_void_p, POINTER(c_int64)],
         c_int32,
@@ -393,6 +398,11 @@ _FUNCTION_SPECS = [
     ),
     (
         "gopher_auth_registration_response_get_client_secret",
+        [c_void_p, POINTER(c_char_p)],
+        c_int32,
+    ),
+    (
+        "gopher_auth_registration_response_get_error",
         [c_void_p, POINTER(c_char_p)],
         c_int32,
     ),
@@ -659,6 +669,9 @@ def get_auth_functions() -> Dict[str, Any]:
         "token_response_get_refresh_token": _get_function(
             "gopher_auth_token_response_get_refresh_token"
         ),
+        "token_response_get_token_type": _get_function(
+            "gopher_auth_token_response_get_token_type"
+        ),
         "token_response_get_expires_in": _get_function(
             "gopher_auth_token_response_get_expires_in"
         ),
@@ -674,6 +687,9 @@ def get_auth_functions() -> Dict[str, Any]:
         ),
         "registration_response_get_client_secret": _get_function(
             "gopher_auth_registration_response_get_client_secret"
+        ),
+        "registration_response_get_error": _get_function(
+            "gopher_auth_registration_response_get_error"
         ),
         "registration_response_is_success": _get_function(
             "gopher_auth_registration_response_is_success"
