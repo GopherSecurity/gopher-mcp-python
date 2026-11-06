@@ -155,10 +155,13 @@ keys and different store instances can proceed independently. Callers for one
 key use the first caller's refresh/acquisition operation and share its result.
 
 Cancelling a waiter does not cancel the shared request. Shared work runs on
-the initiating caller's event loop. Orderly shutdown that cancels the loop's
-tasks (as `asyncio.run()` does) cancels the operation for all waiters and removes
-it from the in-flight registry; a later request can retry. Keep that loop running
-while shared work is needed, and drain or cancel tasks before closing it.
+the initiating caller's event loop. If the producer is cancelled, including by
+orderly loop shutdown, callers still awaiting the result receive
+`RuntimeError("OAuth token resolution was interrupted; retry")`. This differs
+from cancelling a caller's own task, which still raises `CancelledError`.
+Interrupted work is removed from the in-flight registry so a later request can
+retry. Keep the initiating loop running while shared work is needed, and drain
+or cancel tasks before closing it.
 
 `InMemoryGopherAgentTokenStore` protects dictionary operations across threads
 and event loops. Treat returned token records as read-only; replace them with

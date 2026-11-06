@@ -80,7 +80,10 @@ async def _test_expired_token_refreshes() -> None:
     assert result.access_token == "new"
 
 
-def test_concurrent_refresh_rotates_token_once_and_survives_caller_cancellation():
+@pytest.mark.parametrize("cancel_owner", [False, True])
+def test_concurrent_refresh_rotates_token_once_and_survives_caller_cancellation(
+    cancel_owner,
+):
     async def check():
         store = InMemoryGopherAgentTokenStore()
         await store.set(
@@ -101,11 +104,15 @@ def test_concurrent_refresh_rotates_token_once_and_survives_caller_cancellation(
         owner = asyncio.create_task(resolve())
         await started.wait()
         waiters = [asyncio.create_task(resolve()) for _ in range(8)]
-        owner.cancel()
+        requests = [owner, *waiters]
+        cancelled = owner if cancel_owner else waiters[0]
+        cancelled.cancel()
         with pytest.raises(asyncio.CancelledError):
-            await owner
+            await cancelled
         finish.set()
-        results = await asyncio.gather(*waiters)
+        results = await asyncio.gather(
+            *(request for request in requests if request is not cancelled)
+        )
         assert calls == ["r1"]
         assert all(result.refresh_token == "r2" for result in results)
         assert (await store.get("key")).access_token == "new"
@@ -250,6 +257,64 @@ def test_owner_event_loop_shutdown_cleans_pending_resolution():
         return await resolve_oauth_token_from_store(store, "key", None, acquire)
 
     assert asyncio.run(retry()).access_token == "retry"
+
+
+def test_producer_loop_shutdown_reports_retryable_error_to_another_thread(monkeypatch):
+    store = InMemoryGopherAgentTokenStore()
+    started, attached, shutdown = (threading.Event() for _ in range(3))
+    caller = threading.local()
+    wrap_future = asyncio.wrap_future
+    acquisitions = []
+
+    def observe_attachment(future, **kwargs):
+        wrapped = wrap_future(future, **kwargs)
+        if getattr(caller, "is_waiter", False):
+            attached.set()
+        return wrapped
+
+    monkeypatch.setattr(token_store_module.asyncio, "wrap_future", observe_attachment)
+
+    async def acquire():
+        started.set()
+        await asyncio.Event().wait()
+
+    async def initiating_loop():
+        request = asyncio.create_task(
+            resolve_oauth_token_from_store(store, "key", None, acquire)
+        )
+        assert await asyncio.get_running_loop().run_in_executor(None, shutdown.wait, 5)
+        # Returning lets asyncio.run() cancel both the initiating request and
+        # its producer, while another event loop is still awaiting that work.
+        return request
+
+    async def waiting_loop():
+        caller.is_waiter = True
+
+        async def acquire_retry():
+            acquisitions.append("retry")
+            return GopherAgentTokenRecord("retry")
+
+        with pytest.raises(
+            RuntimeError, match="OAuth token resolution was interrupted; retry"
+        ):
+            await resolve_oauth_token_from_store(store, "key", None, acquire_retry)
+        assert not token_store_module._flights
+        assert acquisitions == []
+        token = await resolve_oauth_token_from_store(store, "key", None, acquire_retry)
+        return token.access_token
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        owner = pool.submit(asyncio.run, initiating_loop())
+        try:
+            assert started.wait(5)
+            waiter = pool.submit(asyncio.run, waiting_loop())
+            assert attached.wait(5)
+        finally:
+            shutdown.set()
+        assert owner.result(5).cancelled()
+        assert waiter.result(5) == "retry"
+    assert acquisitions == ["retry"]
+    assert not token_store_module._flights
 
 
 def test_shared_token_store_coordinates_threads_and_event_loops():
