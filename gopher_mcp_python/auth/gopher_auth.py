@@ -6,8 +6,9 @@ Matches the JS SDK's GopherAuth class API surface.
 """
 
 import threading
+from contextlib import ExitStack
 
-from gopher_mcp_python.ffi.auth._lifecycle import synchronized
+from gopher_mcp_python.ffi.auth._lifecycle import borrow_owners, synchronized
 
 from typing import Any, Dict, List, Optional
 
@@ -136,35 +137,40 @@ class GopherAuth:
             gopher_shutdown_auth_library()
         self._initialized = False
 
-    @synchronized
     def validate_token(
         self,
         token: str,
         required_scopes: Optional[List[str]] = None,
     ) -> TokenPayload:
         """Validate a JWT token. Raises on failure."""
-        self._ensure_initialized()
-        if not self._auth_client:
-            raise TokenValidationError("Auth client not initialized")
+        with ExitStack() as operation:
+            # Snapshot and admit the client before shutdown can detach it, but
+            # allow validations to overlap throughout native I/O and decoding.
+            with self._lifecycle_lock:
+                self._ensure_initialized()
+                client = self._auth_client
+                if not client:
+                    raise TokenValidationError("Auth client not initialized")
+                operation.enter_context(borrow_owners(client, concurrent=True))
 
-        result = self._auth_client.validate_token(token)
-        if not result or not result.valid:
-            raise TokenValidationError(
-                result.error_message if result else "Token validation failed",
-                result.error_code if result else 0,
-            )
+            result = client.validate_token(token)
+            if not result or not result.valid:
+                raise TokenValidationError(
+                    result.error_message if result else "Token validation failed",
+                    result.error_code if result else 0,
+                )
 
-        payload = self._auth_client.extract_payload(token)
-        if not payload:
-            raise TokenValidationError("Failed to extract payload")
+            payload = client.extract_payload(token)
+            if not payload:
+                raise TokenValidationError("Failed to extract payload")
 
-        if required_scopes:
-            token_scopes = [s for s in payload.scopes.split(" ") if s]
-            missing = [s for s in required_scopes if s not in token_scopes]
-            if missing:
-                raise InsufficientScopesError(required_scopes, token_scopes)
+            if required_scopes:
+                token_scopes = [s for s in payload.scopes.split(" ") if s]
+                missing = [s for s in required_scopes if s not in token_scopes]
+                if missing:
+                    raise InsufficientScopesError(required_scopes, token_scopes)
 
-        return payload
+            return payload
 
     @synchronized
     def has_scope(self, payload: TokenPayload, scope: str) -> bool:

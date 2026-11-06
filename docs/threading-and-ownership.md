@@ -88,29 +88,36 @@ application access.
 
 ## Auth objects
 
-The following wrappers serialize native operations and destruction on each
-object:
+`GopherAuthClient` permits concurrent token validation and payload extraction
+on one client. Read operations retain a lifetime reference while holding the
+state lock only during admission and completion. Shared validation options can
+also be read concurrently. Client option updates and validation-option setters
+wait for active reads and execute exclusively.
 
-- `GopherAuthClient`
-- `GopherOAuthClient`
-- `GopherSessionManager`
-- `GopherValidationOptions`
-- `GopherAuthConfig`
+`GopherOAuthClient` continues to serialize native calls because it owns one
+shared curl easy handle. `GopherSessionManager` and `GopherAuthConfig` also keep
+exclusive operation guards.
 
-The guard covers the native call and copying or freeing its results. Ordinary
-`destroy()` waits for an active operation to leave the guard and then releases
-the handle once. Same-thread reentrant destruction marks the object destroyed
-and defers release until its active borrowed operations finish. Calls after
-destruction is requested raise `RuntimeError`.
+Lifetime protection covers native execution and copying or freeing its results.
+Ordinary `destroy()` closes admission, waits for all active calls to finish,
+and releases the handle once. Already admitted compound calls can complete
+their nested reads. Same-thread reentrant destruction marks the object
+destroyed and defers release until its active borrowed operations finish. New
+calls after destruction is requested raise `RuntimeError`.
 
 Validation borrows both its client and validation options. Auto-refresh borrows
 the auth client, OAuth client, and session manager for the complete operation.
-The SDK acquires these object locks in a consistent order. Independent auth
-objects can execute concurrently.
+The SDK admits these handles in a consistent order; it shares the JWT client
+while retaining the OAuth client's exclusive guard. Independent auth objects
+can execute concurrently.
 
-`GopherAuth` also serializes its compound methods with initialization and
-shutdown. Shutting down one instance does not shut down the process-wide auth
-library while other SDK auth owners or calls remain active.
+`GopherAuth.validate_token()` snapshots and borrows its client under the
+instance state lock, then releases that lock for validation and extraction.
+Concurrent validations on one `GopherAuth` can therefore overlap. Shutdown
+waits for those admitted calls to complete before releasing the client. Other
+compound methods remain serialized with initialization and shutdown. Shutting
+down one instance does not shut down the process-wide auth library while other
+SDK auth owners or calls remain active.
 
 `gopher_shutdown_auth_library()` returns `False` while any SDK-managed native
 auth object or operation remains active. Destroy the objects and wait for their
@@ -133,7 +140,9 @@ with client.borrow_handle() as handle:
     result = custom_native_call(handle)
 ```
 
-The pointer is valid only within the context. Keep borrowed sections short and
+The pointer is valid only within the context. Raw handle borrowing remains
+exclusive because the SDK cannot infer whether an external call mutates native
+state. Keep borrowed sections short and
 do not nest calls on other wrappers while holding a borrowed handle, which can
 violate the SDK's lock ordering. Raw ctypes function calls bypass SDK lifecycle
 coordination and must not race with auth-library shutdown.
@@ -200,8 +209,9 @@ arbitrary native FFI callers would require a separate native-library change.
 
 Python regressions cover agent admission and deferred disposal, initialization,
 callback retention, token refresh and cancellation, auth owner destruction,
-and native allocation cleanup. The full Python suite completed with
-**486 passed, 1 skipped** for this implementation.
+and native allocation cleanup. They also check concurrent validations on one
+client and one `GopherAuth`, shared validation options, exclusive mutations,
+and continued OAuth call serialization. Run them with `python3 -m pytest tests/ -q`.
 
 These Python tests include controlled concurrency and allocation-ownership
 checks and tests against the existing native library. They are not a sanitizer

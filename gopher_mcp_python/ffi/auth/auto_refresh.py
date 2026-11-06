@@ -2,7 +2,7 @@
 Auto-Refresh - Combines session lookup, token refresh, and re-validation.
 """
 
-from ._lifecycle import native_operation
+from ._lifecycle import concurrent_native_operation
 from ._memory import owned_string
 
 from ctypes import POINTER, byref, c_char_p
@@ -29,7 +29,7 @@ class AutoRefreshResult:
     error_message: Optional[str] = None
 
 
-@native_operation
+@concurrent_native_operation
 def gopher_auth_auto_refresh(
     auth_client: GopherAuthClient,
     oauth_client: GopherOAuthClient,

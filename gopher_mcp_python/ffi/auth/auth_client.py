@@ -9,6 +9,7 @@ from ._lifecycle import (
     NativeHandleOwner,
     native_constructor,
     native_operation,
+    concurrent_native_operation,
     library_state,
     can_shutdown,
 )
@@ -231,6 +232,7 @@ class GopherAuthClient(NativeHandleOwner):
     """
 
     _destroy_function = "client_destroy"
+    _concurrent_reads = True
 
     @native_constructor
     def __init__(self, jwks_uri: str, issuer: str) -> None:
@@ -307,7 +309,7 @@ class GopherAuthClient(NativeHandleOwner):
 
         return result == GopherAuthError.SUCCESS
 
-    @native_operation
+    @concurrent_native_operation
     def validate_token(
         self,
         token: str,
@@ -364,7 +366,7 @@ class GopherAuthClient(NativeHandleOwner):
             error_message=error_message,
         )
 
-    @native_operation
+    @concurrent_native_operation
     def extract_payload(self, token: str) -> Optional[TokenPayload]:
         """
         Extract payload from a JWT token without validation.
@@ -470,7 +472,7 @@ class GopherAuthClient(NativeHandleOwner):
             claim_name.encode("utf-8"),
         )
 
-    @native_operation
+    @concurrent_native_operation
     def validate_and_extract(
         self,
         token: str,
@@ -501,7 +503,7 @@ class GopherAuthClient(NativeHandleOwner):
         """Wait for active calls and release the handle exactly once."""
         self._destroy_handle()
 
-    @native_operation
+    @concurrent_native_operation
     def get_handle(self) -> c_void_p:
         """Return a borrowed pointer; use borrow_handle() for external calls."""
         self._ensure_not_destroyed()
