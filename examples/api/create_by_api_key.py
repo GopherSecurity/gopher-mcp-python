@@ -5,12 +5,10 @@ SDK example for GopherAgent.create_with_api_key.
 Python port of gopher-mcp-js/examples/api/create_by_api_key.ts, which
 itself ports gopher-orch/examples/sdk/api/create_by_api_key.cc.
 
-Uses a Gopher API key to fetch the caller's full MCP server inventory
-via GET /v1/mcp-servers; the agent gets every server the api key owns
-with no extra routing. Smallest of the seven create_by_* examples and
-a good first sanity check that the toolchain (pip install
-gopher-mcp-python, the matching platform native package, env vars)
-is wired correctly.
+Uses one POST /v1/mcp-servers request. Empty selector arrays fetch all
+sources authorized for the API key; optional JSON arrays select multiple
+servers and remote gateways. Independent MCP OAuth grants use one native
+authorization page when the loaded library supports embedded auth v1.
 
 Provider defaults to AnthropicProvider; the model is taken from
 LLM_MODEL. Override either via env or by editing the constants in
@@ -18,6 +16,8 @@ main().
 
 Configuration (env vars):
     GOPHER_API_KEY  Gopher API key for /v1/mcp-servers
+    GOPHER_SERVER_IDS, GOPHER_SERVER_NAMES, GOPHER_GATEWAY_IDS,
+    GOPHER_GATEWAY_NAMES  Optional JSON arrays of exact selector strings.
     LLM_PROVIDER    Optional. Defaults to "AnthropicProvider".
     LLM_MODEL       Required. Model identifier the provider accepts.
     DEBUG           When set, ctypes prints library-resolution diagnostics.
@@ -27,11 +27,12 @@ Usage:
     python3 create_by_api_key.py "query one" "query two" ...  # supplied queries
 """
 
+import json
 import os
 import sys
 import traceback
 
-from gopher_mcp_python import GopherAgent
+from gopher_mcp_python import GopherAgent, GopherAgentCreateOptions
 
 API_KEY_PLACEHOLDER = "{YOUR_GOPHER_API_KEY}"
 MODEL_PLACEHOLDER = "{YOUR_LLM_MODEL}"
@@ -44,10 +45,36 @@ def env_or(name: str, fallback: str) -> str:
     return value if value else fallback
 
 
+def selection_options_from_env():
+    """Read additive selectors without splitting names or trimming identifiers."""
+    selected = {}
+    for name in ("server_ids", "server_names", "gateway_ids", "gateway_names"):
+        variable = "GOPHER_" + name.upper()
+        raw = os.environ.get(variable)
+        if raw is None:
+            continue
+        try:
+            values = json.loads(raw)
+        except ValueError:
+            raise ValueError(f"{variable} must be a JSON array of strings") from None
+        if not isinstance(values, list):
+            raise ValueError(f"{variable} must be a JSON array of strings")
+        selected[name] = values
+    if not selected:
+        return None
+    if not hasattr(GopherAgentCreateOptions, "source_selection"):
+        raise RuntimeError(
+            "This SDK release does not support inventory selectors; install a release containing this feature or run the local SDK source"
+        )
+    return GopherAgentCreateOptions(**selected)
+
+
 def main() -> None:
     print("=== GopherAgent.create_with_api_key example ===")
     print(f"Usage: python3 {sys.argv[0]} [query1] [query2] ...")
-    print("Env:   GOPHER_API_KEY LLM_PROVIDER LLM_MODEL DEBUG")
+    print(
+        "Env:   GOPHER_API_KEY LLM_PROVIDER LLM_MODEL DEBUG GOPHER_SERVER_IDS GOPHER_SERVER_NAMES GOPHER_GATEWAY_IDS GOPHER_GATEWAY_NAMES"
+    )
     print("")
 
     queries = sys.argv[1:] if len(sys.argv) > 1 else ["What time is it in Tokyo?"]
@@ -55,6 +82,7 @@ def main() -> None:
     provider = env_or("LLM_PROVIDER", "AnthropicProvider")
     model = env_or("LLM_MODEL", MODEL_PLACEHOLDER)
     api_key = env_or("GOPHER_API_KEY", API_KEY_PLACEHOLDER)
+    options = selection_options_from_env()
 
     print(f"Provider: {provider}")
     model_label = f"{model}  (set LLM_MODEL)" if model == MODEL_PLACEHOLDER else model
@@ -76,7 +104,7 @@ def main() -> None:
         sys.exit(1)
 
     print("\nCreating agent via GopherAgent.create_with_api_key...")
-    agent = GopherAgent.create_with_api_key(provider, model, api_key)
+    agent = GopherAgent.create_with_api_key(provider, model, api_key, options)
     print("Agent created successfully!")
 
     try:

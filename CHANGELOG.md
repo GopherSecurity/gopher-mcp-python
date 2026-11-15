@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Select multiple MCP servers and remote gateways with one API-key inventory POST.
+- Authorize independent MCP OAuth grants through one native page, with source-bound
+  token storage and refresh. Requires native embedded authorization v1.
+- Add async agent factories, queries, and disposal with OAuth host lifecycle handling.
+
 
 ## [0.1.42.2] - 2026-11-06
 
