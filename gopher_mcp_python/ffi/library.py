@@ -108,6 +108,17 @@ GopherOrchElicitationCallback = CFUNCTYPE(
 )
 
 
+class GopherOrchServerAgentOptions(Structure):
+    _fields_ = [
+        ("server_id", c_char_p),
+        ("server_name", c_char_p),
+        ("url", c_char_p),
+        ("access_token", c_char_p),
+        ("headers", POINTER(GopherOrchHeader)),
+        ("header_count", c_size_t),
+    ]
+
+
 class GopherOrchAgentOptions(Structure):
     """
     Agent runtime options structure matching C:
@@ -169,6 +180,33 @@ class _AgentOptionsStorage:
             self.header_array = None
             headers_ptr = None
 
+        servers = options.server_options
+        self.server_array = (
+            (GopherOrchServerAgentOptions * len(servers))() if servers else None
+        )
+        self.server_header_arrays = []
+        for index, server in enumerate(servers):
+            strings = []
+            for key in ("server_id", "server_name", "url", "access_token"):
+                value = server.get(key)
+                encoded = value.encode("utf-8") if value is not None else None
+                strings.append(encoded)
+                if encoded is not None:
+                    self._bytes.append(encoded)
+            items = list(server["headers"].items())
+            headers = (GopherOrchHeader * len(items))() if items else None
+            if headers is not None:
+                for i, (name, value) in enumerate(items):
+                    name_bytes, value_bytes = name.encode("utf-8"), value.encode(
+                        "utf-8"
+                    )
+                    self._bytes.extend((name_bytes, value_bytes))
+                    headers[i] = GopherOrchHeader(name_bytes, value_bytes)
+            self.server_header_arrays.append(headers)
+            self.server_array[index] = GopherOrchServerAgentOptions(
+                *strings, headers, len(items)
+            )
+
         elicitation = options.elicitation
         if elicitation is not None:
             if not supports_elicitation:
@@ -191,8 +229,8 @@ class _AgentOptionsStorage:
             access_token_bytes,
             headers_ptr,
             self.header_count,
-            None,
-            0,
+            ctypes.cast(self.server_array, c_void_p) if servers else None,
+            len(servers),
             elicitation_callback_ptr,
             None,
             elicitation_timeout_ms,
@@ -576,7 +614,9 @@ class GopherOrchLibrary:
         try:
             # Try to import the platform-specific package
             native_pkg = __import__(package_name)
-            self._loaded_native_package_version = getattr(native_pkg, "__version__", None)
+            self._loaded_native_package_version = getattr(
+                native_pkg, "__version__", None
+            )
             lib_path = native_pkg.get_lib_path()
             if lib_path.exists():
                 if self._debug:
@@ -891,7 +931,9 @@ class GopherOrchLibrary:
             return None
         options = self._build_agent_options(runtime_options)
         if options is not None:
-            fn = getattr(self._lib, "gopher_orch_agent_create_by_url_with_options", None)
+            fn = getattr(
+                self._lib, "gopher_orch_agent_create_by_url_with_options", None
+            )
             if fn is None:
                 raise AgentError(self._missing_options_symbol_message())
             handle = fn(

@@ -260,11 +260,10 @@ class GopherAgent:
         runtime_options: RuntimeOptionsInput = None,
     ) -> "GopherAgent":
         """
-        Create a new GopherAgent scoped to a single MCP server by id.
+        Create an agent selecting an MCP server ID plus optional selectors.
 
-        Fetches server config from the Gopher API using the Bearer api key,
-        appending "?serverId={server_id}" so the response carries only the
-        matching MCP server entry.
+        POST the server ID and any additional runtime_options selectors to
+        /v1/mcp-servers once. The backend response defines the final sources.
 
         Args:
             provider: Provider name (e.g., "AnthropicProvider")
@@ -298,11 +297,10 @@ class GopherAgent:
         runtime_options: RuntimeOptionsInput = None,
     ) -> "GopherAgent":
         """
-        Create a new GopherAgent scoped to a single MCP server by name.
+        Create an agent selecting an MCP server name plus optional selectors.
 
-        Fetches server config from the Gopher API using the Bearer api key,
-        appending "?serverName={server_name}" so the response carries only
-        the matching MCP server entry.
+        POST the server name and any additional runtime_options selectors to
+        /v1/mcp-servers once. The backend response defines the final sources.
 
         Args:
             provider: Provider name (e.g., "AnthropicProvider")
@@ -336,11 +334,11 @@ class GopherAgent:
         runtime_options: RuntimeOptionsInput = None,
     ) -> "GopherAgent":
         """
-        Create a new GopherAgent scoped to a single MCP gateway by id.
+        Create an agent selecting a remote gateway ID plus optional selectors.
 
-        Fetches server config from the Gopher API using the Bearer api key,
-        appending "?gatewayId={gateway_id}" so the response carries the
-        backing MCP servers for that gateway.
+        POST the gateway ID and any additional runtime_options selectors to
+        /v1/mcp-servers once. Gateways remain remote MCP endpoints; their
+        backing servers are not expanded locally.
 
         Args:
             provider: Provider name (e.g., "AnthropicProvider")
@@ -374,11 +372,11 @@ class GopherAgent:
         runtime_options: RuntimeOptionsInput = None,
     ) -> "GopherAgent":
         """
-        Create a new GopherAgent scoped to a single MCP gateway by name.
+        Create an agent selecting a remote gateway name plus optional selectors.
 
-        Fetches server config from the Gopher API using the Bearer api key,
-        appending "?gatewayName={gateway_name}" so the response carries the
-        backing MCP servers for that gateway.
+        POST the gateway name and any additional runtime_options selectors to
+        /v1/mcp-servers once. Gateways remain remote MCP endpoints; their
+        backing servers are not expanded locally.
 
         Args:
             provider: Provider name (e.g., "AnthropicProvider")
@@ -755,6 +753,7 @@ def _create_from_api_config(
             access_token=runtime_options.access_token if runtime_options else None,
             headers=runtime_options.headers if runtime_options else None,
             elicitation=runtime_options.elicitation if runtime_options else None,
+            server_options=runtime_options.server_options if runtime_options else None,
             oauth=embedded_oauth,
         )
         session = EmbeddedAgentSession(
@@ -898,6 +897,7 @@ def _mark_discovery_elicitation_preflighted(
         access_token=runtime_options.access_token if runtime_options else None,
         headers=headers,
         elicitation=runtime_options.elicitation if runtime_options else None,
+        server_options=runtime_options.server_options if runtime_options else None,
     )
 
 
