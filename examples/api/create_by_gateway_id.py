@@ -6,12 +6,11 @@ Python port of gopher-mcp-js/examples/api/create_by_gateway_id.ts,
 which itself ports
 gopher-orch/examples/sdk/api/create_by_gateway_id.cc.
 
-Scopes a GopherAgent to a single MCP gateway in the caller's
-workspace. Internally this hits the same GET /v1/mcp-servers endpoint
-as create_with_api_key under the Bearer api key, but adds the
-"?gatewayId={id}" routing query so the response carries the backing
-MCP servers for that gateway. Use this when the api key owns several
-gateways and the agent should bind to exactly one.
+Selects one MCP remote gateway by ID using a single
+POST /v1/mcp-servers request with the gatewayId selection array.
+Additional SDK selectors are additive. The backend response defines
+the sources used by the agent.
+The gateway remains a remote endpoint with its own MCP authorization.
 
 Provider defaults to AnthropicProvider and the model is taken from
 LLM_MODEL so the example stays runnable against any Anthropic-served

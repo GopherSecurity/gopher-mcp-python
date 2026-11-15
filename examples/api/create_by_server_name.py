@@ -6,13 +6,10 @@ Python port of gopher-mcp-js/examples/api/create_by_server_name.ts,
 which itself ports
 gopher-orch/examples/sdk/api/create_by_server_name.cc.
 
-Scopes a GopherAgent to a single MCP server in the caller's workspace
-by human-readable name. Internally this hits the same GET
-/v1/mcp-servers endpoint as create_with_api_key under the Bearer api
-key, but adds the "?serverName={name}" routing query so the response
-carries only the matching server entry. Use this when the api key
-owns several MCP servers and the agent should bind to exactly one
-identified by name rather than id.
+Selects one MCP server by name using a single
+POST /v1/mcp-servers request with the serverName selection array.
+Additional SDK selectors are additive. The backend response defines
+the sources used by the agent.
 
 Provider defaults to AnthropicProvider; the model is taken from
 LLM_MODEL. Override either via env or by editing the constants in

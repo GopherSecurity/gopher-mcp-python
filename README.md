@@ -68,6 +68,24 @@ with GopherAgent.create(config) as agent:
     print(response)
 ```
 
+### Selecting multiple servers and gateways
+
+```python
+from gopher_mcp_python import GopherAgent, GopherAgentCreateOptions
+
+options = GopherAgentCreateOptions(
+    server_ids=["mail", "calendar"], gateway_names=["Production"]
+)
+with GopherAgent.create_with_api_key(provider, model, api_key, options) as agent:
+    print(agent.run("List my available tools"))
+```
+
+API-key factories send one inventory POST with additive selectors. Empty arrays
+select all authorized sources; gateways remain remote endpoints. Independent
+OAuth grants use one native authorization page and require embedded auth v1 in
+the loaded binary. See [API-key inventory and OAuth](docs/inventory-api-key.md)
+for async factories, custom stores, native compatibility, and verification.
+
 ### Using JSON Server Configuration
 
 ```python
@@ -141,10 +159,13 @@ Main class for interacting with the gopher-mcp-python native library.
 - `GopherAgent.create(config)` - Create an agent with configuration
 - `GopherAgent.create_with_api_key(provider, model, api_key)` - Convenience method
 - `GopherAgent.create_with_server_config(provider, model, server_config)` - Convenience method
+- `GopherAgent.create_async(config)` and `create_*_async(...)` - Create off the event loop
 
 #### Instance Methods
 
 - `agent.run(query, timeout_ms=60000)` - Run a query and get response string
+- `agent.run_async(query, timeout_ms=60000)` - Run without blocking the caller event loop
+- `agent.dispose_async()` - Await deferred release and OAuth host shutdown
 - `agent.run_detailed(query, timeout_ms=60000)` - Run a query and get AgentResult
 - `agent.dispose()` - Stop accepting queries and release resources after any active query finishes
 - `agent.is_disposed()` - Check if agent is disposed

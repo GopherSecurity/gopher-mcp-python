@@ -4,8 +4,11 @@ This document describes the Python implementation in this checkout. Installing
 an older published Python SDK does not provide these changes.
 
 The Python wrappers coordinate agent and auth-object lifetimes while using the
-existing compatible native library. These protections do not require changes
-to `gopher-orch` or newly built native binaries.
+existing compatible native library. The lifecycle protections described here
+work with existing binaries. Multiple independent inventory OAuth grants also
+use optional native embedded authorization v1; see
+[API-key inventory and OAuth](inventory-api-key.md) for that capability and host
+lifecycle contract.
 
 These are specific lifecycle guarantees, rather than a claim that every native
 component, third-party provider, user callback, or application is memory-safe.
@@ -35,6 +38,11 @@ library instance that created it for execution and cleanup.
 dispose existing agents or unload the native library; callers still own their
 agents. Restarting initialization uses the same loaded library wrapper.
 
+`run_async()` executes the same guarded query in a worker. Cancelling its await
+does not interrupt native execution. `dispose_async()` waits for deferred native
+release and authorization-host shutdown while keeping the event loop available.
+Async factories retain their caller loop for native-assembly store callbacks.
+
 ## Parallel and asynchronous applications
 
 Use independent agents for parallel queries. Calls on different agents do not
@@ -61,10 +69,10 @@ def ask_many(provider, model, url, questions):
         return [future.result() for future in futures]
 ```
 
-Agent construction and execution are synchronous. In an async application,
-run synchronous SDK work in a worker through `loop.run_in_executor()` or an
-equivalent framework helper. Cancelling the Python awaiter does not stop a
-native worker; let the worker finish and perform its cleanup.
+Use `create_async(config)` or a `create_*_async(...)` factory and `run_async()`
+in an async application. They move synchronous SDK/native work to workers.
+Cancelling a query awaiter does not stop its native worker; let the worker finish
+and use `dispose_async()` to wait for cleanup.
 
 Locks and native handles belong to their process. Create SDK objects inside
 each worker process. Do not transfer handles between processes or reuse live

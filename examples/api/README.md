@@ -119,26 +119,33 @@ Notes:
 
 ## Picking the right factory
 
-| Factory                       | Selects                                                         | Network call                                       |
-| ----------------------------- | --------------------------------------------------------------- | -------------------------------------------------- |
-| `create_with_api_key`         | Every MCP server the api key owns                               | `GET /v1/mcp-servers`                              |
-| `create_with_server_config`   | Servers described in an inline JSON document                    | None                                               |
-| `create_with_server_id`       | One MCP server by id                                            | `GET /v1/mcp-servers?serverId=...`                 |
-| `create_with_server_name`     | One MCP server by name                                          | `GET /v1/mcp-servers?serverName=...`               |
-| `create_with_gateway_id`      | All MCP servers under one gateway by id                         | `GET /v1/mcp-servers?gatewayId=...`                |
-| `create_with_gateway_name`    | All MCP servers under one gateway by name                       | `GET /v1/mcp-servers?gatewayName=...`              |
-| `create_with_url`             | One MCP server reachable at a known URL                         | None (synthesised locally to an `http_sse` entry)  |
+| Factory | Selects | Inventory request |
+| --- | --- | --- |
+| `create_with_api_key` | All authorized sources, or supplied selector arrays | One `POST /v1/mcp-servers` |
+| `create_with_server_id` / `_server_name` | Positional server plus any additional selectors | One POST with `serverId` / `serverName` arrays |
+| `create_with_gateway_id` / `_gateway_name` | Remote gateway plus any additional selectors | One POST with `gatewayId` / `gatewayName` arrays |
+| `create_with_server_config` | Sources in inline JSON | None |
+| `create_with_url` | One remote MCP endpoint | None |
 
-The table mirrors the C++ canonical reference at
-`gopher-orch/docs/Agent.md` ("Simple creation factories" section)
-so the Python-side documentation stays aligned with the upstream
-C++ docs and the TypeScript port.
+The API response defines the sources. A gateway stays a remote MCP endpoint;
+its backing servers are not expanded locally. Inventory selector arrays are
+additive; all four empty arrays mean all authorized sources. Multiple distinct
+OAuth bindings require embedded authorization v1 in the actual loaded binary.
+See [API-key inventory and OAuth](../../docs/inventory-api-key.md).
 
-The five routing factories
-(`create_with_server_id` / `_server_name` / `_gateway_id` /
-`_gateway_name` / `_url`) require a PyPI release that includes the
-routing factory native symbols. Earlier releases only expose
-`create_with_api_key` and `create_with_server_config`.
+`create_by_api_key.py` accepts optional JSON arrays in `GOPHER_SERVER_IDS`,
+`GOPHER_SERVER_NAMES`, `GOPHER_GATEWAY_IDS`, and `GOPHER_GATEWAY_NAMES`:
+
+```bash
+export GOPHER_SERVER_IDS='["mail", "calendar"]'
+export GOPHER_GATEWAY_NAMES='["Production"]'
+python3 examples/api/create_by_api_key.py "List my available tools"
+```
+
+These selector options require a release containing this feature. To verify the
+unreleased local source, install this checkout with `python3 -m pip install -e .`
+and run the Python file directly with the compatible native library selected by
+`GOPHER_ORCH_LIBRARY_PATH`. The shell wrappers install published PyPI packages.
 
 ## How the examples find the SDK
 
