@@ -18,7 +18,9 @@ class FakeLibrary:
         self.calls.append(("url", provider, model, url, runtime_options))
         return 2001
 
-    def agent_create_by_json(self, provider, model, server_config, runtime_options=None):
+    def agent_create_by_json(
+        self, provider, model, server_config, runtime_options=None
+    ):
         self.calls.append(("json", provider, model, server_config, runtime_options))
         return 2002
 
@@ -70,7 +72,11 @@ class FakeLibrary:
 
 def _install_fake_library(monkeypatch):
     fake = FakeLibrary()
-    monkeypatch.setattr(agent_module.ServerConfig, "fetch", staticmethod(lambda api_key, route=None, selection=None: "{}"))
+    monkeypatch.setattr(
+        agent_module.ServerConfig,
+        "fetch",
+        staticmethod(lambda api_key, route=None, selection=None: "{}"),
+    )
     monkeypatch.setattr(agent_module, "_initialized", True)
     monkeypatch.setattr(
         agent_module.GopherOrchLibrary,
@@ -220,7 +226,9 @@ def test_create_with_server_config_uses_resolved_options(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
     resolver_calls = []
 
-    async def resolver(urls=None, server_config=None, runtime_options=None, oauth=None):
+    async def resolver(
+        urls=None, server_config=None, runtime_options=None, oauth=None, **kwargs
+    ):
         resolver_calls.append((urls, server_config, runtime_options, oauth))
         return GopherAgentRuntimeOptions(access_token="oauth-token")
 
@@ -253,7 +261,9 @@ def test_create_with_api_key_fetches_config_before_oauth(monkeypatch) -> None:
         staticmethod(lambda api_key, route=None, selection=None: server_config),
     )
 
-    async def resolver(urls=None, server_config=None, runtime_options=None, oauth=None):
+    async def resolver(
+        urls=None, server_config=None, runtime_options=None, oauth=None, **kwargs
+    ):
         return GopherAgentRuntimeOptions(access_token="oauth-token")
 
     monkeypatch.setattr(
@@ -281,7 +291,9 @@ def test_create_with_server_id_fetches_routed_config(monkeypatch) -> None:
 
     monkeypatch.setattr(agent_module.ServerConfig, "fetch", staticmethod(fetch))
 
-    async def resolver(urls=None, server_config=None, runtime_options=None, oauth=None):
+    async def resolver(
+        urls=None, server_config=None, runtime_options=None, oauth=None, **kwargs
+    ):
         return GopherAgentRuntimeOptions(access_token="oauth-token")
 
     monkeypatch.setattr(
@@ -312,7 +324,9 @@ def test_create_with_gateway_name_fetches_routed_config(monkeypatch) -> None:
 
     monkeypatch.setattr(agent_module.ServerConfig, "fetch", staticmethod(fetch))
 
-    async def resolver(urls=None, server_config=None, runtime_options=None, oauth=None):
+    async def resolver(
+        urls=None, server_config=None, runtime_options=None, oauth=None, **kwargs
+    ):
         return GopherAgentRuntimeOptions(access_token="oauth-token")
 
     monkeypatch.setattr(
@@ -398,7 +412,9 @@ def test_create_with_gateway_id_disabled_oauth_uses_native_selector(
 def test_create_uses_server_config_oauth_path(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
 
-    async def resolver(urls=None, server_config=None, runtime_options=None, oauth=None):
+    async def resolver(
+        urls=None, server_config=None, runtime_options=None, oauth=None, **kwargs
+    ):
         return GopherAgentRuntimeOptions(access_token="oauth-token")
 
     monkeypatch.setattr(
@@ -427,6 +443,8 @@ def test_oauth_inside_running_event_loop_fails_clearly(monkeypatch) -> None:
 
     async def create_inside_loop():
         with pytest.raises(AgentError, match="active asyncio event loop"):
-            GopherAgent.create_with_url("Provider", "model", "https://mcp.example.com/mcp")
+            GopherAgent.create_with_url(
+                "Provider", "model", "https://mcp.example.com/mcp"
+            )
 
     agent_module.asyncio.run(create_inside_loop())

@@ -6,10 +6,10 @@ so both can consume the same normalization contract without introducing an
 import cycle.
 """
 
-from .source_selection import selection_from_options, normalize_source_selection
-
+import copy
 from typing import Any, Dict, List, Mapping, Optional, Protocol, Union
 
+from .source_selection import selection_from_options, normalize_source_selection
 from gopher_mcp_python.elicitation import (
     GopherAgentElicitationOptions,
     normalize_elicitation_options,
@@ -31,6 +31,7 @@ class GopherAgentTokenRecord:
         refresh_token: Optional[str] = None,
         expires_at: Optional[float] = None,
         scope: Optional[str] = None,
+        embedded_grant: Optional[Mapping[str, Any]] = None,
     ) -> None:
         if not isinstance(access_token, str) or not access_token:
             raise ValueError("token access_token must be a non-empty string")
@@ -47,6 +48,7 @@ class GopherAgentTokenRecord:
         self.refresh_token = refresh_token
         self.expires_at = float(expires_at) if expires_at is not None else None
         self.scope = scope
+        self.embedded_grant = copy.deepcopy(embedded_grant)
 
 
 class GopherAgentTokenStore(Protocol):
@@ -81,6 +83,7 @@ class GopherAgentOAuthOptions:
         redirect_uri: Optional[str] = None,
         open_browser: Optional[bool] = None,
         token_store: Optional[GopherAgentTokenStore] = None,
+        assemble: Optional[Mapping[str, Any]] = None,
     ) -> None:
         if mode is not None and mode not in ("auto", "disabled"):
             raise ValueError('oauth mode must be "auto" or "disabled"')
@@ -102,6 +105,9 @@ class GopherAgentOAuthOptions:
         self.redirect_uri = redirect_uri
         self.open_browser = open_browser
         self.token_store = token_store
+        if assemble is not None and not isinstance(assemble, Mapping):
+            raise ValueError("oauth assemble must be a mapping")
+        self.assemble = dict(assemble) if assemble is not None else None
 
 
 class GopherAgentCreateOptions:
@@ -115,15 +121,33 @@ class GopherAgentCreateOptions:
         elicitation: Optional[
             Union[GopherAgentElicitationOptions, Mapping[str, Any]]
         ] = None,
-        server_ids=None, server_names=None, gateway_ids=None, gateway_names=None,
+        server_ids=None,
+        server_names=None,
+        gateway_ids=None,
+        gateway_names=None,
         source_selection=None,
     ) -> None:
-        selected = {key: value for key, value in {"server_ids": server_ids, "server_names": server_names, "gateway_ids": gateway_ids, "gateway_names": gateway_names}.items() if value is not None}
+        selected = {
+            key: value
+            for key, value in {
+                "server_ids": server_ids,
+                "server_names": server_names,
+                "gateway_ids": gateway_ids,
+                "gateway_names": gateway_names,
+            }.items()
+            if value is not None
+        }
         if source_selection is not None:
             if selected:
                 raise ValueError("Specify source_selection or individual selectors")
-            selected = source_selection.to_dict() if hasattr(source_selection, "to_dict") else source_selection
-        self._source_selection = normalize_source_selection(selected) if selected else {}
+            selected = (
+                source_selection.to_dict()
+                if hasattr(source_selection, "to_dict")
+                else source_selection
+            )
+        self._source_selection = (
+            normalize_source_selection(selected) if selected else {}
+        )
         runtime = GopherAgentRuntimeOptions(access_token=access_token, headers=headers)
         self._access_token = runtime.access_token
         self._headers = runtime.headers
@@ -150,10 +174,10 @@ class GopherAgentCreateOptions:
         """Get MCP elicitation options."""
         return self._elicitation
 
-
     @property
     def source_selection(self):
         return {key: list(value) for key, value in self._source_selection.items()}
+
 
 class GopherAgentRuntimeOptions:
     """
@@ -313,23 +337,34 @@ def normalize_oauth_options(
 
     if isinstance(options, Mapping):
         return GopherAgentOAuthOptions(
+            assemble=options.get("assemble"),
             mode=options.get("mode"),
             scopes=options.get("scopes"),
-            client_name=options.get("client_name")
-            if "client_name" in options
-            else options.get("clientName"),
-            redirect_uri=options.get("redirect_uri")
-            if "redirect_uri" in options
-            else options.get("redirectUri"),
-            open_browser=options.get("open_browser")
-            if "open_browser" in options
-            else options.get("openBrowser"),
-            token_store=options.get("token_store")
-            if "token_store" in options
-            else options.get("tokenStore"),
+            client_name=(
+                options.get("client_name")
+                if "client_name" in options
+                else options.get("clientName")
+            ),
+            redirect_uri=(
+                options.get("redirect_uri")
+                if "redirect_uri" in options
+                else options.get("redirectUri")
+            ),
+            open_browser=(
+                options.get("open_browser")
+                if "open_browser" in options
+                else options.get("openBrowser")
+            ),
+            token_store=(
+                options.get("token_store")
+                if "token_store" in options
+                else options.get("tokenStore")
+            ),
         )
 
-    raise ValueError("oauth options must be a GopherAgentOAuthOptions instance or mapping")
+    raise ValueError(
+        "oauth options must be a GopherAgentOAuthOptions instance or mapping"
+    )
 
 
 def _normalize_headers(
