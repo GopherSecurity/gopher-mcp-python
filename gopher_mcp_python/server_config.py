@@ -1,112 +1,60 @@
-"""
-Server configuration utilities for the Gopher Security MCP SDK.
-
-Provides utilities for fetching and managing MCP server configurations.
-"""
-
+"""Fetch API-key inventory once using the shared multi-select POST contract."""
+import json
 import os
-from dataclasses import dataclass
-from typing import Optional
+import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
-
-from gopher_mcp_python.errors import AgentError, ApiKeyError, ConnectionError
-from gopher_mcp_python.ffi import GopherOrchLibrary
+from urllib.request import Request, HTTPRedirectHandler, build_opener
+from .errors import AgentError, ApiKeyError
+from .source_selection import ServerConfigRoute, normalize_source_selection
 
 FETCH_TIMEOUT_SECONDS = 30
-FETCH_MAX_BODY_PREVIEW = 512
 
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
-@dataclass(frozen=True)
-class ServerConfigRoute:
-    """Scoped Gopher API route for fetching a subset of MCP servers."""
-
-    key: str
-    value: str
-
+def urlopen(request, timeout):
+    return build_opener(_NoRedirect()).open(request, timeout=timeout)
 
 class ServerConfig:
-    """
-    Utility class for fetching server configurations.
-    """
-
     @staticmethod
-    def fetch(api_key: str, route: Optional[ServerConfigRoute] = None) -> str:
-        """
-        Fetch server configuration from the API.
-
-        Args:
-            api_key: API key for authentication
-            route: Optional scoped server/gateway route
-
-        Returns:
-            JSON string containing server configuration
-
-        Raises:
-            ApiKeyError: If API key is invalid
-            ConnectionError: If fetch fails
-        """
-        if not api_key:
+    def fetch(api_key, route=None, selection=None):
+        if not isinstance(api_key, str) or not api_key.strip():
             raise ApiKeyError("API key is required")
-
-        if route is not None:
-            return _fetch_with_route(api_key, route)
-
-        lib = GopherOrchLibrary.get_instance()
-        if lib is None:
-            raise ConnectionError("Native library not available")
-
-        result = lib.api_fetch_servers(api_key)
-        if result is None:
-            error_msg = lib.get_last_error_message()
-            lib.clear_error()
-            if error_msg and "api key" in error_msg.lower():
-                raise ApiKeyError(error_msg)
-            raise ConnectionError(error_msg or "Failed to fetch server configuration")
-
-        return result
-
-
-def _fetch_with_route(api_key: str, route: ServerConfigRoute) -> str:
-    if route.key not in {"serverId", "serverName", "gatewayId", "gatewayName"}:
-        raise AgentError(f"Unsupported server config route: {route.key}")
-
-    query = urlencode({route.key: route.value})
-    url = f"{_gopher_api_root()}/v1/mcp-servers?{query}"
-    request = Request(
-        url,
-        headers={
-            "Accept": "application/json",
+        body = json.dumps(normalize_source_selection(selection, route)).encode("utf-8")
+        request = Request(f"{_gopher_api_root()}/v1/mcp-servers", data=body, method="POST", headers={
+            "Accept": "application/json", "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",
-        },
-    )
+        })
+        deadline = time.monotonic() + FETCH_TIMEOUT_SECONDS
+        try:
+            with urlopen(request, timeout=FETCH_TIMEOUT_SECONDS) as response:
+                # read1 returns after one buffered/socket read, allowing the
+                # overall body-read budget to be updated even for slow streams.
+                if hasattr(response, "read1"):
+                    chunks = []
+                    while True:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            raise TimeoutError()
+                        raw = getattr(getattr(response, "fp", None), "raw", None)
+                        sock = getattr(raw, "_sock", None)
+                        if sock is not None:
+                            sock.settimeout(remaining)
+                        chunk = response.read1(65536)
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                    result = b"".join(chunks)
+                else:
+                    result = response.read()
+                return result.decode("utf-8")
+        except HTTPError as error:
+            error.close()
+            raise AgentError(f"Inventory HTTP request failed with status {error.code}") from None
+        except (TimeoutError, URLError, OSError, ValueError):
+            raise AgentError("Failed to fetch servers: transport failed or request timed out") from None
 
-    try:
-        with urlopen(request, timeout=FETCH_TIMEOUT_SECONDS) as response:
-            return response.read().decode("utf-8")
-    except HTTPError as error:
-        body = error.read().decode("utf-8", errors="replace")
-        preview = (
-            f"{body[:FETCH_MAX_BODY_PREVIEW]}..."
-            if len(body) > FETCH_MAX_BODY_PREVIEW
-            else body
-        )
-        suffix = f": {preview}" if preview else ""
-        raise AgentError(f"HTTP request failed with status {error.code}{suffix}")
-    except TimeoutError as error:
-        raise AgentError(
-            f"Failed to fetch servers: request timed out after "
-            f"{FETCH_TIMEOUT_SECONDS * 1000}ms"
-        ) from error
-    except URLError as error:
-        raise AgentError(f"Failed to fetch servers: {error.reason}") from error
-    except OSError as error:
-        raise AgentError(f"Failed to fetch servers: {error}") from error
-
-
-def _gopher_api_root() -> str:
-    value = os.environ.get("GOPHER_SDK_TEST")
-    if value is not None and value.strip().lower() in {"true", "1", "yes"}:
-        return "https://api-test.gopher.security"
-    return "https://api.gopher.security"
+def _gopher_api_root():
+    value = os.environ.get("GOPHER_SDK_TEST", "")
+    return "https://api-test.gopher.security" if value.strip().lower() in {"true", "1", "yes"} else "https://api.gopher.security"
