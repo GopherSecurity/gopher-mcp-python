@@ -30,6 +30,7 @@ import atexit
 import asyncio
 import threading
 import weakref
+from .source_selection import assert_no_source_selection
 from typing import Callable, Optional
 
 from gopher_mcp_python.gateway_elicitation_preflight import (
@@ -181,12 +182,6 @@ class GopherAgent:
         create_options = _normalize_create_options_for_agent(runtime_options)
         runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
-        if _should_skip_oauth(runtime_options, oauth):
-            return GopherAgent._create_from_ffi(
-                lambda lib: lib.agent_create_by_api_key(
-                    provider, model, api_key, runtime_options
-                )
-            )
 
         return _create_from_api_config(
             provider,
@@ -195,6 +190,7 @@ class GopherAgent:
             route=None,
             runtime_options=runtime_options,
             oauth=oauth,
+            selection=create_options.source_selection,
         )
 
     @staticmethod
@@ -217,6 +213,7 @@ class GopherAgent:
             GopherAgent instance
         """
         create_options = _normalize_create_options_for_agent(runtime_options)
+        assert_no_source_selection(create_options)
         runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
         if _should_skip_oauth(runtime_options, oauth):
@@ -268,12 +265,6 @@ class GopherAgent:
         create_options = _normalize_create_options_for_agent(runtime_options)
         normalized_runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
-        if _should_skip_oauth(normalized_runtime_options, oauth):
-            return GopherAgent._create_from_ffi(
-                lambda lib: lib.agent_create_by_server_id(
-                    provider, model, api_key, server_id, normalized_runtime_options
-                )
-            )
         return _create_from_api_config(
             provider,
             model,
@@ -281,6 +272,7 @@ class GopherAgent:
             route=ServerConfigRoute("serverId", server_id),
             runtime_options=normalized_runtime_options,
             oauth=oauth,
+            selection=create_options.source_selection,
         )
 
     @staticmethod
@@ -311,12 +303,6 @@ class GopherAgent:
         create_options = _normalize_create_options_for_agent(runtime_options)
         normalized_runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
-        if _should_skip_oauth(normalized_runtime_options, oauth):
-            return GopherAgent._create_from_ffi(
-                lambda lib: lib.agent_create_by_server_name(
-                    provider, model, api_key, server_name, normalized_runtime_options
-                )
-            )
         return _create_from_api_config(
             provider,
             model,
@@ -324,6 +310,7 @@ class GopherAgent:
             route=ServerConfigRoute("serverName", server_name),
             runtime_options=normalized_runtime_options,
             oauth=oauth,
+            selection=create_options.source_selection,
         )
 
     @staticmethod
@@ -354,12 +341,6 @@ class GopherAgent:
         create_options = _normalize_create_options_for_agent(runtime_options)
         normalized_runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
-        if _should_skip_oauth(normalized_runtime_options, oauth):
-            return GopherAgent._create_from_ffi(
-                lambda lib: lib.agent_create_by_gateway_id(
-                    provider, model, api_key, gateway_id, normalized_runtime_options
-                )
-            )
         return _create_from_api_config(
             provider,
             model,
@@ -367,6 +348,7 @@ class GopherAgent:
             route=ServerConfigRoute("gatewayId", gateway_id),
             runtime_options=normalized_runtime_options,
             oauth=oauth,
+            selection=create_options.source_selection,
         )
 
     @staticmethod
@@ -397,12 +379,6 @@ class GopherAgent:
         create_options = _normalize_create_options_for_agent(runtime_options)
         normalized_runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
-        if _should_skip_oauth(normalized_runtime_options, oauth):
-            return GopherAgent._create_from_ffi(
-                lambda lib: lib.agent_create_by_gateway_name(
-                    provider, model, api_key, gateway_name, normalized_runtime_options
-                )
-            )
         return _create_from_api_config(
             provider,
             model,
@@ -410,6 +386,7 @@ class GopherAgent:
             route=ServerConfigRoute("gatewayName", gateway_name),
             runtime_options=normalized_runtime_options,
             oauth=oauth,
+            selection=create_options.source_selection,
         )
 
     @staticmethod
@@ -437,6 +414,7 @@ class GopherAgent:
             GopherAgent instance
         """
         create_options = _normalize_create_options_for_agent(runtime_options)
+        assert_no_source_selection(create_options)
         normalized_runtime_options = normalize_runtime_options(create_options)
         oauth = create_options.oauth if create_options is not None else None
         if url != "" and not _should_skip_oauth(normalized_runtime_options, oauth):
@@ -620,9 +598,10 @@ def _create_from_api_config(
     route: Optional[ServerConfigRoute],
     runtime_options: Optional[GopherAgentRuntimeOptions],
     oauth: Optional[GopherAgentOAuthOptions],
+    selection=None,
 ) -> GopherAgent:
-    server_config = ServerConfig.fetch(api_key, route=route)
-    resolved_runtime_options = _run_oauth_coroutine(
+    server_config = ServerConfig.fetch(api_key, route=route, selection=selection)
+    resolved_runtime_options = runtime_options if _should_skip_oauth(runtime_options, oauth) else _run_oauth_coroutine(
         lambda: oauth_resolver.resolve_runtime_options_with_oauth(
             urls=[],
             server_config=server_config,

@@ -123,7 +123,7 @@ class GopherAgentCreateOptions:
             if selected:
                 raise ValueError("Specify source_selection or individual selectors")
             selected = source_selection.to_dict() if hasattr(source_selection, "to_dict") else source_selection
-        self._source_selection = normalize_source_selection(selected) if selected or source_selection is not None else {}
+        self._source_selection = normalize_source_selection(selected) if selected else {}
         runtime = GopherAgentRuntimeOptions(access_token=access_token, headers=headers)
         self._access_token = runtime.access_token
         self._headers = runtime.headers

@@ -75,6 +75,7 @@ class FakeLibrary:
 @pytest.fixture()
 def fake_library(monkeypatch):
     fake = FakeLibrary()
+    monkeypatch.setattr(agent_module.ServerConfig, "fetch", staticmethod(lambda api_key, route=None, selection=None: "{}"))
     monkeypatch.setattr(agent_module, "_initialized", True)
     monkeypatch.setattr(
         agent_module.GopherOrchLibrary,
@@ -108,7 +109,7 @@ def test_create_passes_runtime_options_for_api_key_config(fake_library) -> None:
     agent = GopherAgent.create(config)
 
     call = fake_library.calls[0]
-    assert call[:4] == ("api_key", "Provider", "model", "api-key")
+    assert call[:4] == ("json", "Provider", "model", "{}")
     _assert_normalized_options(call[4], {"Authorization": "Bearer abc123"})
     agent.dispose()
 
@@ -140,7 +141,7 @@ def test_create_with_api_key_accepts_runtime_options(fake_library) -> None:
     )
 
     call = fake_library.calls[0]
-    assert call[:4] == ("api_key", "Provider", "model", "api-key")
+    assert call[:4] == ("json", "Provider", "model", "{}")
     _assert_normalized_options(call[4], {"X-Trace": "trace-1"})
     agent.dispose()
 
@@ -186,6 +187,8 @@ def test_direct_factories_pass_runtime_options(fake_library, factory, expected) 
     agent = factory(runtime_options)
 
     call = fake_library.calls[0]
+    if expected[0] != "url":
+        expected = ("json", "Provider", "model", "{}")
     assert call[:-1] == expected
     _assert_normalized_options(call[-1], {"Authorization": "Bearer abc123"})
     agent.dispose()
