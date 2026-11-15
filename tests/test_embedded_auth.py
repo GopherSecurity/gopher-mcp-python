@@ -296,3 +296,26 @@ def test_config_headers_used_by_inventory_oauth_probe(monkeypatch):
         )
     )
     assert calls == [{"X-API-Key": "source-key"}]
+
+
+def test_multiple_inventory_oauth_fails_actionably_on_legacy_binary(monkeypatch):
+    library = SimpleNamespace(_lib=object())
+    monkeypatch.setattr(agent_module.GopherOrchLibrary, "get_instance", lambda: library)
+    monkeypatch.setattr(
+        agent_module.ServerConfig, "fetch", lambda *args, **kwargs: INVENTORY
+    )
+
+    async def probe(url):
+        return McpOAuthChallenge(
+            url=url,
+            requires_oauth=True,
+            http_status=401,
+            resource_metadata_url=url + "/metadata",
+        )
+
+    agent_module.oauth_resolver.set_oauth_resolver_hooks_for_test(probe_challenge=probe)
+    try:
+        with pytest.raises(AgentError, match="EMBEDDED_AUTH_UNAVAILABLE"):
+            GopherAgent.create_with_api_key("p", "m", "inventory-key")
+    finally:
+        agent_module.oauth_resolver.set_oauth_resolver_hooks_for_test()

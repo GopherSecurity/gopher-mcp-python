@@ -126,14 +126,15 @@ class GopherAgentCreateOptions:
         gateway_ids=None,
         gateway_names=None,
         source_selection=None,
+        server_options=None,
     ) -> None:
         selected = {
             key: value
             for key, value in {
-                "server_ids": server_ids,
-                "server_names": server_names,
-                "gateway_ids": gateway_ids,
-                "gateway_names": gateway_names,
+                "serverId": server_ids,
+                "serverName": server_names,
+                "gatewayId": gateway_ids,
+                "gatewayName": gateway_names,
             }.items()
             if value is not None
         }
@@ -153,6 +154,7 @@ class GopherAgentCreateOptions:
         self._headers = runtime.headers
         self._oauth = normalize_oauth_options(oauth)
         self._elicitation = normalize_elicitation_options(elicitation)
+        self._server_options = _normalize_server_options(server_options)
 
     @property
     def access_token(self) -> Optional[str]:
@@ -178,6 +180,10 @@ class GopherAgentCreateOptions:
     def source_selection(self):
         return {key: list(value) for key, value in self._source_selection.items()}
 
+    @property
+    def server_options(self):
+        return copy.deepcopy(self._server_options)
+
 
 class GopherAgentRuntimeOptions:
     """
@@ -194,6 +200,7 @@ class GopherAgentRuntimeOptions:
         elicitation: Optional[
             Union[GopherAgentElicitationOptions, Mapping[str, Any]]
         ] = None,
+        server_options=None,
     ) -> None:
         normalized_access_token = _normalize_access_token(access_token)
         self._access_token = normalized_access_token
@@ -203,6 +210,11 @@ class GopherAgentRuntimeOptions:
             if elicitation is not None
             else None
         )
+        self._server_options = _normalize_server_options(server_options)
+
+    @property
+    def server_options(self):
+        return copy.deepcopy(self._server_options)
 
     @property
     def access_token(self) -> Optional[str]:
@@ -237,15 +249,18 @@ def normalize_runtime_options(
             options.access_token is None
             and len(options.headers) == 0
             and options.elicitation is None
+            and not options.server_options
         ):
             return None
         return GopherAgentRuntimeOptions(
             access_token=options.access_token,
             headers=options.headers,
             elicitation=options.elicitation,
+            server_options=options.server_options,
         )
 
     if isinstance(options, Mapping):
+        _normalize_server_options(options.get("server_options"))
         access_token = options.get("access_token")
         headers = options.get("headers")
         if access_token == "":
@@ -255,12 +270,14 @@ def normalize_runtime_options(
             access_token is None
             and (headers is None or len(headers) == 0)
             and elicitation is None
+            and not options.get("server_options")
         ):
             return None
         return GopherAgentRuntimeOptions(
             access_token=access_token,
             headers=headers,
             elicitation=elicitation,
+            server_options=options.get("server_options"),
         )
 
     raise ValueError(
@@ -282,20 +299,27 @@ def normalize_create_options(
             and options.oauth is None
             and options.elicitation is None
             and not options.source_selection
+            and not options.server_options
         ):
             return None
         return options
 
     if isinstance(options, GopherAgentRuntimeOptions):
-        if options.access_token is None and len(options.headers) == 0:
+        if (
+            options.access_token is None
+            and len(options.headers) == 0
+            and not options.server_options
+        ):
             return None
         return GopherAgentCreateOptions(
             access_token=options.access_token,
             headers=options.headers,
             elicitation=options.elicitation,
+            server_options=options.server_options,
         )
 
     if isinstance(options, Mapping):
+        _normalize_server_options(options.get("server_options"))
         selection = selection_from_options(options)
         access_token = options.get("access_token")
         headers = options.get("headers")
@@ -310,6 +334,7 @@ def normalize_create_options(
             and oauth is None
             and not has_elicitation
             and not selection
+            and not options.get("server_options")
         ):
             return None
         return GopherAgentCreateOptions(
@@ -318,6 +343,7 @@ def normalize_create_options(
             oauth=oauth,
             source_selection=selection,
             elicitation=elicitation,
+            server_options=options.get("server_options"),
         )
 
     raise ValueError(
@@ -392,3 +418,38 @@ def _normalize_access_token(access_token: Optional[str]) -> Optional[str]:
     if access_token is not None and not isinstance(access_token, str):
         raise ValueError("runtime option access_token must be a string")
     return access_token or None
+
+
+def _normalize_server_options(options):
+    if options is None:
+        return []
+    if not isinstance(options, list):
+        raise ValueError("server_options must be a list of mappings")
+    normalized = []
+    for option in options:
+        if not isinstance(option, Mapping) or option.keys() - {
+            "server_id",
+            "server_name",
+            "url",
+            "access_token",
+            "headers",
+        }:
+            raise ValueError("Invalid per-server runtime option")
+        selectors = {}
+        for key in ("server_id", "server_name", "url"):
+            if key in option:
+                value = option[key]
+                if not isinstance(value, str) or not value or "\0" in value:
+                    raise ValueError("Invalid per-server runtime selector")
+                selectors[key] = value
+        if not selectors:
+            raise ValueError("Per-server runtime options require a source selector")
+        token = _normalize_access_token(option.get("access_token"))
+        normalized.append(
+            dict(
+                selectors,
+                access_token=token,
+                headers=_normalize_headers(token, option.get("headers")),
+            )
+        )
+    return normalized

@@ -218,6 +218,9 @@ class GopherAgentConfigBuilder:
             "access_token": access_token,
             "headers": current_headers,
             "oauth": current_oauth,
+            "server_options": (
+                self._runtime_options.server_options if self._runtime_options else None
+            ),
         }
         if current_elicitation is not None:
             next_options["elicitation"] = current_elicitation
@@ -253,6 +256,9 @@ class GopherAgentConfigBuilder:
             "access_token": current_token,
             "headers": headers,
             "oauth": current_oauth,
+            "server_options": (
+                self._runtime_options.server_options if self._runtime_options else None
+            ),
         }
         if current_elicitation is not None:
             next_options["elicitation"] = current_elicitation

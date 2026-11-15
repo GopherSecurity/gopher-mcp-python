@@ -167,10 +167,26 @@ async def resolve_runtime_options_with_oauth(
     targets.extend(extract_mcp_server_targets(server_config=server_config))
     challenges = []
     for target in targets:
-        if _probe_challenge is _default_probe_challenge and target.get("headers"):
-            challenge = probe_mcp_oauth_challenge(
-                target["url"], headers=target["headers"]
-            )
+        headers = (
+            normalized_runtime_options.headers if normalized_runtime_options else {}
+        )
+        headers.update(target.get("headers", {}))
+        for option in (
+            normalized_runtime_options.server_options
+            if normalized_runtime_options
+            else []
+        ):
+            if (
+                any(
+                    option.get(key) is not None and option[key] == target.get(key)
+                    for key in ("server_id", "server_name", "url")
+                )
+                or option.get("server_name") == target.get("name")
+                and option.get("server_name") is not None
+            ):
+                headers.update(option["headers"])
+        if _probe_challenge is _default_probe_challenge and headers:
+            challenge = probe_mcp_oauth_challenge(target["url"], headers=headers)
         else:
             challenge = await _probe_challenge(target["url"])
         challenges.append(challenge)
@@ -179,6 +195,35 @@ async def resolve_runtime_options_with_oauth(
     ]
     if len(oauth_challenges) == 0:
         return normalized_runtime_options
+
+    protected_targets = [
+        target
+        for target, challenge in zip(targets, challenges)
+        if challenge.requires_oauth
+    ]
+    if defer_multiple_oauth and len(oauth_challenges) > 1:
+        enriched = []
+        for challenge in oauth_challenges:
+            try:
+                if challenge.authorization_server is None or challenge.resource is None:
+                    metadata = _resolve_resource_metadata_for_challenge(challenge)
+                    challenge = replace(
+                        challenge,
+                        authorization_server=challenge.authorization_server
+                        or _select_authorization_server(challenge, metadata),
+                        resource=challenge.resource or metadata.resource,
+                        scopes=challenge.scopes or metadata.scopes_supported,
+                    )
+                enriched.append(challenge)
+            except Exception:
+                raise MultipleMcpOAuthRequired(
+                    "Unresolved MCP OAuth bindings require native authorization"
+                ) from None
+        oauth_challenges = enriched
+        if normalized_oauth and (normalized_oauth.assemble or {}).get("clients"):
+            raise MultipleMcpOAuthRequired(
+                "Configured OAuth clients require native authorization"
+            )
 
     try:
         _assert_compatible_oauth_challenges(oauth_challenges)
@@ -192,6 +237,8 @@ async def resolve_runtime_options_with_oauth(
         oauth_challenges,
         normalized_oauth or GopherAgentOAuthOptions(),
     )
+    if server_config is not None:
+        token_options = _scope_token_options(token_options, protected_targets)
     return _merge_runtime_options(normalized_runtime_options, token_options)
 
 
@@ -269,7 +316,38 @@ def _merge_runtime_options(
             "access_token": token_options.access_token or base.access_token,
             "headers": headers,
             "elicitation": base.elicitation or token_options.elicitation,
+            "server_options": base.server_options + token_options.server_options,
         }
+    )
+
+
+def _scope_token_options(token_options, targets):
+    token_options = normalize_runtime_options(token_options)
+    if token_options is None or token_options.access_token is None:
+        return token_options
+    servers = token_options.server_options
+    for target in targets:
+        # Native selector fields match additively. Prefer the unique runtime
+        # name so a shared URL cannot broaden this grant to another source.
+        name = target.get("name") or target.get("server_name")
+        selector = (
+            {"server_name": name}
+            if name is not None
+            else (
+                {"server_id": target["server_id"]}
+                if "server_id" in target
+                else {"url": target["url"]}
+            )
+        )
+        servers.append(dict(selector, access_token=token_options.access_token))
+    return GopherAgentRuntimeOptions(
+        headers={
+            k: v
+            for k, v in token_options.headers.items()
+            if k.lower() != "authorization"
+        },
+        elicitation=token_options.elicitation,
+        server_options=servers,
     )
 
 

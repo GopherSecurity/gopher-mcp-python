@@ -27,4 +27,5 @@ def merge_oauth_token_into_runtime_options(
         access_token=token.access_token,
         headers=headers,
         elicitation=normalized.elicitation if normalized is not None else None,
+        server_options=normalized.server_options if normalized is not None else None,
     )

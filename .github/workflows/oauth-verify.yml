@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,3 +36,16 @@ jobs:
 
       - name: Run custom IdP OAuth verification
         run: scripts/test-oauth-custom-idp.sh
+
+      - name: Verify inventory and embedded OAuth host contracts
+        run: >-
+          python -m pytest
+          tests/test_source_selection.py
+          tests/test_server_config.py
+          tests/test_inventory_response.py
+          tests/test_inventory_conformance.py
+          tests/test_inventory_factories.py
+          tests/test_oauth_inventory_scoping.py
+          tests/test_embedded_auth_bindings.py
+          tests/test_embedded_auth.py
+          tests/test_embedded_auth_lifecycle.py
