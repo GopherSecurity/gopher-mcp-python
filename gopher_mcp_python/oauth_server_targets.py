@@ -25,7 +25,7 @@ def extract_mcp_server_targets(
         )
 
     for server in _collect_server_entries(parsed):
-        target = _target_from_server_entry(server)
+        target = _target_from_server_entry(server, inventory=isinstance(parsed, dict) and "succeeded" in parsed)
         if target is not None:
             targets.append(target)
     return targets
@@ -34,6 +34,9 @@ def extract_mcp_server_targets(
 def _collect_server_entries(value: Any) -> List[Dict[str, Any]]:
     if not isinstance(value, dict):
         return []
+    if "succeeded" in value:
+        data = value.get("data")
+        return [item for item in data.get("servers", []) if isinstance(item, dict)] if isinstance(data, dict) else []
     servers = value.get("servers")
     if isinstance(servers, list):
         return [item for item in servers if isinstance(item, dict)]
@@ -43,20 +46,20 @@ def _collect_server_entries(value: Any) -> List[Dict[str, Any]]:
     return []
 
 
-def _target_from_server_entry(server: Dict[str, Any]) -> Optional[Dict[str, str]]:
+def _target_from_server_entry(server: Dict[str, Any], inventory=False) -> Optional[Dict[str, str]]:
     transport = _read_string(server.get("transport"))
     if transport is not None and transport.lower() == "stdio":
         return None
 
     config = server.get("config")
-    url = _read_string(server.get("url"))
+    url = None if inventory else _read_string(server.get("url"))
     if url is None and isinstance(config, dict):
         url = _read_string(config.get("url"))
     if not url:
         return None
 
     target = {"url": url}
-    _copy_first_string(target, "server_id", server, "serverId", "server_id", "id")
+    _copy_first_string(target, "server_id", server, *( ("id", "serverId", "server_id") if inventory else ("serverId", "server_id", "id") ))
     _copy_first_string(target, "name", server, "name")
     _copy_first_string(target, "server_name", server, "serverName", "server_name")
     return target

@@ -5,6 +5,7 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, HTTPRedirectHandler, build_opener
 from .errors import AgentError, ApiKeyError
+from .inventory_response import normalize_inventory_response
 from .source_selection import ServerConfigRoute, normalize_source_selection
 
 FETCH_TIMEOUT_SECONDS = 30
@@ -48,7 +49,7 @@ class ServerConfig:
                     result = b"".join(chunks)
                 else:
                     result = response.read()
-                return result.decode("utf-8")
+                return normalize_inventory_response(result.decode("utf-8"))
         except HTTPError as error:
             error.close()
             raise AgentError(f"Inventory HTTP request failed with status {error.code}") from None
