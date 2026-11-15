@@ -55,17 +55,11 @@ def _settings(options, inventory):
     clients = settings.get("clients", {})
     if not isinstance(clients, dict):
         raise AgentError("Invalid assemble clients")
-    clients = (
-        {
-            key: dict(value)
-            for key, value in clients.items()
-            if isinstance(key, str) and isinstance(value, dict)
-        }
-        if all(isinstance(k, str) and isinstance(v, dict) for k, v in clients.items())
-        else None
-    )
-    if clients is None:
+    if any(
+        not isinstance(k, str) or not isinstance(v, dict) for k, v in clients.items()
+    ):
         raise AgentError("Invalid assemble clients")
+    clients = {key: dict(value) for key, value in clients.items()}
     for client in clients.values():
         if client.keys() - {
             "client_id",
@@ -206,6 +200,11 @@ class EmbeddedAgentSession:
                 result = function(*args)
                 if inspect.isawaitable(result):
                     loop = self.callback_loop or self._loop
+                    if not loop.is_running():
+                        result.close()
+                        raise AgentError(
+                            "AUTH_CALLBACK_LOOP: OAuth callback event loop is closed"
+                        )
 
                     async def wait():
                         return await result
@@ -393,6 +392,25 @@ class EmbeddedAgentSession:
     def check(self):
         if self.failure:
             raise self.failure
+        if (
+            self.native_options["external_store"]
+            and self.callback_loop is not None
+            and not self.callback_loop.is_running()
+        ):
+            raise AgentError(
+                "AUTH_CALLBACK_LOOP: keep the creation event loop running for OAuth stores"
+            )
+
+    def check_run_loop(self):
+        if self.native_options["external_store"] and self.callback_loop is not None:
+            try:
+                current = asyncio.get_running_loop()
+            except RuntimeError:
+                return
+            if current is self.callback_loop:
+                raise AgentError(
+                    "ASYNC_RUN_REQUIRED: use run_async() to keep the OAuth token-store loop available"
+                )
 
     def close(self):
         self.stop.set()

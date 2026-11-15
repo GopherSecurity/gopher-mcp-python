@@ -28,6 +28,8 @@ Example with context manager:
 
 import atexit
 import asyncio
+import concurrent.futures
+import copy
 import threading
 import weakref
 from .source_selection import assert_no_source_selection
@@ -55,6 +57,7 @@ from gopher_mcp_python.embedded_auth import EmbeddedAgentSession
 _initialized = False
 _cleanup_handler_registered = False
 _initialization_lock = threading.RLock()
+_creation_context = threading.local()
 _SKIP_DISCOVERY_ELICITATION_HEADER = "X-Gopher-Internal-Skip-Discovery-Elicitation"
 _PREFLIGHT_MCP_SESSION_HEADER = "X-Gopher-Internal-Preflight-Mcp-Session-Id"
 
@@ -83,12 +86,14 @@ class GopherAgent:
         self._running = False
         self._disposed = False
         self._authorization_session = authorization_session
+        self._released = threading.Event()
         self._finalizer = weakref.finalize(
             self,
             _release_handle_best_effort,
             handle,
             self._library,
             authorization_session,
+            self._released,
         )
 
     def __enter__(self) -> "GopherAgent":
@@ -482,6 +487,102 @@ class GopherAgent:
 
         return GopherAgent(handle, lib)
 
+    @staticmethod
+    async def create_async(config: GopherAgentConfig) -> "GopherAgent":
+        """Create off the event loop, retaining that loop for async OAuth stores."""
+        return await _create_agent_async(GopherAgent.create, config)
+
+    @staticmethod
+    async def create_with_api_key_async(provider, model, api_key, runtime_options=None):
+        return await _create_agent_async(
+            GopherAgent.create_with_api_key, provider, model, api_key, runtime_options
+        )
+
+    @staticmethod
+    async def create_with_server_id_async(
+        provider, model, api_key, server_id, runtime_options=None
+    ):
+        return await _create_agent_async(
+            GopherAgent.create_with_server_id,
+            provider,
+            model,
+            api_key,
+            server_id,
+            runtime_options,
+        )
+
+    @staticmethod
+    async def create_with_server_name_async(
+        provider, model, api_key, server_name, runtime_options=None
+    ):
+        return await _create_agent_async(
+            GopherAgent.create_with_server_name,
+            provider,
+            model,
+            api_key,
+            server_name,
+            runtime_options,
+        )
+
+    @staticmethod
+    async def create_with_gateway_id_async(
+        provider, model, api_key, gateway_id, runtime_options=None
+    ):
+        return await _create_agent_async(
+            GopherAgent.create_with_gateway_id,
+            provider,
+            model,
+            api_key,
+            gateway_id,
+            runtime_options,
+        )
+
+    @staticmethod
+    async def create_with_gateway_name_async(
+        provider, model, api_key, gateway_name, runtime_options=None
+    ):
+        return await _create_agent_async(
+            GopherAgent.create_with_gateway_name,
+            provider,
+            model,
+            api_key,
+            gateway_name,
+            runtime_options,
+        )
+
+    @staticmethod
+    async def create_with_url_async(provider, model, url, runtime_options=None):
+        return await _create_agent_async(
+            GopherAgent.create_with_url, provider, model, url, runtime_options
+        )
+
+    @staticmethod
+    async def create_with_server_config_async(
+        provider, model, server_config, runtime_options=None
+    ):
+        return await _create_agent_async(
+            GopherAgent.create_with_server_config,
+            provider,
+            model,
+            server_config,
+            runtime_options,
+        )
+
+    async def run_async(self, query: str, timeout_ms: int = 60000) -> str:
+        """Keep the event loop available for OAuth stores during a native query.
+
+        Cancelling this await does not interrupt the native query. Its worker
+        retains the agent and deferred disposal until native execution exits.
+        """
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.run, query, timeout_ms)
+
+    async def dispose_async(self) -> None:
+        """Wait for native release and authorization-host shutdown off the loop."""
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self.dispose)
+        await loop.run_in_executor(None, self._released.wait)
+
     def run(self, query: str, timeout_ms: int = 60000) -> str:
         """
         Run a query against the agent.
@@ -506,11 +607,16 @@ class GopherAgent:
                 raise AgentError("Agent is already running a query")
             self._running = True
         try:
+            if self._authorization_session is not None:
+                self._authorization_session.check()
+                self._authorization_session.check_run_loop()
             lib = self._library
             if lib is None:
                 load_error = GopherOrchLibrary.get_load_error_message()
                 raise AgentError(f"Native library not available.\n{load_error}")
             response = lib.agent_run(self._handle, query, timeout_ms)
+            if self._authorization_session is not None:
+                self._authorization_session.check()
             if response is None:
                 error = lib.get_last_error_message()
                 lib.clear_error()
@@ -558,7 +664,8 @@ class GopherAgent:
         Dispose of the agent and free native resources deterministically.
 
         Stop accepting queries immediately. If a query is active, its exit
-        releases native resources. This method never waits for callbacks.
+        releases native resources. Use dispose_async() from an event loop to
+        wait for release without blocking that loop.
         A best-effort finalizer also releases forgotten agents.
         """
         with self._lifecycle_lock:
@@ -594,6 +701,7 @@ def _release_handle_best_effort(
     handle: GopherOrchHandle,
     lib: Optional[GopherOrchLibrary],
     authorization_session=None,
+    released=None,
 ) -> None:
     try:
         if lib is not None and handle is not None:
@@ -601,8 +709,12 @@ def _release_handle_best_effort(
     except Exception:
         pass
     finally:
-        if authorization_session is not None:
-            authorization_session.close()
+        try:
+            if authorization_session is not None:
+                authorization_session.close()
+        finally:
+            if released is not None:
+                released.set()
 
 
 def _create_from_api_config(
@@ -632,19 +744,37 @@ def _create_from_api_config(
     except oauth_resolver.MultipleMcpOAuthRequired:
         GopherAgent.init()
         lib = GopherOrchLibrary.get_instance()
+        embedded_oauth = copy.copy(oauth or GopherAgentOAuthOptions())
+        embedded_oauth.assemble = dict(embedded_oauth.assemble or {})
+        cancellation = getattr(_creation_context, "cancellation", None)
+        if cancellation is not None:
+            embedded_oauth.assemble["cancel_event"] = _CombinedCancellation(
+                cancellation, embedded_oauth.assemble.get("cancel_event")
+            )
         options = GopherAgentCreateOptions(
             access_token=runtime_options.access_token if runtime_options else None,
             headers=runtime_options.headers if runtime_options else None,
             elicitation=runtime_options.elicitation if runtime_options else None,
-            oauth=oauth,
+            oauth=embedded_oauth,
         )
-        session = EmbeddedAgentSession(lib, server_config, provider, model, options)
+        session = EmbeddedAgentSession(
+            lib,
+            server_config,
+            provider,
+            model,
+            options,
+            callback_loop=getattr(_creation_context, "callback_loop", None),
+        )
         try:
             handle = session.wait_ready()
         except BaseException:
             session.close()
             raise
-        return GopherAgent(handle, lib, session)
+        try:
+            return GopherAgent(handle, lib, session)
+        except BaseException:
+            _release_handle_best_effort(handle, lib, session)
+            raise
     return GopherAgent._create_from_ffi(
         lambda lib: lib.agent_create_by_json(
             provider, model, server_config, resolved_runtime_options
@@ -656,12 +786,81 @@ def _run_oauth_coroutine(create_coroutine):
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(create_coroutine())
+
+        async def run():
+            task = asyncio.create_task(create_coroutine())
+            cancellation = getattr(_creation_context, "cancellation", None)
+            try:
+                while not task.done():
+                    if cancellation is not None and cancellation.is_set():
+                        raise AgentError("AUTH_CANCELLED: agent creation cancelled")
+                    await asyncio.wait({task}, timeout=0.05)
+                return task.result()
+            finally:
+                if not task.done():
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+
+        return asyncio.run(run())
     raise AgentError(
         "SDK OAuth auto-flow cannot run inside an active asyncio event loop. "
         "Provide runtime_options with access_token/Authorization, or set "
         'oauth.mode to "disabled".'
     )
+
+
+class _CombinedCancellation:
+    def __init__(self, *events):
+        self.events = events
+
+    def is_set(self):
+        return any(event is not None and event.is_set() for event in self.events)
+
+
+async def _create_agent_async(factory, *args):
+    loop = asyncio.get_running_loop()
+    cancellation = threading.Event()
+    result = concurrent.futures.Future()
+
+    def create():
+        _creation_context.callback_loop = loop
+        _creation_context.cancellation = cancellation
+        try:
+            if cancellation.is_set():
+                raise AgentError("AUTH_CANCELLED: agent creation cancelled")
+            agent = factory(*args)
+            if cancellation.is_set():
+                agent.dispose()
+                raise AgentError("AUTH_CANCELLED: agent creation cancelled")
+            result.set_result(agent)
+        except BaseException as exc:
+            result.set_exception(exc)
+        finally:
+            del _creation_context.callback_loop
+            del _creation_context.cancellation
+
+    threading.Thread(target=create, daemon=True, name="gopher-mcp-create").start()
+    waiting = asyncio.wrap_future(result)
+    try:
+        return await asyncio.shield(waiting)
+    except asyncio.CancelledError:
+        cancellation.set()
+
+        def discard(done):
+            try:
+                agent = done.result()
+            except BaseException:
+                return
+            threading.Thread(
+                target=agent.dispose, daemon=True, name="gopher-mcp-cancel-create"
+            ).start()
+
+        result.add_done_callback(discard)
+        # Consume the shielded result even if its originating loop is closing.
+        waiting.add_done_callback(
+            lambda done: done.exception() if not done.cancelled() else None
+        )
+        raise
 
 
 def _normalize_create_options_for_agent(
