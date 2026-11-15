@@ -6,6 +6,8 @@ so both can consume the same normalization contract without introducing an
 import cycle.
 """
 
+from .source_selection import selection_from_options, normalize_source_selection
+
 from typing import Any, Dict, List, Mapping, Optional, Protocol, Union
 
 from gopher_mcp_python.elicitation import (
@@ -113,7 +115,15 @@ class GopherAgentCreateOptions:
         elicitation: Optional[
             Union[GopherAgentElicitationOptions, Mapping[str, Any]]
         ] = None,
+        server_ids=None, server_names=None, gateway_ids=None, gateway_names=None,
+        source_selection=None,
     ) -> None:
+        selected = {key: value for key, value in {"server_ids": server_ids, "server_names": server_names, "gateway_ids": gateway_ids, "gateway_names": gateway_names}.items() if value is not None}
+        if source_selection is not None:
+            if selected:
+                raise ValueError("Specify source_selection or individual selectors")
+            selected = source_selection.to_dict() if hasattr(source_selection, "to_dict") else source_selection
+        self._source_selection = normalize_source_selection(selected) if selected or source_selection is not None else {}
         runtime = GopherAgentRuntimeOptions(access_token=access_token, headers=headers)
         self._access_token = runtime.access_token
         self._headers = runtime.headers
@@ -140,6 +150,10 @@ class GopherAgentCreateOptions:
         """Get MCP elicitation options."""
         return self._elicitation
 
+
+    @property
+    def source_selection(self):
+        return {key: list(value) for key, value in self._source_selection.items()}
 
 class GopherAgentRuntimeOptions:
     """
@@ -243,6 +257,7 @@ def normalize_create_options(
             and len(options.headers) == 0
             and options.oauth is None
             and options.elicitation is None
+            and not options.source_selection
         ):
             return None
         return options
@@ -257,6 +272,7 @@ def normalize_create_options(
         )
 
     if isinstance(options, Mapping):
+        selection = selection_from_options(options)
         access_token = options.get("access_token")
         headers = options.get("headers")
         oauth = options.get("oauth")
@@ -269,12 +285,14 @@ def normalize_create_options(
             and (headers is None or len(headers) == 0)
             and oauth is None
             and not has_elicitation
+            and not selection
         ):
             return None
         return GopherAgentCreateOptions(
             access_token=access_token,
             headers=headers,
             oauth=oauth,
+            source_selection=selection,
             elicitation=elicitation,
         )
 

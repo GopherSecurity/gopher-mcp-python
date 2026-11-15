@@ -218,6 +218,8 @@ class GopherAgentConfigBuilder:
         }
         if current_elicitation is not None:
             next_options["elicitation"] = current_elicitation
+        if self._runtime_options is not None:
+            next_options.update(self._runtime_options.source_selection)
         self._runtime_options = normalize_create_options(next_options)
         return self
 
@@ -251,6 +253,8 @@ class GopherAgentConfigBuilder:
         }
         if current_elicitation is not None:
             next_options["elicitation"] = current_elicitation
+        if self._runtime_options is not None:
+            next_options.update(self._runtime_options.source_selection)
         self._runtime_options = normalize_create_options(next_options)
         return self
 

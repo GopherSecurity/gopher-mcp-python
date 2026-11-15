@@ -50,6 +50,7 @@ from gopher_mcp_python.errors import (
     ConnectionError,
     TimeoutError,
 )
+from gopher_mcp_python.source_selection import GopherSourceSelection
 from gopher_mcp_python.server_config import ServerConfig, ServerConfigRoute
 from gopher_mcp_python.oauth_scopes import select_oauth_scopes
 from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
@@ -136,6 +137,7 @@ __all__ = [
     "GopherAgentConfig",
     "GopherAgentConfigBuilder",
     "GopherAgentCreateOptions",
+    "GopherSourceSelection",
     "GopherAgentElicitationAction",
     "GopherAgentElicitationHandler",
     "GopherAgentElicitationOptions",
