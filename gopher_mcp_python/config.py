@@ -5,6 +5,7 @@ Provides a builder pattern for creating agent configurations with validation.
 """
 
 from typing import Mapping, Optional
+from .source_selection import assert_no_source_selection
 
 from gopher_mcp_python.runtime_options import (
     GopherAgentCreateOptions,
@@ -65,6 +66,8 @@ class GopherAgentConfig:
         self._api_key = api_key
         self._server_config = server_config
         self._runtime_options = normalize_create_options(runtime_options)
+        if server_config is not None:
+            assert_no_source_selection(self._runtime_options)
 
     @property
     def provider(self) -> str:
