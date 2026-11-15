@@ -24,7 +24,9 @@ from gopher_mcp_python.oauth_registration import (
     OAuthRegisteredClient,
     register_oauth_client,
 )
-from gopher_mcp_python.oauth_runtime_options import merge_oauth_token_into_runtime_options
+from gopher_mcp_python.oauth_runtime_options import (
+    merge_oauth_token_into_runtime_options,
+)
 from gopher_mcp_python.oauth_server_targets import extract_mcp_server_targets
 from gopher_mcp_python.oauth_token_exchange import (
     exchange_oauth_code_for_token,
@@ -42,7 +44,6 @@ from gopher_mcp_python.runtime_options import (
     normalize_oauth_options,
     normalize_runtime_options,
 )
-
 
 OAuthChallengeProbe = Callable[[str], Awaitable[McpOAuthChallenge]]
 OAuthTokenAcquirer = Callable[
@@ -116,7 +117,9 @@ async def _default_acquire_token(
                 scopes=scopes,
             ),
         )
-        _log_oauth_debug("resolved access token claims", _decode_jwt_claims(token.access_token))
+        _log_oauth_debug(
+            "resolved access token claims", _decode_jwt_claims(token.access_token)
+        )
         return merge_oauth_token_into_runtime_options(None, token)
     finally:
         await loopback.close()
@@ -141,34 +144,50 @@ _url_runtime_options_resolver: OAuthUrlRuntimeOptionsResolver = (
 )
 
 
+class MultipleMcpOAuthRequired(RuntimeError):
+    """Inventory needs independent native authorization flows."""
+
+
 async def resolve_runtime_options_with_oauth(
     urls: Optional[List[str]] = None,
     server_config: Optional[str] = None,
     runtime_options: Optional[GopherAgentRuntimeOptions] = None,
     oauth: Optional[GopherAgentOAuthOptions] = None,
+    defer_multiple_oauth: bool = False,
 ) -> Optional[GopherAgentRuntimeOptions]:
     """Resolve runtime options, acquiring OAuth credentials when needed."""
     normalized_runtime_options = normalize_runtime_options(runtime_options)
     normalized_oauth = normalize_oauth_options(oauth)
     if (
-        normalized_oauth is not None
-        and normalized_oauth.mode == "disabled"
+        normalized_oauth is not None and normalized_oauth.mode == "disabled"
     ) or _has_runtime_authorization(normalized_runtime_options):
         return normalized_runtime_options
 
-    target_urls = list(urls or [])
-    target_urls.extend(
-        target["url"]
-        for target in extract_mcp_server_targets(server_config=server_config)
-    )
-    challenges = [await _probe_challenge(url) for url in target_urls]
+    targets = [{"url": url} for url in urls or []]
+    targets.extend(extract_mcp_server_targets(server_config=server_config))
+    challenges = []
+    for target in targets:
+        if _probe_challenge is _default_probe_challenge and target.get("headers"):
+            challenge = probe_mcp_oauth_challenge(
+                target["url"], headers=target["headers"]
+            )
+        else:
+            challenge = await _probe_challenge(target["url"])
+        challenges.append(challenge)
     oauth_challenges = [
         challenge for challenge in challenges if challenge.requires_oauth
     ]
     if len(oauth_challenges) == 0:
         return normalized_runtime_options
 
-    _assert_compatible_oauth_challenges(oauth_challenges)
+    try:
+        _assert_compatible_oauth_challenges(oauth_challenges)
+    except RuntimeError:
+        if defer_multiple_oauth:
+            raise MultipleMcpOAuthRequired(
+                "Multiple MCP OAuth bindings require native authorization"
+            ) from None
+        raise
     token_options = await _acquire_token(
         oauth_challenges,
         normalized_oauth or GopherAgentOAuthOptions(),
@@ -221,7 +240,9 @@ def _assert_compatible_oauth_challenges(challenges: List[McpOAuthChallenge]) -> 
             or challenge.resource_metadata_url
             or challenge.url
         )
-        resource = challenge.resource or challenge.resource_metadata_url or challenge.url
+        resource = (
+            challenge.resource or challenge.resource_metadata_url or challenge.url
+        )
         scopes = " ".join(sorted(challenge.scopes or []))
         keys.add(json.dumps({"issuer": issuer, "resource": resource, "scopes": scopes}))
     if len(keys) > 1:
@@ -356,6 +377,9 @@ def _decode_jwt_claims(token: str) -> Dict[str, Any]:
 
 
 def _log_oauth_debug(label: str, values: Any) -> None:
-    if os.environ.get("GOPHER_MCP_OAUTH_DEBUG") != "1" and os.environ.get("DEBUG") != "1":
+    if (
+        os.environ.get("GOPHER_MCP_OAUTH_DEBUG") != "1"
+        and os.environ.get("DEBUG") != "1"
+    ):
         return
     print(f"[gopher-mcp-python oauth] {label}: {json.dumps(values)}", file=sys.stderr)

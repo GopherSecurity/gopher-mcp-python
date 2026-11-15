@@ -20,12 +20,13 @@ def extract_mcp_server_targets(
         parsed = json.loads(server_config)
     except Exception as exc:
         raise ValueError(
-            "Failed to parse MCP server config for OAuth URL extraction: "
-            f"{exc}"
+            "Failed to parse MCP server config for OAuth URL extraction: " f"{exc}"
         )
 
     for server in _collect_server_entries(parsed):
-        target = _target_from_server_entry(server, inventory=isinstance(parsed, dict) and "succeeded" in parsed)
+        target = _target_from_server_entry(
+            server, inventory=isinstance(parsed, dict) and "succeeded" in parsed
+        )
         if target is not None:
             targets.append(target)
     return targets
@@ -36,7 +37,11 @@ def _collect_server_entries(value: Any) -> List[Dict[str, Any]]:
         return []
     if "succeeded" in value:
         data = value.get("data")
-        return [item for item in data.get("servers", []) if isinstance(item, dict)] if isinstance(data, dict) else []
+        return (
+            [item for item in data.get("servers", []) if isinstance(item, dict)]
+            if isinstance(data, dict)
+            else []
+        )
     servers = value.get("servers")
     if isinstance(servers, list):
         return [item for item in servers if isinstance(item, dict)]
@@ -46,7 +51,9 @@ def _collect_server_entries(value: Any) -> List[Dict[str, Any]]:
     return []
 
 
-def _target_from_server_entry(server: Dict[str, Any], inventory=False) -> Optional[Dict[str, str]]:
+def _target_from_server_entry(
+    server: Dict[str, Any], inventory=False
+) -> Optional[Dict[str, str]]:
     transport = _read_string(server.get("transport"))
     if transport is not None and transport.lower() == "stdio":
         return None
@@ -59,7 +66,18 @@ def _target_from_server_entry(server: Dict[str, Any], inventory=False) -> Option
         return None
 
     target = {"url": url}
-    _copy_first_string(target, "server_id", server, *( ("id", "serverId", "server_id") if inventory else ("serverId", "server_id", "id") ))
+    if isinstance(config, dict) and isinstance(config.get("headers"), dict):
+        target["headers"] = dict(config["headers"])
+    _copy_first_string(
+        target,
+        "server_id",
+        server,
+        *(
+            ("id", "serverId", "server_id")
+            if inventory
+            else ("serverId", "server_id", "id")
+        ),
+    )
     _copy_first_string(target, "name", server, "name")
     _copy_first_string(target, "server_name", server, "serverName", "server_name")
     return target

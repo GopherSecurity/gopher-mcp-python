@@ -50,6 +50,7 @@ from gopher_mcp_python.result import AgentResult, AgentResultStatus
 from gopher_mcp_python.server_config import ServerConfig, ServerConfigRoute
 from gopher_mcp_python.errors import AgentError, TimeoutError
 from gopher_mcp_python.ffi import GopherOrchLibrary, GopherOrchHandle
+from gopher_mcp_python.embedded_auth import EmbeddedAgentSession
 
 _initialized = False
 _cleanup_handler_registered = False
@@ -64,7 +65,10 @@ class GopherAgent:
     """
 
     def __init__(
-        self, handle: GopherOrchHandle, library: Optional[GopherOrchLibrary] = None
+        self,
+        handle: GopherOrchHandle,
+        library: Optional[GopherOrchLibrary] = None,
+        authorization_session=None,
     ) -> None:
         """
         Initialize a GopherAgent with a native handle.
@@ -78,8 +82,13 @@ class GopherAgent:
         self._lifecycle_lock = threading.Lock()
         self._running = False
         self._disposed = False
+        self._authorization_session = authorization_session
         self._finalizer = weakref.finalize(
-            self, _release_handle_best_effort, handle, self._library
+            self,
+            _release_handle_best_effort,
+            handle,
+            self._library,
+            authorization_session,
         )
 
     def __enter__(self) -> "GopherAgent":
@@ -582,13 +591,18 @@ def _setup_cleanup_handler() -> None:
 
 
 def _release_handle_best_effort(
-    handle: GopherOrchHandle, lib: Optional[GopherOrchLibrary]
+    handle: GopherOrchHandle,
+    lib: Optional[GopherOrchLibrary],
+    authorization_session=None,
 ) -> None:
     try:
         if lib is not None and handle is not None:
             lib.agent_release(handle)
     except Exception:
-        return
+        pass
+    finally:
+        if authorization_session is not None:
+            authorization_session.close()
 
 
 def _create_from_api_config(
@@ -601,14 +615,36 @@ def _create_from_api_config(
     selection=None,
 ) -> GopherAgent:
     server_config = ServerConfig.fetch(api_key, route=route, selection=selection)
-    resolved_runtime_options = runtime_options if _should_skip_oauth(runtime_options, oauth) else _run_oauth_coroutine(
-        lambda: oauth_resolver.resolve_runtime_options_with_oauth(
-            urls=[],
-            server_config=server_config,
-            runtime_options=runtime_options,
+    try:
+        resolved_runtime_options = (
+            runtime_options
+            if _should_skip_oauth(runtime_options, oauth)
+            else _run_oauth_coroutine(
+                lambda: oauth_resolver.resolve_runtime_options_with_oauth(
+                    urls=[],
+                    server_config=server_config,
+                    runtime_options=runtime_options,
+                    oauth=oauth,
+                    defer_multiple_oauth=True,
+                )
+            )
+        )
+    except oauth_resolver.MultipleMcpOAuthRequired:
+        GopherAgent.init()
+        lib = GopherOrchLibrary.get_instance()
+        options = GopherAgentCreateOptions(
+            access_token=runtime_options.access_token if runtime_options else None,
+            headers=runtime_options.headers if runtime_options else None,
+            elicitation=runtime_options.elicitation if runtime_options else None,
             oauth=oauth,
         )
-    )
+        session = EmbeddedAgentSession(lib, server_config, provider, model, options)
+        try:
+            handle = session.wait_ready()
+        except BaseException:
+            session.close()
+            raise
+        return GopherAgent(handle, lib, session)
     return GopherAgent._create_from_ffi(
         lambda lib: lib.agent_create_by_json(
             provider, model, server_config, resolved_runtime_options

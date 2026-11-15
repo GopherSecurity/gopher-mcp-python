@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse, urlunparse
 
-
 GOPHER_HOSTED_OAUTH_DEFAULT_SCOPES = ["openid", "profile", "email"]
 GOPHER_HOSTED_OAUTH_ENDPOINTS = {
     "mcp.gopher.security": {
@@ -69,7 +68,9 @@ class OAuthAuthorizationServerMetadata:
     registration_endpoint: Optional[str] = None
 
 
-def probe_mcp_oauth_challenge(url: str, timeout: float = 10.0) -> McpOAuthChallenge:
+def probe_mcp_oauth_challenge(
+    url: str, timeout: float = 10.0, headers=None
+) -> McpOAuthChallenge:
     """Probe an MCP URL and return OAuth challenge metadata if auth is required."""
     request = urllib.request.Request(
         url,
@@ -78,6 +79,7 @@ def probe_mcp_oauth_challenge(url: str, timeout: float = 10.0) -> McpOAuthChalle
         headers={
             "Accept": "application/json, text/event-stream",
             "Content-Type": "application/json",
+            **(headers or {}),
         },
     )
     try:
@@ -340,4 +342,8 @@ def _read_string(value: Any) -> Optional[str]:
 
 
 def _read_string_array(value: Any) -> List[str]:
-    return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
+    return (
+        [item for item in value if isinstance(item, str)]
+        if isinstance(value, list)
+        else []
+    )
