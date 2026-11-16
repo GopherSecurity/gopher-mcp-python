@@ -1,10 +1,7 @@
 #!/bin/bash
 
 # Run the Python SDK example for GopherAgent.create_with_api_key
-# against the PyPI-published gopher-mcp-python package.
-#
-# Set SDK_VERSION to pin to a specific release; otherwise the latest
-# published version is installed.
+# using the local Python SDK and native build.
 
 set -e
 
@@ -19,4 +16,4 @@ warn_if_empty "GOPHER_API_KEY" "Set it with: export GOPHER_API_KEY=your_api_key"
 warn_if_empty "LLM_MODEL" "Set it with: export LLM_MODEL=<your-model-id>"
 warn_if_empty "ANTHROPIC_API_KEY" "(Required for the default AnthropicProvider.)"
 
-run_api_example "test-project-create-by-api-key" "create_by_api_key.py" "$@"
+run_api_example "create_by_api_key.py" "$@"
