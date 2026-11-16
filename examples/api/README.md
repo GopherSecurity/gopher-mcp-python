@@ -1,20 +1,8 @@
-# examples/api — Python SDK examples for the seven `create_by_*` factories
+# examples/api — Local Python SDK examples
 
-This directory holds the Python siblings of the C++ SDK examples under
-[`gopher-orch/examples/sdk/api/`](../../third_party/gopher-orch/examples/sdk/api/)
-and the TypeScript siblings under
-[`gopher-mcp-js/examples/api/`](https://github.com/GopherSecurity/gopher-mcp-js/tree/main/examples/api).
-Each `.py` file mirrors its `.cc` and `.ts` counterparts one-to-one
-and exercises exactly one of the seven `create_by_*` factories the
-SDK exposes through `GopherAgent`.
-
-All examples in this directory resolve their dependencies from the
-**PyPI-published** [`gopher-mcp-python`](https://pypi.org/project/gopher-mcp-python/)
-package and its matching platform-specific native package — they do
-not use the in-tree `gopher_mcp_python/` source or the locally-built
-`native/lib/` directory. To work against the in-tree source instead,
-see the existing `examples/client_example_json*` pair at the
-`examples/` root.
+The seven API examples use this checkout's `gopher_mcp_python/` source and local
+native libraries through their `*_run.sh` wrappers. Each run prints the SDK source
+and the exact native library file loaded.
 
 ## File-to-factory mapping
 
@@ -28,66 +16,44 @@ see the existing `examples/client_example_json*` pair at the
 | `create_by_gateway_name.cc`    | `create_by_gateway_name.py`    | `create_by_gateway_name.ts`    | `create_with_gateway_name`     |
 | `create_by_url.cc`             | `create_by_url.py`             | `create_by_url.ts`             | `create_with_url`              |
 
-Each `.py` file ships with a `*_run.sh` wrapper that bootstraps a
-fresh virtual environment, installs `gopher-mcp-python` plus the
-matching platform native package from PyPI, and forwards positional
-arguments to the example as queries.
-
 ## Quick start
 
-1. Set the env vars your chosen example needs (see the matrix below).
-   At minimum every example needs `LLM_MODEL` and the LLM
-   provider's own credentials (`ANTHROPIC_API_KEY` for the default
-   `AnthropicProvider`):
+1. Build the native libraries from the repository root if needed:
+
+   ```sh
+   ./build.sh
+   ```
+
+2. Set your example's environment variables. Every example needs `LLM_MODEL`
+   and the selected provider's credentials:
 
    ```sh
    export LLM_MODEL=<your-model-id>
    export ANTHROPIC_API_KEY=...
-   export GOPHER_API_KEY=...            # only if your variant needs it
+   export GOPHER_API_KEY=...  # API-key and selector factories
    ```
 
-2. Run the wrapper. It will detect your platform, create
-   `examples/api/test-project-<variant>/` with a fresh venv inside,
-   `pip install gopher-mcp-python` plus the matching native package
-   from PyPI, then run the `.py`:
+3. Run the wrapper with optional queries:
 
    ```sh
-   ./examples/api/create_by_api_key_run.sh "What time is it in Tokyo?"
+   ./examples/api/create_by_api_key_run.sh "List my available tools"
    ```
 
-   Positional arguments to the wrapper become queries; with no
-   arguments each example runs a canned query so a first invocation
-   produces visible output.
+The wrappers use `python3` by default. Set `PYTHON=/path/to/python` to select
+another interpreter, including one in an existing virtual environment. The SDK
+is imported directly from this checkout; there is no package installation or
+network setup step. Existing `test-project-*` directories are unused.
 
-3. To pin a specific SDK version, set `SDK_VERSION` before invoking
-   a wrapper. Otherwise the latest published version is installed:
+## Manual run
 
-   ```sh
-   SDK_VERSION=<published-version> ./examples/api/create_by_server_id_run.sh
-   ```
-
-The wrappers are idempotent: each run nukes its `test-project-*`
-directory and rebuilds the venv from scratch so a stale install
-cannot mask a problem. The `test-project-*` directories are
-intentionally ignored by `.gitignore` at the repo root.
-
-## Manual run (no wrapper)
-
-If you would rather drive the venv yourself, the `.py` files are
-self-contained and run against any environment that has
-`gopher-mcp-python` and the matching native package installed:
+Use the local launcher directly to get the same source and native selection:
 
 ```sh
-python3 -m venv venv
-source venv/bin/activate
-pip install gopher-mcp-python gopher-mcp-python-native-darwin-arm64
-export LLM_MODEL=<your-model-id>
-export ANTHROPIC_API_KEY=...
-python examples/api/create_by_api_key.py "What time is it in Tokyo?"
+python3 examples/api/_run_local.py create_by_api_key.py "List my available tools"
 ```
 
-Substitute the right native package name for your platform; see the
-list at [pypi.org/project/gopher-mcp-python](https://pypi.org/project/gopher-mcp-python/).
+Standalone `create_by_*.py` files retain ordinary Python imports. When copying
+one into another project, its SDK follows that project's Python environment.
 
 ## Environment variables per example
 
@@ -101,21 +67,15 @@ list at [pypi.org/project/gopher-mcp-python](https://pypi.org/project/gopher-mcp
 | `create_by_gateway_name` | `GOPHER_API_KEY`, `GOPHER_MCP_GATEWAY_NAME`, `LLM_MODEL`   | `LLM_PROVIDER`, `DEBUG` |
 | `create_by_url`          | `GOPHER_MCP_URL`, `LLM_MODEL`                              | `LLM_PROVIDER`, `DEBUG` |
 
-The wrappers also recognise:
+The runners also recognize:
 
-- `SDK_VERSION` — pin `gopher-mcp-python` and the platform native
-  package to a specific PyPI version. Defaults to the latest.
-- `ANTHROPIC_API_KEY` — required by the default `AnthropicProvider`;
-  the wrappers warn if unset but do not fail.
+- `PYTHON` — Python interpreter, default `python3`.
+- `GOPHER_MCP_PYTHON_LIBRARY_PATH` — explicit native library file or directory.
+- `GOPHER_ORCH_LIBRARY_PATH` — alternative override, used when the first is unset.
+- `ANTHROPIC_API_KEY` — credentials for the default `AnthropicProvider`.
+- `DEBUG` — SDK/native load diagnostics.
 
-Notes:
-
-- `LLM_PROVIDER` defaults to `AnthropicProvider` in every example.
-- `LLM_MODEL` has no default; each example refuses to start until
-  the variable is set rather than calling into the FFI with a
-  placeholder. This matches the env-var-required path the JS side
-  picked so the examples never surface a stale or fictional model
-  identifier.
+`LLM_PROVIDER` defaults to `AnthropicProvider`. `LLM_MODEL` is required.
 
 ## Picking the right factory
 
@@ -142,90 +102,42 @@ export GOPHER_GATEWAY_NAMES='["Production"]'
 python3 examples/api/create_by_api_key.py "List my available tools"
 ```
 
-These selector options require a release containing this feature. To verify the
-unreleased local source, install this checkout with `python3 -m pip install -e .`
-and run the Python file directly with the compatible native library selected by
-`GOPHER_ORCH_LIBRARY_PATH`. The shell wrappers install published PyPI packages.
+## How local libraries are selected
 
-## How the examples find the SDK
+The shared launcher puts this repository first on Python's import path and
+selects a native library in this order:
 
-Each `.py` file imports `GopherAgent` from the
-`gopher_mcp_python` package installed by the wrapper:
+1. An explicit `GOPHER_MCP_PYTHON_LIBRARY_PATH` or `GOPHER_ORCH_LIBRARY_PATH`.
+2. `native/<platform>-<arch>/lib`, such as `native/darwin-x64/lib`.
+3. `native/current/lib`.
+4. `native/lib`.
+5. `third_party/gopher-orch/build/lib` or `build/bin`.
+6. `third_party/gopher-orch/cmake-build-debug/lib` or `cmake-build-debug/bin`.
 
-```python
-from gopher_mcp_python import GopherAgent
+A directory override uses the SDK's version-aware library resolver. The launcher
+then checks that the loaded binary matches the selected file before running the
+example. A missing or unloadable local library stops execution with diagnostics.
+
+To test a particular local build:
+
+```sh
+GOPHER_MCP_PYTHON_LIBRARY_PATH="$PWD/third_party/gopher-orch/build/lib" \
+  ./examples/api/create_by_api_key_run.sh "List my available tools"
 ```
-
-Resolution flow:
-
-- Through a wrapper (`create_by_*_run.sh`): the wrapper creates a
-  fresh venv in `examples/api/test-project-<variant>/`,
-  `pip install`-s `gopher-mcp-python` plus the matching platform
-  native package from PyPI, then runs the example. The import
-  resolves against the just-installed PyPI package, never against
-  the in-tree `gopher_mcp_python/` source.
-- Manual run: the example resolves against whatever
-  `gopher_mcp_python` is on the active Python's `sys.path` —
-  whatever you `pip install`-ed into your own venv.
-
-A downstream consumer copying any of these examples into their own
-project does not need to edit the import path — the same `from
-gopher_mcp_python import GopherAgent` line works as long as the
-package is installed.
-
-## How the wrappers find the native library
-
-The native `libgopher-orch.dylib` / `.so` / `.dll` is loaded by the
-`ctypes` layer inside `gopher_mcp_python.ffi.library`. With the
-PyPI-based wrappers, resolution happens entirely inside the venv:
-
-1. The wrapper installs `gopher-mcp-python-native-<platform>-<arch>`
-   alongside the main package; that package ships the native binary
-   under its own `lib/` directory.
-2. `gopher_mcp_python/ffi/library.py` walks `sys.path` looking for
-   the matching `gopher_mcp_python_native_*` package and uses its
-   `get_lib_path()` to locate the dylib.
-3. `DYLD_LIBRARY_PATH` / `LD_LIBRARY_PATH` are **not** set by the
-   wrappers — the loader finds the platform package via Python
-   import semantics rather than a search path.
-
-If you need to point at a different library location entirely
-(for example a locally-built `libgopher-orch.dylib` for testing a
-patch), set `GOPHER_MCP_PYTHON_LIBRARY_PATH` before invoking the
-wrapper. That env var is checked first by
-`gopher_mcp_python/ffi/library.py` and bypasses the platform-package
-resolution step.
 
 ## Troubleshooting
 
-### "Failed to load gopher-mcp-python library"
+If a native library is missing, run `./build.sh` from the repository root or set
+an explicit library override. If loading fails, inspect the printed load
+errors and confirm that the binary matches the selected Python interpreter's
+platform and architecture. Rebuild after changing the native submodule revision.
 
-The matching platform native package was not installed. The
-wrappers compute and install it automatically; if you are running
-the `.py` manually, install both:
-
-```sh
-pip install gopher-mcp-python gopher-mcp-python-native-<platform>-<arch>
-```
-
-### Permission errors on macOS
-
-Quarantine flags on a freshly-downloaded dylib can block load:
+Independent OAuth flows require embedded authorization interface v1. Check the
+actual binary with:
 
 ```sh
-xattr -d com.apple.quarantine "$(python -c 'import gopher_mcp_python_native_darwin_arm64 as n; print(n.get_library_file())')"
-```
-
-### Routing factory raises `AgentError` against an older PyPI release
-
-The five routing factories require a `gopher-mcp-python` release that
-includes the matching native routing factory symbols. If the wrapper
-installs an older version, the higher-level factory raises `AgentError`
-because the underlying C symbol is missing. Pin to a release that
-contains this feature once it is published:
-
-```sh
-SDK_VERSION=<published-version> ./examples/api/create_by_server_id_run.sh
+PYTHONPATH=. GOPHER_MCP_PYTHON_LIBRARY_PATH="$PWD/native/current/lib" \
+  python3 scripts/check-embedded-auth-native.py
 ```
 
 ## Cross-reference

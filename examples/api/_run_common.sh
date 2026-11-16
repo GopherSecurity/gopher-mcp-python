@@ -6,8 +6,6 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-SDK_VERSION="${SDK_VERSION:-}"
-
 detect_platform() {
     local os arch
     os=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -23,9 +21,7 @@ detect_platform() {
         arm64|aarch64) ARCH="arm64" ;;
         *) echo -e "${RED}Unsupported architecture: $arch${NC}"; exit 1 ;;
     esac
-    NATIVE_PACKAGE="gopher-mcp-python-native-${PLATFORM}-${ARCH}"
     echo -e "${CYAN}Detected platform: ${PLATFORM}-${ARCH}${NC}"
-    echo -e "${CYAN}Native package:    ${NATIVE_PACKAGE}${NC}"
 }
 
 print_banner() {
@@ -53,63 +49,8 @@ warn_if_empty() {
 }
 
 run_api_example() {
-    local work_name="$1"
-    local example_file="$2"
-    shift 2
+    local example_file="$1"
+    shift
 
-    local work_dir="$SCRIPT_DIR/$work_name"
-
-    echo -e "${YELLOW}Setting up test project at $work_dir...${NC}"
-    rm -rf "$work_dir"
-    mkdir -p "$work_dir"
-    cd "$work_dir"
-
-    echo -e "${YELLOW}Creating virtual environment...${NC}"
-    python3 -m venv venv
-
-    local activate_script=""
-    local venv_python=""
-    if [ -x "venv/bin/python" ] && [ -f "venv/bin/activate" ]; then
-        activate_script="venv/bin/activate"
-        venv_python="venv/bin/python"
-    elif [ -x "venv/Scripts/python.exe" ] && [ -f "venv/Scripts/activate" ]; then
-        activate_script="venv/Scripts/activate"
-        venv_python="venv/Scripts/python.exe"
-    fi
-    if [ -z "$activate_script" ]; then
-        echo -e "${RED}Error: virtualenv creation did not produce a usable Python.${NC}"
-        echo -e "${YELLOW}Install python3-venv and python3-pip, then rerun this script.${NC}"
-        exit 1
-    fi
-    if ! "$venv_python" -m pip --version >/dev/null 2>&1; then
-        echo -e "${RED}Error: pip is not available in this virtual environment.${NC}"
-        echo -e "${YELLOW}Install python3-venv and python3-pip, then rerun this script.${NC}"
-        exit 1
-    fi
-
-    # shellcheck disable=SC1090
-    source "$activate_script"
-
-    echo -e "${YELLOW}Installing gopher-mcp-python from PyPI...${NC}"
-    if [ -n "$SDK_VERSION" ]; then
-        echo -e "${CYAN}Installing version: $SDK_VERSION${NC}"
-        python -m pip install --quiet "gopher-mcp-python==$SDK_VERSION" \
-                                    "${NATIVE_PACKAGE}==$SDK_VERSION"
-    else
-        echo -e "${CYAN}Installing latest published version${NC}"
-        python -m pip install --quiet gopher-mcp-python "$NATIVE_PACKAGE"
-    fi
-
-    echo -e "${CYAN}Installed packages:${NC}"
-    python -m pip list | grep -i gopher || true
-
-    cp "$SCRIPT_DIR/$example_file" .
-
-    echo ""
-    echo -e "${YELLOW}Running example...${NC}"
-    echo ""
-    python "$example_file" "$@"
-
-    echo ""
-    echo -e "${GREEN}Example completed${NC}"
+    "${PYTHON:-python3}" "$SCRIPT_DIR/_run_local.py" "$example_file" "$@"
 }

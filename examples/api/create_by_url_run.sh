@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Run the Python SDK example for GopherAgent.create_with_url
-# against the latest PyPI-published gopher-mcp-python package.
+# using the local Python SDK and native build.
 
 set -e
 
@@ -20,4 +20,4 @@ if [ -z "${GOPHER_ACCESS_TOKEN:-}" ] && [ "${GOPHER_MCP_OAUTH:-auto}" = "disable
     echo -e "${YELLOW}Warning: GOPHER_ACCESS_TOKEN is empty and GOPHER_MCP_OAUTH=disabled; protected MCP URLs may fail.${NC}"
 fi
 
-run_api_example "test-project-create-by-url" "create_by_url.py" "$@"
+run_api_example "create_by_url.py" "$@"

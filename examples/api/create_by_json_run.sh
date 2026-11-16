@@ -1,10 +1,7 @@
 #!/bin/bash
 
 # Run the Python SDK example for GopherAgent.create_with_server_config
-# against the PyPI-published gopher-mcp-python package.
-#
-# Set SDK_VERSION to pin to a specific release; otherwise the latest
-# published version is installed.
+# using the local Python SDK and native build.
 
 set -e
 
@@ -18,4 +15,4 @@ print_banner "GopherAgent.create_with_server_config example"
 warn_if_empty "LLM_MODEL" "Set it with: export LLM_MODEL=<your-model-id>"
 warn_if_empty "ANTHROPIC_API_KEY" "(Required for the default AnthropicProvider.)"
 
-run_api_example "test-project-create-by-json" "create_by_json.py" "$@"
+run_api_example "create_by_json.py" "$@"
