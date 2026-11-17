@@ -67,6 +67,15 @@ the gateway. Exact duplicate entries are collapsed, conflicting runtime names
 are rejected, and source config/headers are preserved. URL and inline JSON
 factories reject inventory selectors.
 
+Remote inventory requires an explicit HTTP or WebSocket transport. It rejects
+stdio entries and `${VAR}` references in effective endpoint URLs, header values,
+and the registry `base_url`, before OAuth discovery or native creation. These
+references are rejected because the native loader also expands them. Unsupported
+non-empty registry collections are rejected so they cannot bypass source
+validation. Literal placeholders in descriptions and unused fallback configs
+are preserved. Caller-supplied inline JSON keeps its existing stdio and
+environment-substitution behavior.
+
 ## Independent OAuth grants
 
 Public sources and a single compatible OAuth binding keep the existing Python
