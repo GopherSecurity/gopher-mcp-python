@@ -30,7 +30,7 @@ def fetch(url, data=None, headers=None):
         return response.status, response.headers, response.read().decode()
 
 
-def authorize(url, flow="assemble"):
+def authorize(url, flow="assemble", sources=("a", "b")):
     status, headers, html = fetch(url)
     assert status == 200
     assert headers.get("Referrer-Policy") == "same-origin"
@@ -40,7 +40,7 @@ def authorize(url, flow="assemble"):
         "Origin": f"{parts.scheme}://{parts.netloc}",
         "Content-Type": "application/x-www-form-urlencoded",
     }
-    for source in ("a", "b"):
+    for source in sources:
         status, response, _ = fetch(
             url + "/connect", {"transaction": transaction, "backend": source}, headers
         )

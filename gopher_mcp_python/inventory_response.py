@@ -2,7 +2,8 @@
 
 import json
 import re
-from urllib.parse import unquote, urlsplit
+from collections import Counter
+from urllib.parse import quote, unquote, urlsplit
 
 from .errors import AgentError
 from .source_selection import normalize_source_selection
@@ -28,10 +29,14 @@ def _reject_environment_reference(value):
         )
 
 
-def _inventory_route(source):
-    source_id = next(
+def _source_id(source):
+    return next(
         (source[key] for key in ("id", "serverId", "server_id") if key in source), ""
     )
+
+
+def _inventory_route(source):
+    source_id = _source_id(source)
     path_id, gateway = None, False
     url = source["config"]["url"]
     try:
@@ -97,6 +102,37 @@ def _validate_gateway_selection(sources, selection):
         )
 
 
+def _alias_runtime_names(sources):
+    counts = Counter(source["name"] for source in sources)
+    # Reserve original names first, including real sources named like aliases.
+    names = set(counts)
+    aliases = {}
+    for index, source in enumerate(sources):
+        name = source["name"]
+        if counts[name] <= 1:
+            continue
+        source_id = _source_id(source)
+        key = (name, source_id)
+        if not source_id or key in aliases:
+            raise AgentError(
+                "Inventory sources with the same name require distinct nonempty IDs"
+            )
+        aliases[key] = index
+    # Match native's allocation order; the same sources receive the same
+    # aliases regardless of response order. IDs use native percent encoding.
+    for (name, source_id), index in sorted(aliases.items()):
+        try:
+            alias = name + "__" + quote(source_id, safe="-._~")
+        except UnicodeError:
+            raise AgentError(
+                "Invalid inventory source ID for duplicate runtime name"
+            ) from None
+        while alias in names:
+            alias += "_"
+        names.add(alias)
+        sources[index]["name"] = alias
+
+
 def normalize_inventory_response(body, selection=None):
     selection = normalize_source_selection(selection)
     try:
@@ -121,7 +157,7 @@ def normalize_inventory_response(body, selection=None):
         for key, value in container.items():
             if key not in allowed and isinstance(value, (dict, list)) and value:
                 raise AgentError("Unsupported non-empty inventory collection")
-    result, seen, names = [], set(), set()
+    result, seen = [], set()
     for index, entry in enumerate(content["servers"]):
 
         def fail():
@@ -175,13 +211,10 @@ def normalize_inventory_response(body, selection=None):
         fingerprint = json.dumps(entry, sort_keys=True, separators=(",", ":"))
         if fingerprint in seen:
             continue
-        if entry["name"] in names:
-            raise AgentError(
-                "Inventory contains conflicting runtime names; select unique routes"
-            )
         seen.add(fingerprint)
-        names.add(entry["name"])
         result.append(dict(entry, config=config))
+    # Selectors refer to backend names, never generated runtime aliases.
     _validate_gateway_selection(result, selection)
+    _alias_runtime_names(result)
     content["servers"] = result
     return json.dumps(data, separators=(",", ":"))
