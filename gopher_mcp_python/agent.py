@@ -262,8 +262,9 @@ class GopherAgent:
         """
         Create an agent selecting an MCP server ID plus optional selectors.
 
-        POST the server ID and any additional runtime_options selectors to
-        /v1/mcp-servers once. The backend response defines the final sources.
+        Fetch /v1/mcp-servers with the server ID and any additional selectors.
+        Use GET for one selector, retrying once as POST on 405; use POST for
+        multiple selectors. The backend response defines the final sources.
 
         Args:
             provider: Provider name (e.g., "AnthropicProvider")
@@ -299,8 +300,9 @@ class GopherAgent:
         """
         Create an agent selecting an MCP server name plus optional selectors.
 
-        POST the server name and any additional runtime_options selectors to
-        /v1/mcp-servers once. The backend response defines the final sources.
+        Fetch /v1/mcp-servers with the server name and any additional selectors.
+        Use GET for one selector, retrying once as POST on 405; use POST for
+        multiple selectors. The backend response defines the final sources.
 
         Args:
             provider: Provider name (e.g., "AnthropicProvider")
@@ -336,9 +338,9 @@ class GopherAgent:
         """
         Create an agent selecting a remote gateway ID plus optional selectors.
 
-        POST the gateway ID and any additional runtime_options selectors to
-        /v1/mcp-servers once. Gateways remain remote MCP endpoints; their
-        backing servers are not expanded locally.
+        Fetch /v1/mcp-servers with the gateway ID and additional selectors.
+        Use GET for one selector, retrying once as POST on 405; use POST for
+        multiple selectors. Gateways remain remote MCP endpoints.
 
         Args:
             provider: Provider name (e.g., "AnthropicProvider")
@@ -374,9 +376,9 @@ class GopherAgent:
         """
         Create an agent selecting a remote gateway name plus optional selectors.
 
-        POST the gateway name and any additional runtime_options selectors to
-        /v1/mcp-servers once. Gateways remain remote MCP endpoints; their
-        backing servers are not expanded locally.
+        Fetch /v1/mcp-servers with the gateway name and additional selectors.
+        Use GET for one selector, retrying once as POST on 405; use POST for
+        multiple selectors. Gateways remain remote MCP endpoints.
 
         Args:
             provider: Provider name (e.g., "AnthropicProvider")

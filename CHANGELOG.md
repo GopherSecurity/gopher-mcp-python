@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Select multiple MCP servers and remote gateways through API-key inventory
-  (requires gopher-orch >= 0.1.45).
+  (requires gopher-orch >= 0.1.45). Use GET for zero/one selector and POST for
+  multiple selectors, retrying GET once as POST only on HTTP 405.
 - Authorize independent MCP OAuth grants through one native page, with source-bound
   token storage and refresh. Requires native embedded authorization v1.
 - Add async agent factories, queries, and disposal with OAuth host lifecycle handling.

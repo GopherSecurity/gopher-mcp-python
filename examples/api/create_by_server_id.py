@@ -5,10 +5,10 @@ SDK example for GopherAgent.create_with_server_id.
 Python port of gopher-mcp-js/examples/api/create_by_server_id.ts, which
 itself ports gopher-orch/examples/sdk/api/create_by_server_id.cc.
 
-Selects one MCP server by ID using a single
-POST /v1/mcp-servers request with the serverId selection array.
-Additional SDK selectors are additive. The backend response defines
-the sources used by the agent.
+Selects one MCP server by ID using
+GET /v1/mcp-servers with the serverId query parameter.
+GET 405 is retried once as POST; multiple additive selectors use POST
+directly. The backend response defines the sources used by the agent.
 
 Provider defaults to AnthropicProvider; the model is taken from
 LLM_MODEL. Override either via env or by editing the constants in

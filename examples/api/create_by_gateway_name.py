@@ -6,10 +6,10 @@ Python port of gopher-mcp-js/examples/api/create_by_gateway_name.ts,
 which itself ports
 gopher-orch/examples/sdk/api/create_by_gateway_name.cc.
 
-Selects one MCP remote gateway by name using a single
-POST /v1/mcp-servers request with the gatewayName selection array.
-Additional SDK selectors are additive. The backend response defines
-the sources used by the agent.
+Selects one MCP remote gateway by name using
+GET /v1/mcp-servers with the gatewayName query parameter.
+GET 405 is retried once as POST; multiple additive selectors use POST
+directly. The backend response defines the sources used by the agent.
 The gateway remains a remote endpoint with its own MCP authorization.
 
 Provider defaults to AnthropicProvider; the model is taken from
