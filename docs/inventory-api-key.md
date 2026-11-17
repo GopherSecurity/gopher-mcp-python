@@ -161,11 +161,12 @@ releases a late native result.
 
 ## Native compatibility and verification
 
-The submodule is pinned to upstream `gopher-orch` commit `547cd0a2` with embedded
-authorization v1. Build/package native artifacts from that pin for every supported
-platform. The package version string alone does not establish compatibility:
-older binaries with the same label can lack the interface. Multiple independent
-OAuth flows fail with `EMBEDDED_AUTH_UNAVAILABLE` when the loaded binary lacks v1;
+The submodule is pinned to `gopher-orch` v0.1.45 at commit `ac84f1b3` with embedded
+authorization v1. The publishing workflow downloads v0.1.45 native artifacts
+for every supported platform. A version string alone does not establish
+compatibility: older binaries with the same label can lack the interface.
+Multiple independent OAuth flows fail with `EMBEDDED_AUTH_UNAVAILABLE` when
+the loaded binary lacks v1;
 legacy creation continues to work.
 
 After installing the local Python package, check the actual artifact:
