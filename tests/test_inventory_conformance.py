@@ -1,4 +1,4 @@
-"""Use the exact inventory cases shared by native and JS SDKs."""
+"""Use the shared inventory fixture without requiring a native checkout."""
 
 import json
 from pathlib import Path
@@ -13,10 +13,7 @@ from gopher_mcp_python.source_selection import (
 )
 
 FIXTURE = json.loads(
-    (
-        Path(__file__).parents[1]
-        / "third_party/gopher-orch/tests/fixtures/inventory/conformance.json"
-    ).read_text()
+    (Path(__file__).parent / "fixtures/inventory/conformance.json").read_text()
 )
 
 
