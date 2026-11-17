@@ -55,9 +55,16 @@ This sends one authenticated `POST /v1/mcp-servers` with this JSON body:
 
 All four empty arrays select all sources the key is authorized to use.
 `GOPHER_SDK_TEST=true` selects `https://api-test.gopher.security`; the default
-is `https://api.gopher.security`. The inventory request rejects redirects and
-has a 30-second transport/body-read budget. HTTP/backend errors omit response
-bodies and credentials.
+is `https://api.gopher.security`.
+
+After deduplication, zero or one selector uses GET, with the optional selector
+percent-encoded in the query string. An explicit GET 405 triggers one POST retry
+to the same endpoint with the exact four-array selection body. Multiple selectors
+use POST directly; a 405 reports that the backend needs multi-selection POST
+support. The SDK never drops selectors or splits them into separate requests.
+Authentication, redirect, transport, and validation failures do not trigger a
+method switch. Both attempts and body reads share one 30-second deadline.
+HTTP/backend errors omit response bodies and credentials.
 
 The backend's successful `data.servers` array defines the inventory. Python
 validates it and passes it to native JSON creation without another inventory
@@ -218,4 +225,5 @@ runs shared inventory and host contracts on Linux and macOS; native artifact
 checks should also pass before publishing platform packages.
 
 These tests verify the local SDK/native contract. Confirm deployed inventory
-POST access and selector resolution with an authorized backend before rollout.
+GET/POST compatibility and selector resolution with an authorized backend
+before rollout.

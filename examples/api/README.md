@@ -81,11 +81,15 @@ The runners also recognize:
 
 | Factory | Selects | Inventory request |
 | --- | --- | --- |
-| `create_with_api_key` | All authorized sources, or supplied selector arrays | One `POST /v1/mcp-servers` |
-| `create_with_server_id` / `_server_name` | Positional server plus any additional selectors | One POST with `serverId` / `serverName` arrays |
-| `create_with_gateway_id` / `_gateway_name` | Remote gateway plus any additional selectors | One POST with `gatewayId` / `gatewayName` arrays |
+| `create_with_api_key` | All authorized sources, or supplied selector arrays | GET for zero/one selector; POST for multiple |
+| `create_with_server_id` / `_server_name` | Positional server plus any additional selectors | GET for one selector; POST for multiple |
+| `create_with_gateway_id` / `_gateway_name` | Remote gateway plus any additional selectors | GET for one selector; POST for multiple |
 | `create_with_server_config` | Sources in inline JSON | None |
 | `create_with_url` | One remote MCP endpoint | None |
+
+A GET rejected with HTTP 405 is retried once as POST with the same selection.
+Multiple-selector POST requests never fall back to GET or fan out. The same
+30-second deadline covers both attempts and their response bodies.
 
 The API response defines the sources. A gateway stays a remote MCP endpoint;
 its backing servers are not expanded locally. Inventory selector arrays are

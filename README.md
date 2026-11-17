@@ -80,7 +80,8 @@ with GopherAgent.create_with_api_key(provider, model, api_key, options) as agent
     print(agent.run("List my available tools"))
 ```
 
-API-key factories send one inventory POST with additive selectors. Empty arrays
+API-key factories use GET for zero/one normalized selector and POST for multiple
+selectors. A GET rejected with HTTP 405 is retried once as POST. Empty arrays
 select all authorized sources; gateways remain remote endpoints. Independent
 OAuth grants use one native authorization page and require embedded auth v1 in
 the loaded binary. See [API-key inventory and OAuth](docs/inventory-api-key.md)

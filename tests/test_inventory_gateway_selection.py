@@ -1,6 +1,7 @@
 """Enforce gateway routing before SDK OAuth probing or native JSON creation."""
 
 import json
+from urllib.parse import parse_qsl, urlsplit
 
 import pytest
 
@@ -202,7 +203,16 @@ def install_inventory(monkeypatch, rows):
             return envelope(rows).encode()
 
     def fetch(request, timeout):
-        requests.append(json.loads(request.data))
+        if request.method == "GET":
+            selected = {
+                key: []
+                for key in ("serverId", "serverName", "gatewayId", "gatewayName")
+            }
+            for key, value in parse_qsl(urlsplit(request.full_url).query):
+                selected[key].append(value)
+        else:
+            selected = json.loads(request.data)
+        requests.append(selected)
         return Response()
 
     monkeypatch.setattr(transport, "urlopen", fetch)

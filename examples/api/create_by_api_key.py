@@ -5,10 +5,11 @@ SDK example for GopherAgent.create_with_api_key.
 Python port of gopher-mcp-js/examples/api/create_by_api_key.ts, which
 itself ports gopher-orch/examples/sdk/api/create_by_api_key.cc.
 
-Uses one POST /v1/mcp-servers request. Empty selector arrays fetch all
-sources authorized for the API key; optional JSON arrays select multiple
-servers and remote gateways. Independent MCP OAuth grants use one native
-authorization page when the loaded library supports embedded auth v1.
+Uses GET /v1/mcp-servers for zero/one normalized selector, retrying once
+as POST on HTTP 405. Multiple selectors use POST directly. Empty arrays
+fetch all authorized sources; JSON arrays select servers and remote gateways.
+Independent MCP OAuth grants use one native authorization page when the loaded
+library supports embedded auth v1.
 
 Provider defaults to AnthropicProvider; the model is taken from
 LLM_MODEL. Override either via env or by editing the constants in
