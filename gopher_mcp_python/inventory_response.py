@@ -2,7 +2,10 @@
 
 import json
 import re
+from urllib.parse import unquote, urlsplit
+
 from .errors import AgentError
+from .source_selection import normalize_source_selection
 
 HTTP = {
     "http_sse",
@@ -25,7 +28,77 @@ def _reject_environment_reference(value):
         )
 
 
-def normalize_inventory_response(body):
+def _inventory_route(source):
+    source_id = next(
+        (source[key] for key in ("id", "serverId", "server_id") if key in source), ""
+    )
+    path_id, gateway = None, False
+    url = source["config"]["url"]
+    try:
+        # Do not let urlsplit strip controls that the native URL parser rejects.
+        if any(ord(char) < 32 or ord(char) == 127 for char in url):
+            return source_id, source["name"], path_id, gateway
+        parsed = urlsplit(url)
+        if parsed.scheme not in ("http", "https", "ws", "wss") or not parsed.hostname:
+            return source_id, source["name"], path_id, gateway
+        # Accessing port validates malformed and out-of-range values.
+        _ = parsed.port
+        if re.search(r"%(?![0-9a-fA-F]{2})", parsed.path):
+            return source_id, source["name"], path_id, gateway
+        path = unquote(parsed.path, errors="strict")
+        match = re.fullmatch(r"/v1/mcp/(gateways|servers)/([^/]+)/(?:mcp|sse)/?", path)
+        if match:
+            identifier = match[2]
+            if (
+                identifier not in (".", "..")
+                and "\\" not in identifier
+                and not any(ord(char) < 32 or ord(char) == 127 for char in identifier)
+            ):
+                path_id = identifier
+                gateway = match[1] == "gateways"
+    except ValueError:
+        pass
+    return source_id, source["name"], path_id, gateway
+
+
+def _validate_gateway_selection(sources, selection):
+    gateway_ids, gateway_names = set(selection["gatewayId"]), set(
+        selection["gatewayName"]
+    )
+    if not gateway_ids and not gateway_names:
+        return
+    server_ids, server_names = set(selection["serverId"]), set(selection["serverName"])
+    returned_ids, returned_names = set(), set()
+    for source in sources:
+        source_id, name, path_id, gateway = _inventory_route(source)
+        selected_gateway = gateway and (
+            source_id in gateway_ids or path_id in gateway_ids or name in gateway_names
+        )
+        selected_server = (
+            source_id in server_ids
+            or (not gateway and path_id in server_ids)
+            or name in server_names
+        )
+        if not selected_gateway and not selected_server:
+            raise AgentError(
+                "Invalid inventory gateway selection: returned source is not a selected "
+                "gateway route or explicitly selected server; refusing to bypass gateway policy"
+            )
+        if gateway:
+            returned_ids.update((source_id, path_id))
+            returned_names.add(name)
+    if not gateway_ids <= returned_ids:
+        raise AgentError(
+            "Invalid inventory gatewayId selection: every selector must resolve to a gateway route; refusing backing-server substitution"
+        )
+    if not gateway_names <= returned_names:
+        raise AgentError(
+            "Invalid inventory gatewayName selection: every selector must resolve to a gateway route; refusing backing-server substitution"
+        )
+
+
+def normalize_inventory_response(body, selection=None):
+    selection = normalize_source_selection(selection)
     try:
         data = json.loads(body)
     except (ValueError, TypeError):
@@ -109,5 +182,6 @@ def normalize_inventory_response(body):
         seen.add(fingerprint)
         names.add(entry["name"])
         result.append(dict(entry, config=config))
+    _validate_gateway_selection(result, selection)
     content["servers"] = result
     return json.dumps(data, separators=(",", ":"))

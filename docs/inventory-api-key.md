@@ -67,6 +67,21 @@ the gateway. Exact duplicate entries are collapsed, conflicting runtime names
 are rejected, and source config/headers are preserved. URL and inline JSON
 factories reject inventory selectors.
 
+When gateway selectors are present, every requested gateway must appear as a
+remote route whose decoded URL path is `/v1/mcp/gateways/<id>/mcp` or
+`/v1/mcp/gateways/<id>/sse` (an optional trailing slash is accepted). Query
+strings, fragments, and `type: gateway` metadata cannot make a backing-server
+URL qualify as a gateway. Gateway-only results must contain selected gateway
+routes. Mixed selections may also include explicitly selected servers; other
+returned sources cause the entire response to be rejected before OAuth or
+native creation.
+
+Python intentionally rejects distinct entries sharing a runtime name, even when
+their IDs differ. Native gopher-orch v0.1.45 instead generates `name__id` aliases
+for such collisions. Python keeps the API's names unchanged for runtime option
+matching; select nonconflicting routes or assign unique names in the backend.
+Exact duplicate entries are still collapsed.
+
 Remote inventory requires an explicit HTTP or WebSocket transport. It rejects
 stdio entries and `${VAR}` references in effective endpoint URLs, header values,
 and the registry `base_url`, before OAuth discovery or native creation. These

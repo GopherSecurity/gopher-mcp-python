@@ -45,6 +45,7 @@ jobs:
           tests/test_server_config.py
           tests/test_inventory_response.py
           tests/test_inventory_security.py
+          tests/test_inventory_gateway_selection.py
           tests/test_inventory_conformance.py
           tests/test_inventory_factories.py
           tests/test_oauth_inventory_scoping.py
