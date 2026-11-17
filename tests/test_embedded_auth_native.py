@@ -292,3 +292,39 @@ def test_real_legacy_single_grant_does_not_reach_public_source(
             agent.dispose()
     finally:
         fixture.close()
+
+
+def test_real_duplicate_display_names_keep_native_grants_distinct(
+    monkeypatch, native_library
+):
+    fixture = OAuthFixture()
+    original_inventory = fixture.inventory
+
+    def inventory():
+        payload = json.loads(original_inventory())
+        for source in payload["data"]["servers"]:
+            source["name"] = "Shared"
+        return json.dumps(payload)
+
+    monkeypatch.setattr(fixture, "inventory", inventory)
+    calls = inventory_transport(monkeypatch, fixture)
+
+    def presenter(url, flow):
+        authorize(url, flow, sources=("Shared__a", "Shared__b"))
+
+    try:
+        agent = GopherAgent.create_with_api_key(
+            "OpenAIProvider",
+            "fixture-model",
+            "inventory-fixture",
+            create_options(presenter),
+        )
+        try:
+            assert len(calls) == 1
+            assert {"a", "b"} <= set(fixture.initialized)
+            assert fixture.tokens["a"] != fixture.tokens["b"]
+        finally:
+            agent.dispose()
+        assert not native_library._agent_option_storage
+    finally:
+        fixture.close()

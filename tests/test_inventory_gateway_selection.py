@@ -175,9 +175,9 @@ def test_no_gateway_selector_preserves_custom_endpoint_and_default_selection():
     assert normalize([], {}) == []
 
 
-def test_distinct_duplicate_names_are_rejected_instead_of_native_aliasing():
-    with pytest.raises(AgentError, match="conflicting runtime names"):
-        normalize([source("Shared", "g1"), source("Shared", "g2")], {})
+def test_distinct_duplicate_names_receive_native_runtime_aliases():
+    sources = normalize([source("Shared", "g1"), source("Shared", "g2")], {})
+    assert [source["name"] for source in sources] == ["Shared__g1", "Shared__g2"]
 
 
 FACTORIES = [

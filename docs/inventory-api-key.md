@@ -70,9 +70,9 @@ The backend's successful `data.servers` array defines the inventory. Python
 validates it and passes it to native JSON creation without another inventory
 fetch, including when explicit MCP credentials or disabled OAuth are supplied.
 Gateways stay remote MCP endpoints; their backing servers remain managed by
-the gateway. Exact duplicate entries are collapsed, conflicting runtime names
-are rejected, and source config/headers are preserved. URL and inline JSON
-factories reject inventory selectors.
+the gateway. Exact duplicate entries are collapsed, colliding runtime names
+receive stable ID-based aliases, and source config/headers are preserved. URL
+and inline JSON factories reject inventory selectors.
 
 When gateway selectors are present, every requested gateway must appear as a
 remote route whose decoded URL path is `/v1/mcp/gateways/<id>/mcp` or
@@ -83,11 +83,13 @@ routes. Mixed selections may also include explicitly selected servers; other
 returned sources cause the entire response to be rejected before OAuth or
 native creation.
 
-Python intentionally rejects distinct entries sharing a runtime name, even when
-their IDs differ. Native gopher-orch v0.1.45 instead generates `name__id` aliases
-for such collisions. Python keeps the API's names unchanged for runtime option
-matching; select nonconflicting routes or assign unique names in the backend.
-Exact duplicate entries are still collapsed.
+Duplicate display names follow gopher-orch v0.1.45: each colliding entry requires
+a distinct nonempty source ID and receives a `name__id` runtime alias, with the
+ID percent-encoded. Alias allocation is stable across response order and appends
+underscores to avoid existing names. Unique names remain unchanged. Gateway
+validation uses original backend names before aliases are assigned. Inventory
+selectors use backend names; prefer stable source IDs for runtime credential
+and OAuth client overrides when display names collide.
 
 Remote inventory requires an explicit HTTP or WebSocket transport. It rejects
 stdio entries and `${VAR}` references in effective endpoint URLs, header values,
