@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Authorize independent MCP OAuth grants through one native page, with source-bound
   token storage and refresh. Requires native embedded authorization v1.
 - Add async agent factories, queries, and disposal with OAuth host lifecycle handling.
+- Reject local commands and environment-variable references in remote API inventory.
 
 
 ## [0.1.42.2] - 2026-11-06
