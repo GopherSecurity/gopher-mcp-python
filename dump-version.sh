@@ -7,7 +7,7 @@
 #
 # Arguments:
 #   VERSION - Optional. Format: X.Y.Z or X.Y.Z.E
-#             If not provided, uses latest gopher-orch release version (X.Y.Z)
+#             If not provided, defaults to latest gopher-orch version + .1 (X.Y.Z.1)
 #             If provided as X.Y.Z.E, X.Y.Z must match gopher-orch version
 #
 # This script will:
@@ -96,13 +96,13 @@ fi
 echo ""
 echo -e "${YELLOW}Step 2: Determining target version...${NC}"
 
-INPUT_VERSION="$1"
+INPUT_VERSION="${1:-}"
 
 if [ -z "$INPUT_VERSION" ]; then
-    # No argument provided, use gopher-orch version directly
-    TARGET_VERSION="$GOPHER_ORCH_VERSION"
+    # No argument provided, start SDK revisions at .1 for the native base version
+    TARGET_VERSION="${GOPHER_ORCH_VERSION}.1"
     echo -e "  No version argument provided"
-    echo -e "  Using gopher-orch version: ${GREEN}$TARGET_VERSION${NC}"
+    echo -e "  Using default SDK version: ${GREEN}$TARGET_VERSION${NC}"
 else
     # Version argument provided, validate it
     # Format should be X.Y.Z or X.Y.Z.E
