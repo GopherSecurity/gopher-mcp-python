@@ -9,6 +9,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.1.45.2] - 2026-11-19
+
+### Changed
+
+- Pin `gopher-orch` native library to [v0.1.45](https://github.com/GopherSecurity/gopher-orch/releases/tag/v0.1.45).
+
+#### SDK changes since v0.1.45.1
+
+- Default SDK release versions to the first native revision
+- Handle legacy gateway summaries and reject empty API inventories (#28)
+
+#### gopher-orch v0.1.45 highlights
+
+
+### Added
+- Add async embedded auth and retained agent grants (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Add typed inventory selection and normalization (https://github.com/GopherSecurity/gopher-orch/pull/246)
+### Changed
+- Allow explicit per-source skips during embedded authorization
+- Reject inventory responses that bypass selected gateways
+- Disambiguate inventory sources with shared display names (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Recover abandoned embedded OAuth sign-ins per source (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Recover embedded OAuth sources after temporary refresh failures (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Keep embedded OAuth refresh off the agent dispatcher (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Expose cached agent tool names through the C API (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Improve local assemble authorization page layout and logo (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Validate embedded flows and gateway compatibility (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Reuse assemble page for private loopback flows (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Isolate embedded source grants and refresh (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Extract shared backend auth plan and assemble renderer (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Record gateway auth ownership and regression baseline (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Verify and document native inventory POST compatibility (https://github.com/GopherSecurity/gopher-orch/pull/246)
+- Integrate mixed inventory factories and additive FFI (https://github.com/GopherSecurity/gopher-orch/pull/246)
+- Use shared JSON POST inventory fetching (https://github.com/GopherSecurity/gopher-orch/pull/246)
+- Document native inventory factory and ABI audit (https://github.com/GopherSecurity/gopher-orch/pull/246)
+### Fixed
+- Fix duplicate agent tools routing to the wrong source (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Fix inventory compatibility with legacy GET deployments (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Fix tool credentials and trace identity for shared backend names (https://github.com/GopherSecurity/gopher-orch/pull/245)
+- Fix browser form submissions in local assemble authorization (https://github.com/GopherSecurity/gopher-orch/pull/245)
+
 ## [0.1.45.1] - 2026-11-18
 
 - Select multiple MCP servers and remote gateways through API-key inventory
@@ -632,5 +673,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 [Unreleased]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...HEAD
-[0.1.45.1]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.45.1[0.1.42.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.42.2[0.1.42]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.42[0.1.41]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.41[0.1.40.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.40.2[0.1.40]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.40[0.1.39]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.39[0.1.38]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.38[0.1.34]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.34[0.1.30]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.30[0.1.23]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.23[0.1.21]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.21[0.1.16]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.16[0.1.15]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.15[0.1.14]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.14[0.1.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.2[0.1.1]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.1[0.1.0-20260227-124047]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0...v0.1.0-20260227-124047
+[0.1.45.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.45.2[0.1.45.1]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.45.1[0.1.42.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.42.2[0.1.42]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.42[0.1.41]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.41[0.1.40.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.40.2[0.1.40]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.40[0.1.39]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.39[0.1.38]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.38[0.1.34]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.34[0.1.30]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.30[0.1.23]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.23[0.1.21]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.21[0.1.16]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.16[0.1.15]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.15[0.1.14]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.14[0.1.2]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.2[0.1.1]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0-20260227-124047...v0.1.1[0.1.0-20260227-124047]: https://github.com/GopherSecurity/gopher-mcp-python/compare/v0.1.0...v0.1.0-20260227-124047
 [0.1.0]: https://github.com/GopherSecurity/gopher-mcp-python/releases/tag/v0.1.0
