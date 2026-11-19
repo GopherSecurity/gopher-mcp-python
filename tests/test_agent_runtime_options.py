@@ -7,6 +7,11 @@ import pytest
 import gopher_mcp_python.agent as agent_module
 from gopher_mcp_python import AgentError, GopherAgent, GopherAgentConfig
 
+API_CONFIG = (
+    '{"succeeded":true,"data":{"servers":[{"name":"mail",'
+    '"transport":"http","config":{"url":"https://mcp.example.com/mcp"}}]}}'
+)
+
 
 class FakeLibrary:
     def __init__(self) -> None:
@@ -75,7 +80,11 @@ class FakeLibrary:
 @pytest.fixture()
 def fake_library(monkeypatch):
     fake = FakeLibrary()
-    monkeypatch.setattr(agent_module.ServerConfig, "fetch", staticmethod(lambda api_key, route=None, selection=None: "{}"))
+    monkeypatch.setattr(
+        agent_module.ServerConfig,
+        "fetch",
+        staticmethod(lambda api_key, route=None, selection=None: API_CONFIG),
+    )
     monkeypatch.setattr(agent_module, "_initialized", True)
     monkeypatch.setattr(
         agent_module.GopherOrchLibrary,
@@ -109,7 +118,7 @@ def test_create_passes_runtime_options_for_api_key_config(fake_library) -> None:
     agent = GopherAgent.create(config)
 
     call = fake_library.calls[0]
-    assert call[:4] == ("json", "Provider", "model", "{}")
+    assert call[:4] == ("json", "Provider", "model", API_CONFIG)
     _assert_normalized_options(call[4], {"Authorization": "Bearer abc123"})
     agent.dispose()
 
@@ -141,7 +150,7 @@ def test_create_with_api_key_accepts_runtime_options(fake_library) -> None:
     )
 
     call = fake_library.calls[0]
-    assert call[:4] == ("json", "Provider", "model", "{}")
+    assert call[:4] == ("json", "Provider", "model", API_CONFIG)
     _assert_normalized_options(call[4], {"X-Trace": "trace-1"})
     agent.dispose()
 
@@ -188,7 +197,7 @@ def test_direct_factories_pass_runtime_options(fake_library, factory, expected) 
 
     call = fake_library.calls[0]
     if expected[0] != "url":
-        expected = ("json", "Provider", "model", "{}")
+        expected = ("json", "Provider", "model", API_CONFIG)
     assert call[:-1] == expected
     _assert_normalized_options(call[-1], {"Authorization": "Bearer abc123"})
     agent.dispose()

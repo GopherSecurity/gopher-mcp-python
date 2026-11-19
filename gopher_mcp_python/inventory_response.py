@@ -133,6 +133,27 @@ def _alias_runtime_names(sources):
         sources[index]["name"] = alias
 
 
+def _remove_gateway_summaries(content):
+    if "gateways" not in content:
+        return
+    summaries = content["gateways"]
+    # Legacy inventories list gateway groups alongside connectable servers.
+    # These summaries are metadata, not endpoints or evidence of gateway routes.
+    if not isinstance(summaries, list) or any(
+        not isinstance(summary, dict)
+        or set(summary) != {"gatewayId", "name"}
+        or any(
+            not isinstance(summary[key], str) or not summary[key]
+            for key in ("gatewayId", "name")
+        )
+        for summary in summaries
+    ):
+        raise AgentError(
+            "Invalid inventory gateway summaries: expected gatewayId/name metadata"
+        )
+    del content["gateways"]
+
+
 def normalize_inventory_response(body, selection=None):
     selection = normalize_source_selection(selection)
     try:
@@ -150,6 +171,7 @@ def normalize_inventory_response(body, selection=None):
     content = data.get("data")
     if not isinstance(content, dict) or not isinstance(content.get("servers"), list):
         raise AgentError("Invalid inventory response: expected data.servers array")
+    _remove_gateway_summaries(content)
     _reject_environment_reference(content.get("base_url"))
     # ConfigLoader also consumes registry tools, default_headers and
     # auth_presets. Only data.servers has been validated as remote inventory.

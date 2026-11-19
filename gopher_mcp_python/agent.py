@@ -30,6 +30,7 @@ import atexit
 import asyncio
 import concurrent.futures
 import copy
+import json
 import threading
 import weakref
 from .source_selection import assert_no_source_selection
@@ -727,6 +728,12 @@ def _create_from_api_config(
     selection=None,
 ) -> GopherAgent:
     server_config = ServerConfig.fetch(api_key, route=route, selection=selection)
+    if not json.loads(server_config)["data"]["servers"]:
+        raise AgentError(
+            "API-key inventory returned no MCP servers. Check the API key, source "
+            "selectors, and environment (GOPHER_SDK_TEST=true for the test API; "
+            "production is the default)."
+        )
     try:
         resolved_runtime_options = (
             runtime_options

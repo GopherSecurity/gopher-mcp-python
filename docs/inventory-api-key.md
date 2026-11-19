@@ -56,6 +56,8 @@ This sends one authenticated `POST /v1/mcp-servers` with this JSON body:
 All four empty arrays select all sources the key is authorized to use.
 `GOPHER_SDK_TEST=true` selects `https://api-test.gopher.security`; the default
 is `https://api.gopher.security`.
+The key and sources must belong to the selected environment. API-key agent
+creation rejects an empty inventory before OAuth or LLM initialization.
 
 After deduplication, zero or one selector uses GET, with the optional selector
 percent-encoded in the query string. An explicit GET 405 triggers one POST retry
@@ -69,6 +71,10 @@ HTTP/backend errors omit response bodies and credentials.
 The backend's successful `data.servers` array defines the inventory. Python
 validates it and passes it to native JSON creation without another inventory
 fetch, including when explicit MCP credentials or disabled OAuth are supplied.
+Legacy `data.gateways` summaries containing only `gatewayId` and `name` are
+accepted as group metadata and removed before OAuth and native creation. They
+never create endpoints or satisfy gateway selectors; unknown summary fields
+are rejected.
 Gateways stay remote MCP endpoints; their backing servers remain managed by
 the gateway. Exact duplicate entries are collapsed, colliding runtime names
 receive stable ID-based aliases, and source config/headers are preserved. URL
