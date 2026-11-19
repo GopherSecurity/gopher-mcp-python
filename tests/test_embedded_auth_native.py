@@ -91,10 +91,23 @@ def create_options(presenter, store=None, **settings):
     [False, True],
     ids=["distinct-issuers", "shared-issuer-distinct-resources"],
 )
+@pytest.mark.parametrize("gateway_summaries", [False, True])
 def test_real_handoff_distinct_grants_and_cached_source_refresh(
-    monkeypatch, native_library, shared
+    monkeypatch, native_library, shared, gateway_summaries
 ):
     fixture = OAuthFixture(shared=shared)
+    if gateway_summaries:
+        original_inventory = fixture.inventory
+
+        def inventory():
+            payload = json.loads(original_inventory())
+            payload["data"]["gateways"] = [
+                {"gatewayId": "group-a", "name": "Group A"},
+                {"gatewayId": "group-b", "name": "Group B"},
+            ]
+            return json.dumps(payload)
+
+        monkeypatch.setattr(fixture, "inventory", inventory)
     calls = inventory_transport(monkeypatch, fixture)
     pages = []
     store = InMemoryGopherAgentTokenStore()

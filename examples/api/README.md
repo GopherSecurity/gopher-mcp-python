@@ -33,6 +33,9 @@ and the exact native library file loaded.
    export GOPHER_API_KEY=...  # API-key and selector factories
    ```
 
+   API-key inventory uses production by default. For keys and MCP sources from
+   the test dashboard, also set `export GOPHER_SDK_TEST=true`.
+
 3. Run the wrapper with optional queries:
 
    ```sh
@@ -70,6 +73,7 @@ one into another project, its SDK follows that project's Python environment.
 The runners also recognize:
 
 - `PYTHON` — Python interpreter, default `python3`.
+- `GOPHER_SDK_TEST` — set to `true` for the test API; production is the default.
 - `GOPHER_MCP_PYTHON_LIBRARY_PATH` — explicit native library file or directory.
 - `GOPHER_ORCH_LIBRARY_PATH` — alternative override, used when the first is unset.
 - `ANTHROPIC_API_KEY` — credentials for the default `AnthropicProvider`.
@@ -130,6 +134,10 @@ GOPHER_MCP_PYTHON_LIBRARY_PATH="$PWD/third_party/gopher-orch/build/lib" \
 ```
 
 ## Troubleshooting
+
+If API-key creation reports no MCP servers, check the key, selectors, and API
+environment. An empty production inventory does not trigger an automatic retry
+against test. Use `GOPHER_SDK_TEST=true` for sources configured on test.
 
 If a native library is missing, run `./build.sh` from the repository root or set
 an explicit library override. If loading fails, inspect the printed load

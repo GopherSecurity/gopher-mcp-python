@@ -9,6 +9,11 @@ from gopher_mcp_python.gateway_elicitation_preflight import (
 )
 from gopher_mcp_python.runtime_options import GopherAgentRuntimeOptions
 
+API_CONFIG = (
+    '{"succeeded":true,"data":{"servers":[{"name":"mail",'
+    '"transport":"http","config":{"url":"https://mcp.example.com/mcp"}}]}}'
+)
+
 
 class FakeLibrary:
     def __init__(self) -> None:
@@ -75,7 +80,7 @@ def _install_fake_library(monkeypatch):
     monkeypatch.setattr(
         agent_module.ServerConfig,
         "fetch",
-        staticmethod(lambda api_key, route=None, selection=None: "{}"),
+        staticmethod(lambda api_key, route=None, selection=None: API_CONFIG),
     )
     monkeypatch.setattr(agent_module, "_initialized", True)
     monkeypatch.setattr(
@@ -253,7 +258,7 @@ def test_create_with_server_config_uses_resolved_options(monkeypatch) -> None:
 
 def test_create_with_api_key_fetches_config_before_oauth(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
-    server_config = '{"servers":[{"config":{"url":"https://mcp.example.com/mcp"}}]}'
+    server_config = API_CONFIG
 
     monkeypatch.setattr(
         agent_module.ServerConfig,
@@ -282,7 +287,7 @@ def test_create_with_api_key_fetches_config_before_oauth(monkeypatch) -> None:
 
 def test_create_with_server_id_fetches_routed_config(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
-    server_config = '{"servers":[{"id":"srv-1"}]}'
+    server_config = API_CONFIG
     fetch_calls = []
 
     def fetch(api_key, route=None, selection=None):
@@ -315,7 +320,7 @@ def test_create_with_server_id_fetches_routed_config(monkeypatch) -> None:
 
 def test_create_with_gateway_name_fetches_routed_config(monkeypatch) -> None:
     fake = _install_fake_library(monkeypatch)
-    server_config = '{"servers":[{"name":"gateway"}]}'
+    server_config = API_CONFIG
     fetch_calls = []
 
     def fetch(api_key, route=None, selection=None):
@@ -374,7 +379,7 @@ def test_create_with_server_name_explicit_token_uses_native_selector(
     )
 
     call = fake.calls[0]
-    assert call[:4] == ("json", "Provider", "model", "{}")
+    assert call[:4] == ("json", "Provider", "model", API_CONFIG)
     assert call[-1].access_token == "caller-token"
     agent.dispose()
 
@@ -402,7 +407,7 @@ def test_create_with_gateway_id_disabled_oauth_uses_native_selector(
     )
 
     call = fake.calls[0]
-    assert call[:4] == ("json", "Provider", "model", "{}")
+    assert call[:4] == ("json", "Provider", "model", API_CONFIG)
     assert call[-1].access_token is None
     assert call[-1].headers == {}
     _assert_default_elicitation(call[-1])

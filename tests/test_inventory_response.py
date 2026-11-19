@@ -48,6 +48,50 @@ def test_authoritative_config_url_is_used_by_oauth_targets():
     )
 
 
+def test_gateway_summaries_preserve_only_connectable_server_sources():
+    rows = [entry("mail"), entry("calendar")]
+    body = envelope(rows, gateways=[{"gatewayId": "g1", "name": "mail"}])
+    normalized = normalize_inventory_response(body)
+    assert json.loads(normalized)["data"] == {"servers": rows}
+    assert len(extract_mcp_server_targets(server_config=normalized)) == 2
+
+
+@pytest.mark.parametrize(
+    "selection", [{"gatewayId": ["g1"]}, {"gatewayName": ["Production"]}]
+)
+def test_gateway_summaries_cannot_satisfy_selected_gateway_routes(selection):
+    body = envelope([entry()], gateways=[{"gatewayId": "g1", "name": "Production"}])
+    with pytest.raises(AgentError, match="gateway"):
+        normalize_inventory_response(body, selection)
+
+
+@pytest.mark.parametrize(
+    "summaries",
+    [
+        None,
+        {},
+        "metadata",
+        [None],
+        [{}],
+        [{"gatewayId": "g1"}],
+        [{"gatewayId": "", "name": "Production"}],
+        [{"gatewayId": "g1", "name": 123}],
+        [{"gatewayId": "g1", "name": "Production", "members": ["mail"]}],
+        [
+            {
+                "gatewayId": "g1",
+                "name": "Production",
+                "config": {"url": "https://remote.invalid/${HOST_SECRET}"},
+            }
+        ],
+    ],
+)
+def test_gateway_summary_extensions_are_rejected_without_guessing_endpoints(summaries):
+    with pytest.raises(AgentError, match="gateway summaries") as error:
+        normalize_inventory_response(envelope([entry()], gateways=summaries))
+    assert "HOST_SECRET" not in str(error.value)
+
+
 @pytest.mark.parametrize(
     "body",
     [
